@@ -2,6 +2,7 @@
 	import Icon from './Icon.svelte';
 	import { inline } from '$lib/md';
 	import { progress } from '$lib/progress.svelte';
+	import { trackEvent } from '$lib/analytics';
 	import { onMount } from 'svelte';
 
 	let {
@@ -10,6 +11,7 @@
 		answer,
 		explain,
 		storageKey,
+		lessonId,
 		number
 	}: {
 		question: string;
@@ -17,6 +19,7 @@
 		answer: number;
 		explain?: string;
 		storageKey: string;
+		lessonId: string;
 		number?: number;
 	} = $props();
 
@@ -29,6 +32,12 @@
 
 	function choose(index: number) {
 		progress.setQuizAnswer(storageKey, index);
+		trackEvent('quiz_answer', {
+			lesson_id: lessonId,
+			quiz: number ?? 0,
+			selected: index + 1,
+			correct: index === answer
+		});
 	}
 
 	function retry() {

@@ -4,6 +4,7 @@ import adapter from '@sveltejs/adapter-static';
 import path from 'node:path';
 
 export default defineConfig({
+	envPrefix: ['PUBLIC_'],
 	resolve: {
 		alias: {
 			$lib: path.resolve('./src/lib')

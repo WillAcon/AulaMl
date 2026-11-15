@@ -8,6 +8,7 @@
 	import Icon from './Icon.svelte';
 	import { progress } from '$lib/progress.svelte';
 	import { stats } from '$lib/data';
+	import { trackEvent } from '$lib/analytics';
 
 	let { onSearch, onMenu }: { onSearch: () => void; onMenu: () => void } = $props();
 
@@ -61,7 +62,14 @@
 			<span>{progress.percent(allIds)}%</span>
 		</div>
 
-		<button class="icon-btn" onclick={() => progress.toggleTheme()} aria-label="Cambiar tema claro u oscuro">
+		<button
+			class="icon-btn"
+			onclick={() => {
+				progress.toggleTheme();
+				trackEvent('theme_change', { theme: progress.state.theme });
+			}}
+			aria-label="Cambiar tema claro u oscuro"
+		>
 			<Icon name={progress.state.theme === 'dark' ? 'sun' : 'moon'} size={17} />
 		</button>
 	</div>

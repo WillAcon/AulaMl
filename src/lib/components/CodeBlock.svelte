@@ -2,6 +2,7 @@
 	import Icon from './Icon.svelte';
 	import { highlight } from '$lib/highlight';
 	import { runPython } from '$lib/pyodide';
+	import { trackEvent } from '$lib/analytics';
 
 	let {
 		code,
@@ -9,7 +10,8 @@
 		caption,
 		highlight: highlightLines = [],
 		runnable = true,
-		compact = false
+		compact = false,
+		lessonId = ''
 	}: {
 		code: string;
 		lang?: string;
@@ -17,6 +19,7 @@
 		highlight?: number[];
 		runnable?: boolean;
 		compact?: boolean;
+		lessonId?: string;
 	} = $props();
 
 	const isPython = $derived(lang === 'python' || lang === 'py');
@@ -43,6 +46,7 @@
 		try {
 			await navigator.clipboard.writeText(code);
 			copied = true;
+			trackEvent('code_copy', { language: isPython ? 'python' : lang, lesson_id: lessonId });
 			setTimeout(() => (copied = false), 1600);
 		} catch {
 			/* clipboard bloqueado */
@@ -71,6 +75,12 @@
 			error = result.error ?? '';
 			ms = result.ms;
 			status = '';
+			trackEvent('code_run', {
+				language: 'python',
+				lesson_id: lessonId,
+				success: !result.error,
+				duration_ms: result.ms
+			});
 		} catch (err) {
 			error =
 				'No se pudo cargar el intérprete. Necesitas conexión a internet la primera vez. ' +

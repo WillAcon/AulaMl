@@ -3,6 +3,7 @@
 	import CodeBlock from './CodeBlock.svelte';
 	import { inline } from '$lib/md';
 	import { progress } from '$lib/progress.svelte';
+	import { trackEvent } from '$lib/analytics';
 	import { onMount } from 'svelte';
 
 	let {
@@ -11,6 +12,7 @@
 		hint,
 		solution,
 		storageKey,
+		lessonId,
 		number
 	}: {
 		title: string;
@@ -18,6 +20,7 @@
 		hint?: string;
 		solution: { lang?: string; code: string; explain?: string; caption?: string };
 		storageKey: string;
+		lessonId: string;
 		number?: number;
 	} = $props();
 
@@ -28,7 +31,12 @@
 	const solved = $derived(mounted && (progress.quizAnswer(storageKey) ?? 0) === 1);
 
 	function toggleSolved() {
-		progress.setQuizAnswer(storageKey, solved ? 0 : 1);
+		const next = !solved;
+		progress.setQuizAnswer(storageKey, next ? 1 : 0);
+		trackEvent(next ? 'exercise_complete' : 'exercise_reopen', {
+			lesson_id: lessonId,
+			exercise: title
+		});
 	}
 </script>
 

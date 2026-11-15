@@ -6,16 +6,22 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SearchModal from '$lib/components/SearchModal.svelte';
 	import { progress } from '$lib/progress.svelte';
+	import { initAnalytics, trackPageView } from '$lib/analytics';
 
 	let { children } = $props();
 
 	let mobileOpen = $state(false);
 	let searchOpen = $state(false);
 
-	onMount(() => progress.init());
+	onMount(() => {
+		progress.init();
+		initAnalytics();
+	});
 
-	afterNavigate(() => {
+	afterNavigate((navigation) => {
 		mobileOpen = false;
+		const url = navigation.to?.url;
+		if (url) trackPageView(url.pathname + url.search, document.title);
 	});
 
 	function onkeydown(event: KeyboardEvent) {

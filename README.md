@@ -4,8 +4,8 @@ Plataforma educativa **estática** para aprender Python y C++ desde cero hasta p
 enfoque en Machine Learning. Construida con SvelteKit + Svelte 5, sin backend, sin base de datos y
 sin servicios externos para el contenido.
 
-> Documentación técnica y cobertura del temario: carpeta `docs/` del proyecto (se mantiene fuera
-> del repositorio de despliegue; ver `docs/PROYECTO.md` y `docs/COBERTURA.md`).
+> Documentación técnica y cobertura del temario: carpeta `docs/` del proyecto local
+> (`../docs/PROYECTO.md` y `../docs/COBERTURA.md`), fuera del repositorio de despliegue.
 
 ## Qué incluye
 
@@ -22,6 +22,8 @@ sin servicios externos para el contenido.
   sección exacta.
 - **Progreso local**: lecciones completadas, favoritos, notas, respuestas y tema claro/oscuro en
   `localStorage`.
+- **Analítica opcional GA4**: page views SPA y eventos de búsqueda, lecciones, quizzes, ejercicios,
+  código, favoritos y tema. Se activa con `PUBLIC_GA_MEASUREMENT_ID`.
 - **Ejecución opcional de Python** en el navegador con Pyodide (se descarga solo al pulsar
   «Probar»). El sitio funciona sin conexión para leer y estudiar.
 
@@ -79,6 +81,53 @@ src/
 5. `npm run build` genera automáticamente la ruta y la incluye en el buscador.
 
 Los componentes no se tocan: toda lección nueva es datos.
+
+## Analítica (GA4)
+
+La integración es opcional y se activa solo si defines el Measurement ID.
+
+1. Copia `.env.example` a `.env`:
+
+```bash
+cp .env.example .env
+```
+
+2. Coloca tu ID de GA4:
+
+```dotenv
+PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+PUBLIC_GA_FORCE=false
+```
+
+3. En Vercel, añade `PUBLIC_GA_MEASUREMENT_ID` en **Settings → Environment Variables**
+   (Production y, si quieres, Preview) y vuelve a desplegar: SvelteKit lo inserta en build.
+
+En desarrollo GA no se carga por defecto para no contaminar las métricas. Para probar eventos en
+local, usa `PUBLIC_GA_FORCE=true`.
+
+### Eventos enviados
+
+| Evento | Cuándo se envía |
+|---|---|
+| `page_view` | Carga inicial y cada navegación SPA |
+| `lesson_start` | Al abrir una lección |
+| `lesson_complete` / `lesson_uncomplete` | Al marcar/desmarcar una lección |
+| `quiz_answer` | Al responder una evaluación (`correct`, `selected`) |
+| `exercise_complete` / `exercise_reopen` | Al marcar/desmarcar un ejercicio |
+| `fill_complete` | Al acertar todos los huecos de un código |
+| `code_run` | Al ejecutar Python con Pyodide (`success`, `duration_ms`) |
+| `code_copy` | Al copiar un bloque de código |
+| `search` | Al enviar una búsqueda |
+| `search_result_click` | Al abrir un resultado (`position`, `source`) |
+| `search_suggestion_click` | Al usar una sugerencia del buscador |
+| `favorite_toggle` | Al añadir/quitar un favorito |
+| `theme_change` | Al cambiar entre tema claro y oscuro |
+
+Los eventos se envían a `dataLayer` mediante `gtag`. No se envía el texto de las notas personales ni
+las respuestas escritas en los ejercicios.
+
+> GA4 usa cookies. Si esperas tráfico de la UE, añade un banner de consentimiento antes de cargar
+> `initAnalytics()`; la función está aislada en `src/lib/analytics.ts` para facilitarlo.
 
 ## Despliegue
 

@@ -9,13 +9,15 @@
 		query,
 		compact = false,
 		active = -1,
-		onNavigate
+		onNavigate,
+		onSelect
 	}: {
 		hits: SearchHit[];
 		query: string;
 		compact?: boolean;
 		active?: number;
 		onNavigate?: () => void;
+		onSelect?: (hit: SearchHit, index: number) => void;
 	} = $props();
 
 	const tokens = $derived(tokenize(query));
@@ -29,7 +31,10 @@
 			<a
 				href={url(hit)}
 				class:active={index === active}
-				onclick={onNavigate}
+				onclick={() => {
+					onSelect?.(hit, index);
+					onNavigate?.();
+				}}
 				aria-current={index === active ? 'true' : undefined}
 			>
 				<div class="meta">

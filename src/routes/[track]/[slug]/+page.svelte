@@ -6,6 +6,7 @@
 	import { getLesson, getNeighbors, getModuleLessons, moduleTitleByLesson, trackById } from '$lib/data';
 	import { buildToc } from '$lib/md';
 	import { progress } from '$lib/progress.svelte';
+	import { trackEvent } from '$lib/analytics';
 
 	const lesson = $derived(getLesson(page.params.track ?? '', page.params.slug ?? ''));
 	const neighbors = $derived(lesson ? getNeighbors(lesson) : {});
@@ -41,6 +42,15 @@
 		});
 		progress.visit(id);
 		activeHeading = '';
+		if (lesson) {
+			trackEvent('lesson_start', {
+				lesson_id: lesson.id,
+				lesson_title: lesson.title,
+				track: lesson.track,
+				module: moduleTitle,
+				level: lesson.level
+			});
+		}
 	});
 
 	$effect(() => {
@@ -83,7 +93,23 @@
 
 	function toggleDone() {
 		if (!lesson) return;
-		progress.toggleDone(lesson.id);
+		const value = progress.toggleDone(lesson.id);
+		trackEvent(value ? 'lesson_complete' : 'lesson_uncomplete', {
+			lesson_id: lesson.id,
+			lesson_title: lesson.title,
+			track: lesson.track,
+			module: moduleTitle
+		});
+	}
+
+	function toggleFavorite() {
+		if (!lesson) return;
+		const value = progress.toggleFav(lesson.id);
+		trackEvent('favorite_toggle', {
+			lesson_id: lesson.id,
+			action: value ? 'add' : 'remove',
+			track: lesson.track
+		});
 	}
 </script>
 
@@ -128,7 +154,7 @@
 					<button
 						class="btn sm ghost"
 						class:fav
-						onclick={() => lesson && progress.toggleFav(lesson.id)}
+						onclick={toggleFavorite}
 						aria-pressed={fav}
 					>
 						<Icon name="star" size={13} />

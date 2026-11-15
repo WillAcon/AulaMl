@@ -2,6 +2,7 @@
 	import Icon from './Icon.svelte';
 	import { highlight } from '$lib/highlight';
 	import { inline } from '$lib/md';
+	import { trackEvent } from '$lib/analytics';
 
 	let {
 		code,
@@ -9,7 +10,8 @@
 		lang = 'python',
 		title,
 		hint,
-		explain
+		explain,
+		lessonId
 	}: {
 		code: string;
 		answers: string[];
@@ -17,6 +19,7 @@
 		title?: string;
 		hint?: string;
 		explain?: string;
+		lessonId: string;
 	} = $props();
 
 	const parts = $derived(code.split('___'));
@@ -28,12 +31,19 @@
 	const allDone = $derived(status.every((item) => item === true));
 
 	function check() {
-		status = answers.map((answer, i) =>
+		const next = answers.map((answer, i) =>
 			answer
 				.split('|')
 				.map(normalize)
 				.includes(normalize(values[i] ?? ''))
 		);
+		status = next;
+		if (next.every(Boolean)) {
+			trackEvent('fill_complete', {
+				lesson_id: lessonId,
+				exercise: title ?? 'completar código'
+			});
+		}
 	}
 
 	function reset() {

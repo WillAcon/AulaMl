@@ -5,6 +5,7 @@
 	import SearchResultList from '$lib/components/SearchResultList.svelte';
 	import { search, suggestedQueries } from '$lib/search';
 	import { allLessons, tracks } from '$lib/data';
+	import { trackEvent } from '$lib/analytics';
 	import type { TrackId } from '$lib/types';
 
 	let q = $state('');
@@ -26,8 +27,26 @@
 		if (next !== q) q = next;
 	});
 
+	function logResult(hit: { doc: { id: string; track: string } }, index: number) {
+		trackEvent('search_result_click', {
+			search_term: q.trim(),
+			lesson_id: hit.doc.id,
+			track: hit.doc.track,
+			position: index + 1,
+			source: 'page'
+		});
+	}
+
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
+		if (q.trim()) {
+			trackEvent('search', {
+				search_term: q.trim(),
+				results: hits.length,
+				track_filter: filter,
+				source: 'page'
+			});
+		}
 		const url = new URL(location.href);
 		if (q.trim()) url.searchParams.set('q', q.trim());
 		else url.searchParams.delete('q');
@@ -35,6 +54,7 @@
 	}
 
 	function useTerm(term: string) {
+		trackEvent('search_suggestion_click', { search_term: term, source: 'page' });
 		q = term;
 		input?.focus();
 		const url = new URL(location.href);
@@ -127,7 +147,7 @@
 			</span>
 			<span class="sort">ordenados por relevancia</span>
 		</div>
-		<SearchResultList {hits} query={q} />
+		<SearchResultList {hits} query={q} onSelect={logResult} />
 	{/if}
 </div>
 

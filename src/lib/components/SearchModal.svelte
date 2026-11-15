@@ -4,6 +4,7 @@
 	import { tick } from 'svelte';
 	import Icon from './Icon.svelte';
 	import SearchResultList from './SearchResultList.svelte';
+	import { trackEvent } from '$lib/analytics';
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -33,9 +34,25 @@
 		open = false;
 	}
 
+	function recordResult(hit: (typeof hits)[number], index: number) {
+		trackEvent('search_result_click', {
+			search_term: query.trim(),
+			lesson_id: hit.doc.id,
+			track: hit.doc.track,
+			position: index + 1,
+			source: 'modal'
+		});
+	}
+
 	function pick(index: number) {
 		const hit = hits[index];
 		if (!hit) return;
+		recordResult(hit, index);
+		trackEvent('search', {
+			search_term: query.trim(),
+			results: hits.length,
+			source: 'modal'
+		});
 		open = false;
 		goto(
 			`/${hit.doc.track}/${hit.doc.id}/${hit.sectionId && hit.sectionId !== 'inicio' ? `#${hit.sectionId}` : ''}`
@@ -107,7 +124,14 @@
 				<div class="summary">
 					{ hits.length } {hits.length === 1 ? 'resultado' : 'resultados'} en Python y C++
 				</div>
-				<SearchResultList {hits} {query} compact {active} onNavigate={close} />
+				<SearchResultList
+					{hits}
+					{query}
+					compact
+					{active}
+					onNavigate={close}
+					onSelect={recordResult}
+				/>
 			{/if}
 		</div>
 

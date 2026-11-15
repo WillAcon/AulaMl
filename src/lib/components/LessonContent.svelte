@@ -48,7 +48,7 @@
 				<ul>{#each block.items as item}<li>{@html inline(item)}</li>{/each}</ul>
 			{/if}
 		{:else if block.type === 'code'}
-			<CodeBlock code={block.code} lang={block.lang} caption={block.caption} highlight={block.highlight} />
+			<CodeBlock code={block.code} lang={block.lang} caption={block.caption} highlight={block.highlight} {lessonId} />
 		{:else if block.type === 'table'}
 			<div class="table-wrap">
 				<table>
@@ -100,6 +100,7 @@
 				answer={block.answer}
 				explain={block.explain}
 				number={numbers.quiz.get(index)}
+				{lessonId}
 				storageKey={`${lessonId}:q:${index}`}
 			/>
 		{:else if block.type === 'fill'}
@@ -110,6 +111,7 @@
 				title={block.title}
 				hint={block.hint}
 				explain={block.explain}
+				{lessonId}
 			/>
 		{:else if block.type === 'exercise'}
 			<Exercise
@@ -118,6 +120,7 @@
 				hint={block.hint}
 				solution={block.solution}
 				number={numbers.exercise.get(index)}
+				{lessonId}
 				storageKey={`${lessonId}:x:${index}`}
 			/>
 		{:else if block.type === 'links'}
