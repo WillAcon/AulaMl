@@ -35,27 +35,40 @@ export function analyticsConfigured(): boolean {
 	return GA_ID.length > 0 && !GA_ID.includes('XXXXXXXX');
 }
 
-/** Inicializa gtag una sola vez. Devuelve true si quedó activo. */
+/** ID público de GA4 (vacío si no está configurado). */
+export const gaMeasurementId = analyticsConfigured() ? GA_ID : '';
+
+/** Si el snippet debe renderizarse en el HTML (build-time). */
+export const analyticsEnabled = analyticsConfigured() && (!dev || FORCE_DEV);
+
+/**
+ * Snippet que se inserta en el <head> durante el prerender.
+ * Así Google Tag Manager aparece en el HTML y no depende de la hidratación.
+ */
+export function gaHeadSnippet(): string {
+	if (!analyticsEnabled) return '';
+	return `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',${JSON.stringify(
+		GA_ID
+	)},{send_page_view:false,anonymize_ip:true,debug_mode:${dev ? 'true' : 'false'}});`;
+}
+
+/** Inicializa el estado interno una sola vez. Devuelve true si quedó activo. */
 export function initAnalytics(): boolean {
-	if (!browser || !analyticsConfigured() || initialized) return active;
-	if (dev && !FORCE_DEV) return false;
+	if (!browser || !analyticsEnabled || initialized) return active;
 
 	initialized = true;
 	window.dataLayer = window.dataLayer || [];
-	window.gtag = function gtag(...args: unknown[]) {
-		window.dataLayer.push(args);
-	};
-	window.gtag('js', new Date());
-	window.gtag('config', GA_ID, {
-		send_page_view: false,
-		anonymize_ip: true,
-		debug_mode: dev
-	});
-
-	const script = document.createElement('script');
-	script.async = true;
-	script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_ID)}`;
-	document.head.appendChild(script);
+	if (!window.gtag) {
+		window.gtag = function gtag(...args: unknown[]) {
+			window.dataLayer.push(args);
+		};
+		window.gtag('js', new Date());
+		window.gtag('config', GA_ID, {
+			send_page_view: false,
+			anonymize_ip: true,
+			debug_mode: dev
+		});
+	}
 
 	active = true;
 

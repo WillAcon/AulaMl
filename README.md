@@ -126,6 +126,26 @@ local, usa `PUBLIC_GA_FORCE=true`.
 Los eventos se envían a `dataLayer` mediante `gtag`. No se envía el texto de las notas personales ni
 las respuestas escritas en los ejercicios.
 
+### Verificar que GA está activo
+
+El snippet de GA se renderiza en el `<head>` durante el build, así que debe verse en el HTML:
+
+1. Abre la web desplegada → clic derecho → **Ver código fuente de la página**.
+2. Busca `googletagmanager.com/gtag/js?id=G-`. Debe aparecer dentro de `<head>`.
+3. En DevTools → **Network**, filtra `gtag/js` y recarga.
+4. En GA4 → **Informes → Tiempo real**.
+
+Si no aparece:
+
+- La variable `PUBLIC_GA_MEASUREMENT_ID` no está definida en Vercel para **Production**.
+- La definiste pero **no redesplegaste**: SvelteKit la inserta en build, no en runtime.
+- El **Root Directory** de Vercel no es la carpeta que contiene `package.json` y `vercel.json`.
+- Un bloqueador de anuncios impide la petición; comprueba en una ventana de incógnito.
+- El ID tiene espacios o sigue siendo el placeholder `G-XXXXXXXXXX`.
+
+El `.env` local está en `.gitignore`: no se sube al repositorio. En Vercel hay que crear la variable
+en el panel, no subir el archivo.
+
 > GA4 usa cookies. Si esperas tráfico de la UE, añade un banner de consentimiento antes de cargar
 > `initAnalytics()`; la función está aislada en `src/lib/analytics.ts` para facilitarlo.
 

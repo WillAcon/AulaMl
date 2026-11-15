@@ -6,7 +6,13 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SearchModal from '$lib/components/SearchModal.svelte';
 	import { progress } from '$lib/progress.svelte';
-	import { initAnalytics, trackPageView } from '$lib/analytics';
+	import {
+		analyticsEnabled,
+		gaHeadSnippet,
+		gaMeasurementId,
+		initAnalytics,
+		trackPageView
+	} from '$lib/analytics';
 
 	let { children } = $props();
 
@@ -33,6 +39,16 @@
 </script>
 
 <svelte:window onkeydown={onkeydown} />
+
+<svelte:head>
+	{#if analyticsEnabled}
+		<script
+			async
+			src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+		></script>
+		{@html `<script>${gaHeadSnippet()}</script>`}
+	{/if}
+</svelte:head>
 
 <a class="skip" href="#contenido">Saltar al contenido</a>
 
