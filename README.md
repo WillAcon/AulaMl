@@ -4,8 +4,8 @@ Plataforma educativa **estática** para aprender Python y C++ desde cero hasta p
 enfoque en Machine Learning. Construida con SvelteKit + Svelte 5, sin backend, sin base de datos y
 sin servicios externos para el contenido.
 
-> Documentación técnica completa, estado del contenido y hoja de ruta: **[PROYECTO.md](PROYECTO.md)**.
-> Cobertura verificada del temario: **[docs/COBERTURA.md](docs/COBERTURA.md)** (77/77 temas).
+> Documentación técnica y cobertura del temario: carpeta `docs/` del proyecto (se mantiene fuera
+> del repositorio de despliegue; ver `docs/PROYECTO.md` y `docs/COBERTURA.md`).
 
 ## Qué incluye
 
@@ -82,9 +82,33 @@ Los componentes no se tocan: toda lección nueva es datos.
 
 ## Despliegue
 
-El build es completamente estático (`build/`). Sirve para GitHub Pages, Netlify, Vercel, Cloudflare
-Pages o cualquier servidor de archivos. El sitio usa `trailingSlash: 'always'`, así que las rutas
-terminan en `/` (`/python/py-01-que-es-python/`).
+El build es completamente estático (`build/`) y el proyecto ya incluye **`vercel.json`** para que
+Vercel no busque `dist`:
+
+```json
+{
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "trailingSlash": true
+}
+```
+
+Pasos en Vercel:
+
+1. Importa el repositorio.
+2. Si el repositorio contiene varias carpetas, configura **Root Directory** en
+   `Programacion Machine Learning/lenguajes` (o sube solo esa carpeta).
+3. Deja **Framework Preset: Other** y no cambies el Output Directory: `vercel.json` ya indica
+   `build`.
+4. Deploy. El sitio usa `trailingSlash: 'always'`, así que las rutas terminan en `/`
+   (`/python/py-01-que-es-python/`).
+
+Si prefieres configurarlo sin `vercel.json`, ve a **Project Settings → Build & Development
+Settings** y pon **Output Directory: `build`**. El error `STATIC_BUILD_NO_OUT_DIR` aparece
+justamente porque Vercel busca `dist` por defecto.
+
+También sirve para GitHub Pages, Netlify, Cloudflare Pages o cualquier servidor de archivos.
 
 ## Créditos y alcance
 
