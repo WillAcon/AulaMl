@@ -1,0 +1,462 @@
+{
+	"id": "py-06-strings",
+	"track": "python",
+	"order": 6,
+	"title": "Strings, índices y slicing",
+	"subtitle": "Cómo leer, cortar y transformar texto sin mutarlo ni perder caracteres por el camino",
+	"level": "principiante",
+	"minutes": 42,
+	"tags": ["strings", "slicing", "texto", "índices"],
+	"keywords": [
+		"qué es un string",
+		"cadena de texto python",
+		"índice negativo",
+		"slicing python",
+		"start stop step",
+		"inmutabilidad",
+		"métodos de string",
+		"f-string",
+		"split join",
+		"recorrer string",
+		"IndexError",
+		"unir texto"
+	],
+	"summary": "Un string es una secuencia inmutable de caracteres. Aprenderás a acceder a sus posiciones, cortarlo con start, stop y step, transformarlo con métodos y unir o separar texto para procesar mensajes, correos y datos reales.",
+	"objectives": [
+		"Explicar por qué un string es inmutable y qué consecuencias tiene",
+		"Acceder a caracteres con índices positivos y negativos sin salirte del rango",
+		"Escribir slices con inicio, fin y salto, incluido el recorrido inverso",
+		"Usar los métodos más habituales y distinguir cuáles devuelven una cadena nueva",
+		"Construir mensajes con f-strings y procesar texto con split y join"
+	],
+	"prerequisites": ["Variables y tipos de datos", "Bucles: while, for y control de iteraciones"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora has guardado números y textos en variables, pero apenas los has manipulado. La mayor parte de lo que un programa recibe del exterior llega como **texto**: un mensaje de chat, una línea de CSV, el nombre de un archivo. Si no sabes cortarlo y limpiarlo, no puedes convertirlo en datos útiles."
+		},
+		{
+			"type": "p",
+			"md": "En esta lección vas a aprender a ver un string como lo que realmente es: una secuencia ordenada de caracteres con posiciones numeradas. Esa idea, que parece simple, es la que explica los índices, el slicing, los métodos y hasta los errores que verás cuando algo se sale de rango."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un string?"
+		},
+		{
+			"type": "p",
+			"md": "Un **string** o cadena de texto es una secuencia ordenada e **inmutable** de caracteres. Se representa con el tipo `str` y se escribe entre comillas simples o dobles: `\"hola\"` y `'hola'` son el mismo valor. Imagina un collar de cuentas: cada cuenta es un carácter y puedes señalar la tercera sin desmontarlo."
+		},
+		{
+			"type": "p",
+			"md": "**Inmutable** significa que el contenido de una cadena no cambia nunca. Si escribes `saludo[0] = \"H\"`, Python lanza un `TypeError`: esa posición no se puede reasignar. Lo que sí puedes hacer es crear otra cadena y apuntar la variable hacia ella. Distinguir entre cambiar la variable y mutar el objeto será clave con las listas."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Inmutable no significa que la variable no cambie",
+			"md": "`s = s.upper()` funciona: la variable `s` pasa a apuntar a otra cadena. Lo que no funciona es modificar la cadena original en su sitio. Los métodos de texto siempre devuelven un objeto nuevo; si no guardas el resultado, el trabajo se pierde."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Cualquier tarea que implique leer, validar o presentar información escrita termina usando strings. Estos son casos que aparecerán una y otra vez en el curso y en el trabajo real:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Procesar mensajes**: separar el comando de sus argumentos en un bot de chat y normalizar mayúsculas.",
+				"**Leer datos tabulares**: cada línea de un CSV es un string que hay que dividir por comas y convertir al tipo adecuado.",
+				"**Limpiar entradas**: correos con mayúsculas mezcladas o nombres con espacios al inicio.",
+				"**Preparar texto para NLP**: pasar a minúsculas, quitar puntuación y separar en palabras antes de contar frecuencias.",
+				"**Generar informes y rutas**: componer mensajes con f-strings o nombres como `resultados_2026.csv`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "CPython almacena el texto como una secuencia contigua de puntos de código Unicode. Gracias a esa contigüidad, acceder a una posición concreta mediante `s[i]` es una operación de coste constante: el intérprete calcula dónde empieza la cadena y salta directamente a la posición pedida. No tiene que recorrer los caracteres anteriores."
+		},
+		{
+			"type": "p",
+			"md": "Cada carácter ocupa una posición, no un byte. `len(\"café\")` devuelve `4`, aunque la `é` ocupe dos bytes en UTF-8, y un emoji habitual cuenta como un carácter. Para tamaños en bytes usarás `s.encode(\"utf-8\")`, algo que aparecerá al leer archivos. Por ahora quédate con que Python indexa **caracteres**."
+		},
+		{
+			"type": "p",
+			"md": "Un slice no es una vista: construye una cadena nueva con los caracteres seleccionados, así que cuesta tiempo proporcional a lo que copias. Concatenar con `+` dentro de un bucle es aún más caro, porque en cada vuelta se copia todo lo anterior y el coste crece de forma cuadrática."
+		},
+		{
+			"type": "table",
+			"head": ["Operación", "Ejemplo", "Coste", "Qué ocurre"],
+			"rows": [
+				["Índice", "`s[3]`", "O(1)", "Devuelve el carácter de esa posición"],
+				["Slice", "`s[2:7]`", "O(k)", "Copia los k caracteres seleccionados"],
+				["Longitud", "`len(s)`", "O(1)", "La longitud se guarda con el objeto"],
+				["Búsqueda", "`s.find(\"x\")`", "O(n)", "Recorre hasta encontrar o llegar al final"],
+				["Concatenar en bucle", "`s += trozo`", "O(n²)", "Crea y copia una cadena nueva cada vez"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: comillas, escapes y f-strings"
+		},
+		{
+			"type": "p",
+			"md": "Elige comillas simples o dobles según el contenido: si el texto lleva apóstrofes, usa dobles. Las comillas triples permiten varias líneas sin `\\n`. La barra invertida introduce caracteres especiales, y una `r` crea una cadena *raw*, donde no se interpretan."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Formas de escribir un string",
+			"code": "# Comillas simples y dobles son equivalentes\nsaludo = 'Hola'\notro = \"Hola\"\n\n# Escapes: salto de línea, tabulador y comilla\nmensaje = \"Primera línea\\nSegunda línea\"\ncon_comilla = 'Dijo: \"hola\"'\n\n# Varias líneas con comillas triples\npoema = \"\"\"Rima LIII\nVolverán las oscuras golondrinas\"\"\"\n\n# Cadena raw: la barra es literal\nruta = r\"C:\\datos\\nuevo.csv\"\n\n# f-string: inserta expresiones dentro de llaves\nprecio = 120\nprint(f\"Total con IGV: {precio * 1.18:.2f}\")",
+			"highlight": [1, 5, 13, 16, 18]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`\\n` salta de línea, `\\t` inserta un tabulador y `\\\\` escribe una barra invertida.",
+				"Las comillas triples `\"\"\"...\"\"\"` conservan los saltos de línea que escribas dentro.",
+				"Una `f` delante de las comillas activa la interpolación: `f\"Hola, {nombre}\"`.",
+				"Dentro de las llaves de una f-string cabe cualquier expresión, no solo un nombre de variable.",
+				"Para escribir una llave literal en una f-string, duplícala: `f\"{{esto no se evalúa}}\"`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: leer posiciones"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "presentacion.py",
+			"code": "nombre = \"Ada\"\napellido = \"Lovelace\"\nnombre_completo = nombre + \" \" + apellido\ninicial = nombre_completo[0]\nprint(nombre_completo)\nprint(f\"Inicial: {inicial} | Longitud: {len(nombre_completo)}\")\nprint(nombre_completo[-1])",
+			"highlight": [1, 2, 4, 6, 7]
+		},
+		{
+			"type": "p",
+			"md": "Las dos primeras líneas guardan los textos. En la tercera, el operador `+` une tres cadenas y produce una nueva; el espacio del medio es un string de un solo carácter. En la cuarta, `nombre_completo[0]` pide la posición cero, que es `\"A\"`: Python empieza a contar en cero, igual que los índices de un vector."
+		},
+		{
+			"type": "p",
+			"md": "La quinta línea imprime la cadena. La sexta usa una f-string con `inicial` y `len(nombre_completo)`; la longitud es `12`, porque hay doce caracteres contando el espacio. La última línea usa el índice `-1`, el último carácter; con `[-2]` obtendrías `\"c\"`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: normalizar un correo"
+		},
+		{
+			"type": "p",
+			"md": "Las entradas reales casi nunca llegan limpias. Supón que un formulario entrega `\"  Ada.Lovelace@Example.COM \"`. Conviene quitar los espacios de los extremos, pasar a minúsculas y separar la parte local del dominio. Observa cómo se encadenan los métodos:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "correo.py",
+			"code": "entrada = \"  Ada.Lovelace@Example.COM \"\ncorreo = entrada.strip().lower()\nusuario, dominio = correo.split(\"@\")\n\nprint(correo)\nprint(usuario.replace(\".\", \"_\"))\nprint(dominio.endswith(\".com\"))",
+			"highlight": [2, 3, 6, 7]
+		},
+		{
+			"type": "p",
+			"md": "`strip()` elimina espacios y saltos de línea de ambos extremos, pero no los del interior. `lower()` pasa a minúsculas. Como cada método devuelve una cadena, se encadenan de izquierda a derecha: primero limpiar, luego normalizar. El resultado es `\"ada.lovelace@example.com\"`."
+		},
+		{
+			"type": "p",
+			"md": "`split(\"@\")` corta la cadena por el arroba y devuelve una lista de dos elementos. La asignación `usuario, dominio = ...` **desempaqueta** esa lista: exige exactamente dos valores y falla si hay más o menos, lo que aquí funciona como validación implícita. Después, `replace(\".\", \"_\")` sustituye todos los puntos del usuario, y `endswith(\".com\")` comprueba el final del dominio y devuelve un booleano."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: interpretar un mensaje de chat"
+		},
+		{
+			"type": "p",
+			"md": "Un bot recibe mensajes con la forma `/clima Lima Este 2`: una barra, un comando, una ciudad que puede tener varias palabras y un número de días. El programa debe extraer cada parte. Este es el tipo de análisis que hay que hacer antes de llamar a cualquier API."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "comando.py",
+			"code": "mensaje = \"/clima Lima Este 2\"\npartes = mensaje.strip().split()\n\ncomando = partes[0]\nif comando.startswith(\"/\"):\n    comando = comando[1:]\n\nciudad = \" \".join(partes[1:-1])\ndias = int(partes[-1])\n\nprint(f\"Comando: {comando}\")\nprint(f\"Ciudad: {ciudad} | Días: {dias}\")",
+			"highlight": [2, 5, 6, 8, 9]
+		},
+		{
+			"type": "p",
+			"md": "`split()` sin argumentos trata cualquier bloque de espacios como separador y descarta los vacíos. `partes[0]` es `\"/clima\"`; el slice `[1:]` elimina la barra y deja `\"clima\"`. Para la ciudad se usa `partes[1:-1]`, que excluye los extremos, y `join` las vuelve a unir con espacio para no perder `\"Lima Este\"`. El último elemento se convierte a entero; con letras, `int` lanzaría `ValueError`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: índices, slicing y recorrido"
+		},
+		{
+			"type": "p",
+			"md": "Un slice se escribe `cadena[inicio:fin:salto]`. El `inicio` es la primera posición que quieres; el `fin` es **exclusivo**, es decir, el corte se detiene justo antes de esa posición; y el `salto` indica cuántas posiciones avanzar. Si omites `inicio`, empieza en el borde correspondiente; si omites `fin`, llega hasta el otro borde. Un salto negativo recorre la cadena de derecha a izquierda."
+		},
+		{
+			"type": "slice",
+			"title": "Recorrido con salto negativo",
+			"string": "abcdefgh",
+			"start": 6,
+			"stop": 1,
+			"step": -2,
+			"note": "La cadena abcdefgh tiene índices 0 a 7. Con inicio 6 se empieza en 'g'; el salto -2 visita 6, 4 y 2; el fin 1 es exclusivo, así que el recorrido se detiene antes de llegar a la posición 1 y no incluye la 0. Resultado: 'gec'."
+		},
+		{
+			"type": "p",
+			"md": "Sigue el recorrido: se toma el índice 6 (`g`), se resta 2 y se toma el 4 (`e`), se resta 2 y se toma el 2 (`c`). El siguiente sería 0, pero con salto negativo el recorrido se detiene cuando el índice es menor o igual que el fin; como `0 <= 1`, termina y el resultado es `\"gec\"`. Con fin `-1`, el 0 entraría y obtendrías `\"geca\"`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "slices.py",
+			"code": "s = \"abcdefgh\"\nprint(s[2:5])\nprint(s[:3])\nprint(s[-2:])\nprint(s[::-1])\nprint(s[6:1:-2])",
+			"highlight": [2, 3, 4, 5, 6]
+		},
+		{
+			"type": "p",
+			"md": "`s[2:5]` toma las posiciones 2, 3 y 4 y produce `\"cde\"`. `s[:3]` equivale a `s[0:3]` y da `\"abc\"`. `s[-2:]` empieza dos posiciones antes del final: `\"gh\"`. `s[::-1]` recorre con salto -1 y devuelve `\"hgfedcba\"`. La última línea confirma `\"gec\"`."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Qué ocurre al limpiar y unir palabras",
+			"code": "texto = \"  Hola, mundo  \"\nlimpio = texto.strip()\ninicial = limpio[0]\npalabras = limpio.split()\nunido = \"-\".join(palabras)\nprint(unido.upper())",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se crea `texto` con dos espacios a cada lado. Los espacios también son caracteres y ocupan posiciones.",
+					"vars": { "texto": "'  Hola, mundo  '" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`strip()` devuelve una cadena nueva sin los espacios de los extremos. `texto` no cambia porque es inmutable.",
+					"vars": { "texto": "'  Hola, mundo  '", "limpio": "'Hola, mundo'" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "El índice 0 de la cadena limpia es la letra H.",
+					"vars": { "texto": "'  Hola, mundo  '", "limpio": "'Hola, mundo'", "inicial": "'H'" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`split()` sin argumentos separa por espacios y devuelve una lista de dos palabras.",
+					"vars": {
+						"texto": "'  Hola, mundo  '",
+						"limpio": "'Hola, mundo'",
+						"inicial": "'H'",
+						"palabras": "['Hola,', 'mundo']"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`join` recorre la lista y coloca un guion entre los elementos. No modifica la lista.",
+					"vars": {
+						"texto": "'  Hola, mundo  '",
+						"limpio": "'Hola, mundo'",
+						"inicial": "'H'",
+						"palabras": "['Hola,', 'mundo']",
+						"unido": "'Hola,-mundo'"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`upper()` se aplica al resultado de la unión y `print` escribe la cadena en mayúsculas.",
+					"vars": {
+						"texto": "'  Hola, mundo  '",
+						"limpio": "'Hola, mundo'",
+						"inicial": "'H'",
+						"palabras": "['Hola,', 'mundo']",
+						"unido": "'Hola,-mundo'"
+					},
+					"output": "HOLA,-MUNDO\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje o comportamiento", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`IndexError: string index out of range`", "La posición no existe", "Comprueba `len(s)` o usa un slice"],
+				["`TypeError: 'str' object does not support item assignment`", "Intentaste modificar una posición", "Crea una cadena nueva con `s[:i] + nuevo + s[i+1:]`"],
+				["Un método parece no hacer nada", "No guardaste su valor de retorno", "Asigna el resultado: `s = s.strip()`"],
+				["`TypeError: can only concatenate str (not \"int\") to str`", "Sumaste texto y número", "Convierte con `str(n)` o usa una f-string"],
+				["El slice devuelve `\"\"`", "Inicio y fin no dejan caracteres entre ellos", "Revisa el orden: `fin` debe superar a `inicio`"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Cambiar una letra de un string",
+			"wrong": {
+				"caption": "TypeError",
+				"code": "s = \"casa\"\ns[0] = \"C\"\nprint(s)"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "s = \"casa\"\ns = \"C\" + s[1:]\nprint(s)"
+			},
+			"explain": "Los strings son inmutables: no admiten asignación por índice. La alternativa es construir otra cadena combinando la parte anterior, el carácter nuevo y la parte posterior. Para una sola letra, `s.replace(\"c\", \"C\", 1)` también sirve."
+		},
+		{
+			"type": "p",
+			"md": "Cuando un slice no selecciona nada devuelve la cadena vacía, sin excepción. Es cómodo para código defensivo, pero puede ocultar un error de lógica: si esperabas `\"cde\"` y obtienes `\"\"`, revisa el orden de los índices."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa f-strings para construir mensajes: son más legibles y rápidas que concatenar con `+` y `str()`.",
+				"Para unir muchos fragmentos, acumula en una lista y aplica `\"\".join(lista)` una sola vez.",
+				"Normaliza al principio: `strip()` y `lower()` evitan fallos por un espacio o una mayúscula.",
+				"Prefiere `startswith` y `endswith` a cortar con slices para comprobar un extremo.",
+				"Los métodos devuelven cadenas nuevas: `s.strip()` sin asignación no hace nada visible.",
+				"Usa comillas triples solo para texto multilínea; el resto se lee mejor en una línea."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Formato dentro de la f-string",
+			"md": "Después de los dos puntos puedes indicar formato: `f\"{precio:.2f}\"` muestra dos decimales y `f\"{avance:>8.1%}\"` alinea a la derecha y presenta un porcentaje. No necesitas `round` ni `format` por separado en la mayoría de los informes."
+		},
+		{
+			"type": "compare",
+			"title": "Texto en Python y en C++",
+			"python": {
+				"caption": "texto.py",
+				"code": "s = \"Hola\"\ns = s.lower()\nparte = s[1:3]\nprint(f\"{parte} {len(s)}\")"
+			},
+			"cpp": {
+				"caption": "texto.cpp",
+				"code": "#include <cctype>\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string s = \"Hola\";\n    for (char& c : s) c = static_cast<char>(std::tolower(c));\n    std::string parte = s.substr(1, 2);\n    std::cout << parte << \" \" << s.size() << std::endl;\n    return 0;\n}"
+			},
+			"note": "En Python `lower()` devuelve una cadena nueva; en C++ hay que recorrer y modificar el `std::string`, que sí es mutable. El slice `s[1:3]` equivale a `substr(1, 2)`: en C++ el segundo argumento es la cantidad de caracteres, no el índice final."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Iniciales y vocales",
+			"md": "Pide un nombre completo separado por espacios, por ejemplo `\"Ada King Lovelace\"`. Muestra sus iniciales unidas por puntos (sin punto final) y cuenta cuántas vocales contiene el nombre, ignorando mayúsculas. Resuélvelo con un bucle sobre la cadena y un contador.",
+			"hint": "Convierte a minúsculas antes de contar y comprueba si cada carácter pertenece a la cadena `\"aeiou\"` con el operador `in`.",
+			"solution": {
+				"lang": "python",
+				"caption": "iniciales.py",
+				"code": "nombre = \"Ada King Lovelace\"\npartes = nombre.split()\n\niniciales = []\nfor p in partes:\n    iniciales.append(p[0])\n\nvocales = 0\nfor letra in nombre.lower():\n    if letra in \"aeiou\":\n        vocales += 1\n\nprint(f\"Iniciales: {'.'.join(iniciales)}\")\nprint(f\"Vocales: {vocales}\")",
+				"explain": "`split()` separa las palabras y `p[0]` toma la primera letra de cada una. La lista de iniciales se construye con `append` y luego `join` las une con puntos. El segundo bucle recorre la cadena carácter por carácter; `in \"aeiou\"` comprueba pertenencia y `+= 1` acumula. Se obtiene `A.K.L` y 7 vocales."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el corte",
+			"lang": "python",
+			"code": "s = \"abcdefgh\"\nprint(s[___:___])   # debe mostrar cdef\nprint(s[___])       # debe mostrar h\nprint(s[___])       # debe mostrar a",
+			"answers": ["2", "6", "7|-1", "0|-8"],
+			"hint": "El fin del slice es exclusivo: para incluir la f hay que escribir 6. El último índice también se escribe con un número negativo.",
+			"explain": "`s[2:6]` toma las posiciones 2, 3, 4 y 5, es decir `cdef`. `s[7]` y `s[-1]` apuntan a la misma `h`, y `s[0]` y `s[-8]` a la misma `a`. Comprobar que dos formas coinciden es una buena manera de entender los índices negativos."
+		},
+		{
+			"type": "exercise",
+			"title": "Nombre de usuario",
+			"md": "A partir de `\"  Ada King Lovelace  \"`, genera un usuario con la forma `a.lovelace`: la inicial del primer nombre, un punto y el último apellido, todo en minúsculas y sin espacios sobrantes. Muestra también el correo corporativo añadiendo `@aula.ml`.",
+			"hint": "Limpia, pasa a minúsculas y usa `split()` para obtener las partes. El último apellido está en el índice `-1`.",
+			"solution": {
+				"lang": "python",
+				"caption": "usuario.py",
+				"code": "nombre = \"  Ada King Lovelace  \"\npartes = nombre.strip().lower().split()\nusuario = partes[0][0] + \".\" + partes[-1]\ncorreo = usuario + \"@aula.ml\"\n\nprint(usuario)\nprint(correo)",
+				"explain": "El encadenado deja la cadena en `\"ada king lovelace\"` y `split` la convierte en tres palabras. `partes[0][0]` encadena dos índices: primero la primera palabra, luego su primera letra. `partes[-1]` es el apellido final. Se obtiene `a.lovelace` y `a.lovelace@aula.ml`."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, `nombre[0]` solo funciona con un nombre. Al dividir en palabras obtienes una estructura iterable y el mismo código sirve para dos o cinco nombres. La parte de las vocales muestra que un string se recorre con `for` igual que una lista: cada iteración entrega un carácter."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el orden importa: `strip()` antes de `split()` evita palabras vacías y `lower()` garantiza un formato uniforme. No hay ningún bucle explícito porque los métodos recorren por dentro. Esa es la señal de que empiezas a pensar en operaciones sobre secuencias."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un string es una secuencia ordenada e inmutable; sus métodos devuelven cadenas nuevas.",
+				"Los índices empiezan en 0; los negativos cuentan desde el final (`-1` es el último).",
+				"El slice `s[a:b:c]` incluye `a`, excluye `b` y avanza `c`; con salto negativo va hacia atrás.",
+				"Un slice fuera de rango no lanza error: se recorta a los límites disponibles.",
+				"`strip`, `lower`, `replace`, `startswith` y `find` resuelven la limpieza habitual.",
+				"`split` separa en una lista y `join` une una lista con el separador que elijas.",
+				"Las f-strings interpolan expresiones y admiten formato, como `:.2f`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `\"Python\"[1:4]`?",
+			"options": ["`\"Pyt\"`", "`\"yth\"`", "`\"ytho\"`", "`\"tho\"`"],
+			"answer": 1,
+			"explain": "El slice empieza en el índice 1 (`y`) y se detiene antes del 4, así que toma las posiciones 1, 2 y 3: `y`, `t`, `h`. La letra `P` queda fuera porque el inicio es 1, y la `o` porque el fin es exclusivo."
+		},
+		{
+			"type": "quiz",
+			"question": "Después de `s = \"hola\"` y `s.upper()`, ¿qué contiene `s`?",
+			"options": [
+				"`\"HOLA\"`, porque `upper` modifica la cadena",
+				"`\"hola\"`, porque el resultado no se asignó y los strings son inmutables",
+				"`None`, porque `upper` no devuelve nada",
+				"Provoca un `TypeError`"
+			],
+			"answer": 1,
+			"explain": "`upper()` devuelve una cadena nueva y no toca la original. Como el retorno no se guardó, la variable sigue apuntando a `\"hola\"`. Para cambiarla haría falta `s = s.upper()`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuántos elementos produce `\"a,b,,c\".split(\",\")`?",
+			"options": ["3", "4", "5", "Lanza un `ValueError`"],
+			"answer": 1,
+			"explain": "`split` con un separador explícito conserva los campos vacíos. La cadena se corta en `a`, `b`, un campo vacío y `c`, es decir, cuatro elementos. Si quisieras descartar los vacíos tendrías que filtrarlos después."
+		},
+		{
+			"type": "links",
+			"title": "Documentación y práctica",
+			"items": [
+				{
+					"label": "Métodos de str (Python docs)",
+					"url": "https://docs.python.org/es/3/library/stdtypes.html#string-methods",
+					"note": "lista completa con ejemplos"
+				},
+				{
+					"label": "Texto formateado con f-strings",
+					"url": "https://docs.python.org/es/3/tutorial/inputoutput.html",
+					"note": "opciones de formato"
+				}
+			]
+		}
+	]
+}

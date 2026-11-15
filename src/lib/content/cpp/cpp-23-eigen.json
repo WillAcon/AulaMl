@@ -1,0 +1,577 @@
+{
+	"id": "cpp-23-eigen",
+	"track": "cpp",
+	"order": 23,
+	"title": "Eigen: álgebra lineal en C++",
+	"subtitle": "Matrices, productos, descomposiciones y sistemas lineales con una biblioteca de verdad",
+	"level": "avanzado",
+	"minutes": 52,
+	"tags": [
+		"eigen",
+		"álgebra lineal",
+		"matrices",
+		"machine learning"
+	],
+	"keywords": [
+		"eigen c++",
+		"instalar eigen",
+		"matriz en c++",
+		"MatrixXd",
+		"multiplicar matrices c++",
+		"trasponer matriz",
+		"resolver sistema de ecuaciones c++",
+		"descomposición lu",
+		"cholesky eigen",
+		"mínimos cuadrados c++",
+		"álgebra lineal c++",
+		"eigen vs numpy"
+	],
+	"summary": "Eigen da a C++ lo que NumPy da a Python: matrices, productos, trasposiciones, descomposiciones y resolución de sistemas, con expresiones legibles y rendimiento de biblioteca compilada. Aquí aprendes a instalarla, a usarla sin trampas y a resolver un problema de mínimos cuadrados en tres líneas.",
+	"objectives": [
+		"Instalar Eigen y compilar un programa que la use con -I",
+		"Declarar vectores y matrices de tamaño fijo y dinámico",
+		"Multiplicar, trasponer e invertir con la sintaxis de Eigen",
+		"Elegir la descomposición adecuada para resolver un sistema",
+		"Plantear mínimos cuadrados como un sistema sobredeterminado"
+	],
+	"prerequisites": [
+		"Optimización, profiling y complejidad",
+		"Clases, constructores y encapsulamiento",
+		"Templates y programación genérica"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora has escrito bucles para sumar y multiplicar. En álgebra lineal eso se vuelve insostenible: una multiplicación de matrices de 1000 por 1000 son mil millones de operaciones y nadie quiere escribirlas a mano. **Eigen** es una biblioteca de C++ que ofrece matrices, vectores y descomposiciones con una sintaxis parecida a la de NumPy, pero compilada."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es Eigen?"
+		},
+		{
+			"type": "p",
+			"md": "Eigen es una biblioteca **header-only**: no se compila por separado ni se enlaza, solo se incluyen sus cabeceras. Está escrita en C++ con plantillas, de modo que el compilador genera código específico para cada tipo de matriz y cada expresión. Es la base de muchas bibliotecas de robótica y visión por computador, y una de las formas más directas de hacer álgebra lineal seria en C++."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Tipos con tamaño en el tipo**: `Matrix3d` es una 3 por 3 de `double`; `MatrixXd` es de tamaño dinámico.",
+				"**Expresiones diferidas**: `A + B` no calcula nada hasta que se asigna a una matriz, y entonces el compilador fusiona las operaciones.",
+				"**Descomposiciones incluidas**: LU, QR, Cholesky, SVD y autovalores, cada una con su método `solve()`.",
+				"**Sin dependencias**: solo cabeceras de la biblioteca estándar, así que se integra en cualquier proyecto."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve en Machine Learning?"
+		},
+		{
+			"type": "p",
+			"md": "Casi todo modelo lineal se reduce a una operación matricial: la predicción es `X * w`, la pérdida es una norma, el ajuste por mínimos cuadrados es un sistema sobredeterminado y la regularización añade una matriz identidad. Con Eigen escribes esas ideas tal como las piensas, y el compilador se encarga del bucle."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Regresión lineal**: resolver `X w = y` en el sentido de mínimos cuadrados.",
+				"**PCA**: autovalores y autovectores de la matriz de covarianza.",
+				"**Sistemas de recomendación**: factorización de matrices de baja dimensión.",
+				"**Robótica y visión**: transformaciones rígidas, calibración de cámaras, filtros de Kalman.",
+				"**Prototipos antes de GPU**: comprobar el algoritmo en CPU con dobles antes de portarlo a CUDA."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: expresiones y almacenamiento"
+		},
+		{
+			"type": "p",
+			"md": "Eigen no interpreta tus expresiones en tiempo de ejecución: las convierte en tipos. Cuando escribes `A * B + C`, el compilador construye un objeto que representa esa operación y solo la evalúa al asignarla. Gracias a eso puede recorrer las matrices una vez y sumar el producto en el mismo bucle, sin crear temporales intermedios."
+		},
+		{
+			"type": "p",
+			"md": "El almacenamiento por defecto es **por columnas**, igual que en Fortran y BLAS: los elementos de una columna son contiguos en memoria. Esa decisión explica por qué recorrer una matriz de Eigen por filas puede ser más lento que por columnas, el mismo fenómeno de localidad que viste en la lección de rendimiento. Para la mayoría de usos no importa, pero sí cuando escribes bucles propios sobre `A(i, j)`."
+		},
+		{
+			"type": "p",
+			"md": "Los índices empiezan en cero y se escriben con paréntesis: `A(0, 1)` es la primera fila, segunda columna. `A.rows()`, `A.cols()` y `A.size()` dan las dimensiones, y `A.transpose()` devuelve una vista, no una copia."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: instalar, incluir y declarar"
+		},
+		{
+			"type": "p",
+			"md": "Antes de escribir una línea, comprueba que las cabeceras están donde el compilador las busca. Eigen no se enlaza: basta con indicar la carpeta que contiene el directorio `Eigen`."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalar y compilar",
+			"code": "# Debian y Ubuntu\nsudo apt install libeigen3-dev\n\n# macOS con Homebrew (queda en /opt/homebrew/include/eigen3)\nbrew install eigen\n\n# Compilar indicando la carpeta que contiene el directorio Eigen\ng++ -std=c++20 -O2 -Wall -Wextra -I/usr/include/eigen3 algebra.cpp -o algebra\n\n# En macOS con Homebrew\ng++ -std=c++20 -O2 -Wall -Wextra -I/opt/homebrew/include/eigen3 algebra.cpp -o algebra"
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Si el compilador dice que no encuentra Eigen/Dense",
+			"md": "El error `fatal error: Eigen/Dense: No such file or directory` significa que falta el `-I` o que la ruta no es la correcta. Localiza la carpeta con `find / -name Dense -path \"*Eigen*\" 2>/dev/null` y pasa su directorio padre. No hay ninguna biblioteca que enlazar: si el error aparece en el enlazado, el problema es otro."
+		},
+		{
+			"type": "p",
+			"md": "Con las cabeceras localizadas, un programa mínimo declara una matriz, la rellena y opera con ella. Fíjate en que el tamaño se pasa al constructor porque el tipo es dinámico."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "basico.cpp",
+			"code": "#include <Eigen/Dense>\n#include <iostream>\n\nint main() {\n    Eigen::MatrixXd A(2, 2);      // dinamica: el tamano se fija al construir\n    A << 1.0, 2.0,\n         3.0, 4.0;\n\n    Eigen::VectorXd v(2);\n    v << 5.0, 6.0;\n\n    std::cout << \"A * v =\\n\" << A * v << '\\n';\n    std::cout << \"traspuesta =\\n\" << A.transpose() << '\\n';\n    std::cout << \"determinante = \" << A.determinant() << '\\n';\n    return 0;\n}",
+			"highlight": [
+				5,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "El operador `<<` sirve para rellenar: los valores se leen por filas, separados por comas. `A * v` da `[17, 39]` y el determinante es `-2`, porque `1·4 − 2·3`. No hace falta ninguna función `matmul`: el producto es el operador `*`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: multiplicar, trasponer y resolver"
+		},
+		{
+			"type": "p",
+			"md": "Tres operaciones que usarás a diario: un producto de matrices de distinta forma, una trasposición y la resolución de un sistema. Fíjate en que el producto comprueba las dimensiones en tiempo de compilación cuando los tamaños son fijos."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "producto_sistema.cpp",
+			"code": "#include <Eigen/Dense>\n#include <iostream>\n\nint main() {\n    Eigen::MatrixXd A(2, 3);\n    A << 1, 2, 3,\n         4, 5, 6;\n\n    Eigen::MatrixXd B(3, 2);\n    B << 7, 8,\n         9, 10,\n         11, 12;\n\n    const Eigen::MatrixXd C = A * B;   // (2x3)(3x2) = 2x2\n    std::cout << \"C =\\n\" << C << '\\n';\n\n    Eigen::Matrix2d S;                 // tamano fijo, sin reservar memoria\n    S << 2, -1,\n        -1,  3;\n\n    Eigen::Vector2d b;\n    b << 1, 2;\n\n    const Eigen::Vector2d x = S.ldlt().solve(b);\n    std::cout << \"x = \" << x.transpose() << '\\n';\n    return 0;\n}",
+			"highlight": [
+				15,
+				23
+			]
+		},
+		{
+			"type": "p",
+			"md": "`C` es `[[58, 64], [139, 154]]`: cada elemento es el producto de una fila de `A` por una columna de `B`. El sistema `2x − y = 1`, `−x + 3y = 2` tiene solución exacta `x = 1`, `y = 1`, y `ldlt()` la obtiene sin invertir la matriz. La matriz es simétrica y definida positiva, así que Cholesky es la opción más rápida."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: una multiplicación paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "Recorre los pasos y observa de dónde sale cada celda de `C`. La regla es siempre la misma: la fila de `A` que marca el primer índice se multiplica escalarmente por la columna de `B` que marca el segundo."
+		},
+		{
+			"type": "matrix",
+			"title": "Producto de una matriz 2×3 por una 3×2",
+			"data": [
+				[
+					1,
+					2,
+					3
+				],
+				[
+					4,
+					5,
+					6
+				]
+			],
+			"steps": [
+				{
+					"note": "`A` tiene 2 filas y 3 columnas. Para calcular `C(0,0)` se usa la fila 0: `1, 2, 3`.",
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							0,
+							1
+						],
+						[
+							0,
+							2
+						]
+					]
+				},
+				{
+					"note": "`B` tiene 3 filas y 2 columnas. Para `C(0,0)` se usa la columna 0: `7, 9, 11`.",
+					"data": [
+						[
+							7,
+							8
+						],
+						[
+							9,
+							10
+						],
+						[
+							11,
+							12
+						]
+					],
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							1,
+							0
+						],
+						[
+							2,
+							0
+						]
+					]
+				},
+				{
+					"note": "Producto escalar: 1·7 + 2·9 + 3·11 = 7 + 18 + 33 = 58. Esa es la celda (0,0) de `C`.",
+					"data": [
+						[
+							58,
+							0
+						],
+						[
+							0,
+							0
+						]
+					],
+					"highlight": [
+						[
+							0,
+							0
+						]
+					]
+				},
+				{
+					"note": "Para `C(0,1)` se repite la fila 0 de `A` con la columna 1 de `B`: 1·8 + 2·10 + 3·12 = 8 + 20 + 36 = 64.",
+					"data": [
+						[
+							58,
+							64
+						],
+						[
+							0,
+							0
+						]
+					],
+					"highlight": [
+						[
+							0,
+							1
+						]
+					]
+				},
+				{
+					"note": "Ahora la fila 1 de `A` con la columna 0 de `B`: 4·7 + 5·9 + 6·11 = 28 + 45 + 66 = 139.",
+					"data": [
+						[
+							58,
+							64
+						],
+						[
+							139,
+							0
+						]
+					],
+					"highlight": [
+						[
+							1,
+							0
+						]
+					]
+				},
+				{
+					"note": "Última celda: 4·8 + 5·10 + 6·12 = 32 + 50 + 72 = 154. Los ceros de los pasos anteriores son celdas aún no calculadas.",
+					"data": [
+						[
+							58,
+							64
+						],
+						[
+							139,
+							154
+						]
+					],
+					"highlight": [
+						[
+							1,
+							1
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "El coste de esta operación es el que mediste en la lección de complejidad: para una matriz `m×k` por otra `k×n` se hacen `m·k·n` multiplicaciones. Con 1000 por 1000 son mil millones, y ahí es donde Eigen marca la diferencia frente a un triple bucle escrito a mano: usa bloques que caben en caché y, si el procesador lo permite, instrucciones SIMD."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: mínimos cuadrados en tres líneas"
+		},
+		{
+			"type": "p",
+			"md": "Tienes cuatro muestras y sospechas que `y` depende linealmente de `x`. Añades una columna de unos para el término independiente, con lo que el modelo es `y = b + w·x`. El sistema tiene 4 ecuaciones y 2 incógnitas: no tiene solución exacta en general, pero sí la mejor aproximación."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "minimos_cuadrados.cpp",
+			"code": "#include <Eigen/Dense>\n#include <iostream>\n\nint main() {\n    Eigen::MatrixXd X(4, 2);   // columna 0: unos; columna 1: x\n    X << 1, 1,\n         1, 2,\n         1, 3,\n         1, 4;\n\n    Eigen::VectorXd y(4);\n    y << 2, 4, 6, 8;\n\n    const Eigen::VectorXd w = X.colPivHouseholderQr().solve(y);\n    std::cout << \"b = \" << w(0) << \"  w = \" << w(1) << '\\n';\n    std::cout << \"residuo = \" << (X * w - y).norm() << '\\n';\n    return 0;\n}",
+			"highlight": [
+				13,
+				14
+			]
+		},
+		{
+			"type": "p",
+			"md": "El resultado es `b = 0`, `w = 2` con un residuo del orden de `1e-15`: en binario pueden aparecer valores como `-4e-16` en lugar de cero, porque la solución se calcula con coma flotante. Los cuatro puntos están exactamente sobre la recta `y = 2x`. `colPivHouseholderQr()` resuelve el sistema en el sentido de mínimos cuadrados cuando hay más ecuaciones que incógnitas, y lo hace sin formar las ecuaciones normales, que empeoran el condicionamiento numérico."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "`inverse()` casi nunca es la respuesta",
+			"md": "Calcular la inversa para resolver un sistema es más lento y menos preciso que una descomposición. `A.inverse() * b` hace trabajo de más y acumula error. Reserva `inverse()` para matrices pequeñas donde de verdad necesitas la matriz, no para despejar una incógnita."
+		},
+		{
+			"type": "h",
+			"text": "Descomposiciones: cuál elegir"
+		},
+		{
+			"type": "p",
+			"md": "Todas las descomposiciones de Eigen tienen un método `solve()` con la misma firma, así que cambiar de estrategia es cambiar una palabra. La elección depende de lo que sepas de la matriz."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Método",
+				"Requisito de la matriz",
+				"Velocidad",
+				"Precisión"
+			],
+			"rows": [
+				[
+					"`partialPivLu()`",
+					"Inversible",
+					"Alta",
+					"Media"
+				],
+				[
+					"`fullPivLu()`",
+					"Ninguno",
+					"Baja",
+					"Muy alta"
+				],
+				[
+					"`householderQr()`",
+					"Ninguno",
+					"Alta",
+					"Media"
+				],
+				[
+					"`colPivHouseholderQr()`",
+					"Ninguno",
+					"Media",
+					"Muy alta"
+				],
+				[
+					"`llt()`",
+					"Simétrica definida positiva",
+					"Muy alta",
+					"Media"
+				],
+				[
+					"`ldlt()`",
+					"Simétrica semidefinida",
+					"Muy alta",
+					"Alta"
+				],
+				[
+					"`bdcSvd()`",
+					"Ninguno",
+					"Baja",
+					"Muy alta"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "La regla práctica: si sabes que la matriz es simétrica y definida positiva, usa `llt()`. Si es cuadrada e invertible y no sabes más, `partialPivLu()`. Si hay más ecuaciones que incógnitas, QR con pivoteo o SVD. Y si la matriz puede ser casi singular, paga el precio del SVD: te dirá qué columnas son redundantes."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Olvidar el `-I`**: el error de cabecera no encontrada casi siempre es una ruta mal escrita.",
+				"**Usar `auto` con una expresión**: `auto C = A + B` guarda la expresión, no el resultado. Si `A` o `B` cambian después, `C` cambia contigo. Escribe `Eigen::MatrixXd C = A + B;`.",
+				"**Aliasing en la asignación**: `A = A.transpose()` da un resultado incorrecto. Usa `A.transposeInPlace()` o evalúa antes con `.eval()`.",
+				"**Confundir `=` con `<<`**: `A = 1, 2, 3, 4` no rellena la matriz; el relleno es `A << 1, 2, 3, 4` y debe coincidir con el número de elementos.",
+				"**Mezclar tamaños**: multiplicar una 2 por 3 con una 2 por 3 no compila si los tamaños son fijos, y aborta en tiempo de ejecución con aserción si son dinámicos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas y rendimiento"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Compila con `-O2` o `-O3`: sin optimización, Eigen pierde casi toda su ventaja porque no vectoriza.",
+				"Usa tipos fijos (`Matrix3d`, `Vector4f`) para tamaños de 4 o menos; el compilador los guarda en registros.",
+				"Deja el tamaño dinámico (`MatrixXd`) para datos cuyo tamaño solo conoces al leerlos.",
+				"En `C = A * B` con `C` ya dimensionada, escribe `C.noalias() = A * B;` para evitar un temporal.",
+				"Prefiere `solve()` a `inverse()`; y si solo necesitas el determinante, `determinant()` es más barato que invertir.",
+				"Convierte a arrays con `.array()` para operaciones elemento a elemento: `A.array() * B.array()`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Resolver un sistema 3×3 y comprobar el residuo",
+			"md": "Resuelve el sistema cuya matriz es `[[2, 1, 0], [1, 3, 1], [0, 1, 4]]` con término independiente `[3, 5, 5]`. Usa `partialPivLu()` e imprime la solución y la norma del residuo `A * x - b`.",
+			"hint": "La solución es entera. `(A * x - b).norm()` debe salir prácticamente cero; si sale grande, revisaste mal el orden de los coeficientes.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "sistema3.cpp",
+				"code": "#include <Eigen/Dense>\n#include <iostream>\n\nint main() {\n    Eigen::Matrix3d A;\n    A << 2, 1, 0,\n         1, 3, 1,\n         0, 1, 4;\n\n    Eigen::Vector3d b;\n    b << 3, 5, 5;\n\n    const Eigen::Vector3d x = A.partialPivLu().solve(b);\n    std::cout << \"x = \" << x.transpose() << '\\n';          // 1 1 1\n    std::cout << \"residuo = \" << (A * x - b).norm() << '\\n';\n    return 0;\n}",
+				"explain": "La solución es `[1, 1, 1]`: 2·1 + 1·1 = 3, 1 + 3 + 1 = 5 y 1 + 4 = 5. El residuo sale del orden de 1e-16, no exactamente cero, porque la aritmética es de coma flotante. Comprobar el residuo es la forma correcta de validar una solución numérica."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Ajustar una recta a cinco puntos",
+			"md": "Con los puntos `x = 1, 2, 3, 4, 5` e `y = 3, 5, 7, 9, 11`, monta la matriz `X` con una columna de unos y resuelve por mínimos cuadrados. ¿Qué pendiente e intercepto obtienes? Comprueba el residuo.",
+			"hint": "Reutiliza el esquema del caso práctico: `X` tiene 5 filas y 2 columnas. Si los puntos son colineales, el residuo debe ser cero.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "recta5.cpp",
+				"code": "#include <Eigen/Dense>\n#include <iostream>\n\nint main() {\n    Eigen::MatrixXd X(5, 2);\n    X << 1, 1,\n         1, 2,\n         1, 3,\n         1, 4,\n         1, 5;\n\n    Eigen::VectorXd y(5);\n    y << 3, 5, 7, 9, 11;\n\n    const Eigen::VectorXd coef = X.completeOrthogonalDecomposition().solve(y);\n    std::cout << \"intercepto = \" << coef(0) << '\\n';   // 1\n    std::cout << \"pendiente  = \" << coef(1) << '\\n';   // 2\n    std::cout << \"residuo    = \" << (X * coef - y).norm() << '\\n';\n    return 0;\n}",
+				"explain": "El resultado es intercepto 1 y pendiente 2, con el error de redondeo habitual en los últimos dígitos, porque todos los puntos cumplen `y = 2x + 1`. Resolverlo a mano con las ecuaciones normales da el mismo valor: el sistema 2 por 2 resultante tiene determinante 50 y solución exacta. `completeOrthogonalDecomposition()` es una alternativa al SVD, algo más rápida y casi igual de precisa."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la resolución",
+			"lang": "cpp",
+			"code": "Eigen::Matrix3d A;\nA << 2, 1, 0,\n     1, 3, 1,\n     0, 1, 4;\nEigen::Vector3d b;\nb << 3, 5, 5;\n\nconst Eigen::Vector3d x = A.___().solve(b);\nstd::cout << A.___() << '\\n';   // la matriz con filas y columnas intercambiadas",
+			"answers": [
+				"partialPivLu",
+				"transpose"
+			],
+			"hint": "La descomposición LU con pivoteo parcial se llama `partialPivLu()`; la matriz con filas y columnas intercambiadas se obtiene con `transpose()`.",
+			"explain": "`partialPivLu()` descompone `A` una vez y resuelve el sistema; es más eficiente y más estable que calcular la inversa. `transpose()` devuelve una vista de la matriz traspuesta, no una copia."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, comprobar el residuo vale más que mirar la solución: si `A * x - b` es del orden de `1e-16`, la solución es correcta aunque no sea exactamente `[1, 1, 1]` en binario. En coma flotante, «exacto» significa «con el error de redondeo esperado», y ese error se mide, no se supone."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la matriz `X` tiene más filas que columnas porque hay cinco observaciones y dos parámetros. Ese desajuste es la definición de un problema de mínimos cuadrados: no buscas una solución exacta, buscas la que deja el residuo más pequeño. Cuando los datos son perfectamente lineales, esa mejor solución resulta tener residuo cero y coincide con la recta que ya conocías."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Eigen es header-only: se incluye con `#include <Eigen/Dense>` y se compila con `-I` a su carpeta.",
+				"`MatrixXd` es dinámica; `Matrix3d` y `Vector3d` tienen el tamaño en el tipo y son más rápidas.",
+				"El producto es `A * B`, la traspuesta `A.transpose()` y los elementos se leen con `A(i, j)`.",
+				"Para resolver usa una descomposición con `solve()`, no `inverse()`.",
+				"`llt()` para matrices simétricas definidas positivas, LU para cuadradas, QR o SVD para mínimos cuadrados.",
+				"El almacenamiento por defecto es por columnas, lo que afecta a los bucles que escribas a mano.",
+				"`auto` con una expresión guarda la expresión; declara el tipo de la matriz para forzar el cálculo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué tipo de Eigen usarías para una matriz de 3 por 3 de `double` cuyo tamaño no cambia?",
+			"options": [
+				"`Eigen::MatrixXd`",
+				"`Eigen::Matrix3d`",
+				"`Eigen::Matrix3f`",
+				"`Eigen::Vector3d`"
+			],
+			"answer": 1,
+			"explain": "`Matrix3d` codifica el tamaño en el tipo y usa `double`; el compilador puede guardarla en registros y comprobar dimensiones al compilar. `MatrixXd` reserva memoria en el heap y `Matrix3f` usaría `float`."
+		},
+		{
+			"type": "quiz",
+			"question": "`A` es simétrica y definida positiva. ¿Qué descomposición conviene para resolver `Ax = b`?",
+			"options": [
+				"`fullPivLu()`",
+				"`llt()`",
+				"`jacobiSvd()`",
+				"`A.inverse()`"
+			],
+			"answer": 1,
+			"explain": "La descomposición de Cholesky (`llt()`) es la más rápida para matrices simétricas definidas positivas. SVD y LU con pivoteo completo funcionan, pero hacen mucho más trabajo del necesario."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `auto C = A + B;` es peligroso en Eigen?",
+			"options": [
+				"Porque no compila: `auto` no admite expresiones de Eigen",
+				"Porque `C` guarda la expresión y no el resultado, así que depende de `A` y `B`",
+				"Porque copia la matriz dos veces",
+				"Porque convierte los `double` en `float`"
+			],
+			"answer": 1,
+			"explain": "Eigen evalúa de forma diferida. Con `auto`, `C` es un objeto que referencia `A` y `B`; si esos cambian o se destruyen, `C` deja de representar la suma original. Declarar `Eigen::MatrixXd C = A + B;` fuerza el cálculo."
+		},
+		{
+			"type": "compare",
+			"title": "La misma multiplicación en NumPy y en Eigen",
+			"python": {
+				"caption": "producto.py",
+				"code": "import numpy as np\n\nA = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])\nB = np.array([[7.0, 8.0], [9.0, 10.0], [11.0, 12.0]])\n\nC = A @ B\nprint(C)\nprint(np.linalg.solve(np.array([[2.0, -1.0], [-1.0, 3.0]]), np.array([1.0, 2.0])))"
+			},
+			"cpp": {
+				"caption": "producto.cpp",
+				"code": "Eigen::MatrixXd A(2, 3);\nA << 1, 2, 3,\n     4, 5, 6;\nEigen::MatrixXd B(3, 2);\nB << 7, 8,\n     9, 10,\n     11, 12;\n\nconst Eigen::MatrixXd C = A * B;"
+			},
+			"note": "Las dos expresiones se leen casi igual y dan el mismo resultado. La diferencia es el momento: NumPy despacha a BLAS en tiempo de ejecución y Eigen genera código especializado en tiempo de compilación. Para matrices pequeñas Eigen suele ganar por no tener sobrecarga de interpretación; para matrices enormes, ambas acaban llamando a lo mismo."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "Eigen · Getting started",
+					"url": "https://eigen.tuxfamily.org/dox/GettingStarted.html",
+					"note": "instalación, primer programa y compilación"
+				},
+				{
+					"label": "Eigen · Linear algebra and decompositions",
+					"url": "https://eigen.tuxfamily.org/dox/group__TutorialLinearAlgebra.html",
+					"note": "qué descomposición elegir y por qué"
+				},
+				{
+					"label": "Eigen · The Matrix class",
+					"url": "https://eigen.tuxfamily.org/dox/group__TutorialMatrixClass.html",
+					"note": "indexado, tamaño y operaciones básicas"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,403 @@
+{
+	"id": "cpp-11-arrays-vector",
+	"track": "cpp",
+	"order": 11,
+	"title": "Arrays, std::vector y std::string",
+	"subtitle": "Del bloque de tamaño fijo al contenedor que crece y se libera solo",
+	"level": "intermedio",
+	"minutes": 46,
+	"tags": ["arrays", "vector", "string", "stl", "capacidad"],
+	"keywords": [
+		"array crudo vs std::array",
+		"std::vector",
+		"diferencia size y capacity",
+		"push_back",
+		"reserve",
+		"acceso con at",
+		"std::string",
+		"stoi to_string",
+		"vector se queda sin memoria",
+		"contenedores c++",
+		"recorrer vector"
+	],
+	"summary": "Un array crudo es rápido pero no sabe cuánto mide ni crece; std::array añade tamaño y seguridad sin coste; std::vector administra un buffer dinámico con size y capacity. Con std::string aplicarás las mismas ideas a texto.",
+	"objectives": [
+		"Elegir entre array crudo, std::array y std::vector según el problema",
+		"Explicar la diferencia entre size y capacity y el efecto de push_back",
+		"Reservar espacio con reserve y acceder con at cuando importa la seguridad",
+		"Manipular texto con std::string y convertir números con stoi y to_string",
+		"Evitar punteros e iteradores invalidados por una reasignación"
+	],
+	"prerequisites": ["RAII y punteros inteligentes", "Referencias, new/delete y fugas de memoria"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora has visto arrays con `int datos[5]` y memoria dinámica con `new[]`. Ambos enfoques tienen el mismo problema: el tamaño no viaja con los datos. Un array crudo decae a puntero al pasarlo a una función y pierde la única información que tenía, su longitud. `std::array` y `std::vector` resuelven eso sin que pagues por ello."
+		},
+		{
+			"type": "p",
+			"md": "La idea central de esta lección es que un contenedor es un objeto con tres responsabilidades: guardar los elementos, saber cuántos hay y liberar el buffer cuando muere. `std::vector` cumple las tres, crece cuando hace falta y aplica RAII. `std::string` es, en esencia, un vector de caracteres con operaciones de texto."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un array y qué es un contenedor?"
+		},
+		{
+			"type": "p",
+			"md": "Un **array** es una secuencia de elementos del mismo tipo colocados en posiciones contiguas de memoria. Esa contigüidad es lo que permite calcular la dirección de cualquier elemento con una multiplicación y acceder en tiempo constante. Un array crudo de C++ no es más que eso: un bloque, sin longitud almacenada y sin comprobaciones."
+		},
+		{
+			"type": "p",
+			"md": "Un **contenedor** de la biblioteca estándar es una clase que envuelve ese bloque y añade una interfaz. `std::array<T, N>` guarda el bloque dentro del propio objeto y conoce `N` en tiempo de compilación. `std::vector<T>` guarda un puntero al buffer, un tamaño y una capacidad, y puede pedir un buffer nuevo cuando se queda corto. `std::string` hace lo mismo con `char` y añade búsqueda, subcadenas y conversiones."
+		},
+		{
+			"type": "table",
+			"head": ["Tipo", "Tamaño", "Dónde vive el buffer", "Conoce su longitud", "Crece"],
+			"rows": [
+				["`int a[10]`", "Fijo en compilación", "Stack o dentro de otro objeto", "No: hay que pasarla aparte", "No"],
+				["`std::array<int, 10>`", "Fijo en compilación", "Dentro del objeto", "Sí: `.size()`", "No"],
+				["`std::vector<int>`", "Variable en ejecución", "Heap, gestionado por el vector", "Sí: `.size()`", "Sí, con `push_back`"],
+				["`std::string`", "Variable en ejecución", "Heap o buffer interno pequeño", "Sí: `.size()`", "Sí, con `+=` o `append`"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven estos contenedores?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Datos de tamaño desconocido**: leer un CSV, acumular predicciones o guardar los píxeles de una imagen requiere crecer sobre la marcha.",
+				"**Pasar datos sin perder el tamaño**: `const std::vector<double>&` lleva elementos y longitud en un solo parámetro.",
+				"**Seguridad en los límites**: `at(i)` lanza `std::out_of_range` si te sales; `v[i]` no comprueba nada.",
+				"**Rendimiento predecible**: el buffer es contiguo, así que recorrer un vector es amigable con la caché y se vectoriza bien.",
+				"**Texto cómodo**: `std::string` permite concatenar, buscar y convertir sin gestionar `char*` ni terminadores `\\0`."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning, casi todo acaba siendo un vector o una matriz de números. Un lote de entrenamiento es un `std::vector<double>` o el buffer de una biblioteca de álgebra lineal; las etiquetas son otro vector; los nombres de las columnas, un `std::vector<std::string>`. Elegir bien el contenedor y reservar la capacidad correcta marca la diferencia entre un bucle que hace una sola reserva y otro que copia el buffer diez veces."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "`std::vector` mantiene tres valores: un puntero al inicio del buffer, el número de elementos construidos (`size`) y el número de elementos que caben sin reasignar (`capacity`). Mientras `size < capacity`, `push_back` construye el elemento al final y suma uno. Cuando `size == capacity`, pide un bloque nuevo —normalmente del doble de tamaño—, mueve o copia los elementos, destruye los viejos y libera el bloque anterior."
+		},
+		{
+			"type": "p",
+			"md": "Ese crecimiento es **amortizado constante**: una operación concreta puede costar O(n) porque copia todo, pero repartida entre las n inserciones da O(1) por elemento. Si sabes de antemano cuántos elementos tendrás, `reserve(n)` elimina todas las reasignaciones intermedias. `reserve` cambia la capacidad, nunca el tamaño: el vector sigue teniendo los mismos elementos."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Una reasignación invalida punteros e iteradores",
+			"md": "Si guardaste `int* p = v.data();` o un iterador y luego un `push_back` provoca una reasignación, el buffer viejo se libera y `p` queda colgante. La capacidad no crece al azar: cuando se llena, el vector se muda. Vuelve a pedir `data()` después de modificar el tamaño o reserva antes de guardar direcciones."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "#include <array>\n#include <iostream>\n#include <string>\n#include <vector>\n\nint main() {\n    int crudo[3] = {1, 2, 3};         // tamano fijo, sin size()\n    std::array<int, 3> fijo{4, 5, 6}; // fijo, pero con .size()\n    std::vector<int> dinamico{7, 8};  // crece en ejecucion\n    std::string texto = \"hola\";       // secuencia de char\n\n    dinamico.push_back(9);\n\n    std::cout << crudo[0] << '\\n';         // 1\n    std::cout << fijo.size() << '\\n';      // 3\n    std::cout << dinamico.size() << '\\n';  // 3\n    std::cout << texto.size() << '\\n';     // 4\n    std::cout << texto + \" mundo\" << '\\n'; // hola mundo\n    return 0;\n}"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`std::array` se declara con dos parámetros: el tipo y el número de elementos, que debe ser una constante de compilación.",
+				"`std::vector` y `std::string` se inicializan con llaves, con un tamaño o vacíos. El vector vacío tiene `size() == 0` y `capacity() == 0`.",
+				"`push_back` añade una copia al final; `emplace_back` construye el elemento directamente en el buffer y evita una copia en objetos grandes.",
+				"`size()` devuelve `std::size_t`, un entero sin signo. Comparar con un `int` negativo genera avisos con `-Wsign-compare`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: recorrer y consultar un vector"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "basico.cpp",
+			"code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> v{10, 20, 30};\n    v.push_back(40);\n\n    std::cout << v.size() << '\\n';                       // 4\n    std::cout << v.front() << ' ' << v.back() << '\\n';   // 10 40\n    std::cout << v.at(2) << '\\n';                        // 30\n    std::cout << (v.capacity() >= v.size()) << '\\n';     // 1\n\n    for (int x : v) {\n        std::cout << x << ' ';\n    }\n    std::cout << '\\n';                                   // 10 20 30 40\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`front()` y `back()` devuelven referencias al primero y al último; sobre un vector vacío son comportamiento indefinido. `at(2)` comprueba el índice y devuelve 30; si hubieras pedido `at(10)`, se lanzaría `std::out_of_range`. La comparación de capacidad se imprime como 1 porque la capacidad siempre es al menos el tamaño. El rango `for (int x : v)` copia cada entero: con objetos grandes escribe `const auto&`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: reservar y calcular"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "intermedio.cpp",
+			"code": "#include <iostream>\n#include <vector>\n\ndouble media(const std::vector<double>& datos) {\n    if (datos.empty()) {\n        return 0.0;\n    }\n    double suma = 0.0;\n    for (double x : datos) {\n        suma += x;\n    }\n    return suma / static_cast<double>(datos.size());\n}\n\nint main() {\n    std::vector<double> datos;\n    datos.reserve(5);   // una sola reserva para cinco elementos\n\n    for (int i = 1; i <= 5; ++i) {\n        datos.push_back(i * 1.5);\n    }\n\n    std::cout << datos.size() << '\\n';              // 5\n    std::cout << (datos.capacity() >= 5) << '\\n';   // 1\n    std::cout << media(datos) << '\\n';              // 4.5\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`reserve(5)` pide espacio para cinco elementos, pero `size()` sigue siendo 0 hasta que insertas. Los valores son 1.5, 3.0, 4.5, 6.0 y 7.5; su suma es 22.5 y la media, 4.5. La función recibe `const std::vector<double>&` para no copiar el buffer y no poder modificarlo. Ese `static_cast<double>` evita la división entera si `size()` se usara directamente con un acumulador entero."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: analizar una lista de palabras"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "palabras.cpp",
+			"code": "#include <iostream>\n#include <string>\n#include <vector>\n\nint main() {\n    std::vector<std::string> palabras{\"vector\", \"de\", \"cadenas\", \"en\", \"cpp\"};\n\n    std::size_t total = 0;\n    std::string larga;\n\n    for (const std::string& p : palabras) {\n        total += p.size();\n        if (p.size() > larga.size()) {\n            larga = p;\n        }\n    }\n\n    std::cout << palabras.size() << '\\n'; // 5\n    std::cout << total << '\\n';           // 20\n    std::cout << larga << '\\n';           // cadenas\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "El recorrido usa `const std::string&` porque cada palabra ya vive en el vector y no necesitamos copiarla. `total` es `std::size_t` para que la suma de longitudes no mezcle signos. La palabra más larga se actualiza comparando tamaños, no contenidos: `larga = p` copia la cadena ganadora. Este patrón —recorrer, acumular y quedarse con un extremo— es el mismo que usarás para calcular estadísticas de un lote de datos."
+		},
+		{
+			"type": "p",
+			"md": "Para convertir texto en números, `std::stoi` y `std::stod` leen desde el principio de la cadena y lanzan `std::invalid_argument` si no hay dígitos. La operación inversa, `std::to_string`, produce la representación con el formato por defecto. No hay conversión implícita entre `std::string` y números: el compilador no adivina si `\"42\"` debe ser un entero o una cadena."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "conversiones.cpp",
+			"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string numero = \"42\";\n    int n = std::stoi(numero);\n    std::cout << n + 1 << '\\n';            // 43\n\n    std::string texto = std::to_string(3.14);\n    std::cout << texto << '\\n';            // 3.140000\n\n    try {\n        std::cout << std::stoi(\"abc\") << '\\n';\n    } catch (const std::invalid_argument&) {\n        std::cout << \"no es un numero\\n\";\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "h",
+			"text": "Visualización: tamaño, capacidad y buffer"
+		},
+		{
+			"type": "p",
+			"md": "Avanza por los pasos y fíjate en tres columnas: los elementos, `size` y `capacity`. Mientras la capacidad alcanza, `push_back` escribe en el buffer existente. Cuando se llena, el vector reserva otro bloque, copia y libera el anterior: por eso la dirección del buffer cambia. Los valores de capacidad son los típicos de duplicar el bloque; la norma no obliga a un factor concreto."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Crecimiento de un vector y efecto de reserve",
+			"code": "std::vector<int> v;\nv.push_back(10);\nv.push_back(20);\nv.push_back(30);\nstd::cout << v.size() << ' ' << v.capacity() << '\\n';\nv.reserve(8);\nstd::cout << v.capacity() << '\\n';",
+			"steps": [
+				{
+					"line": 1,
+					"note": "El vector nace vacío: no hay buffer, `size` y `capacity` valen 0.",
+					"vars": { "v": "[]", "size": "0", "capacity": "0" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "Primer `push_back`: se reserva espacio para 1 y se escribe 10. `size` y `capacity` pasan a 1.",
+					"vars": { "v": "[10]", "size": "1", "capacity": "1" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Al llenarse, el vector reserva capacidad 2, copia 10 y añade 20. El buffer anterior se libera.",
+					"vars": { "v": "[10, 20]", "size": "2", "capacity": "2" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Otra reasignación: capacidad 4, se copian los dos elementos y se añade 30. Queda una posición libre.",
+					"vars": { "v": "[10, 20, 30]", "size": "3", "capacity": "4" },
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "La salida confirma que el tamaño es 3 y la capacidad 4: hay sitio para un elemento más sin reservar.",
+					"vars": { "v": "[10, 20, 30]", "size": "3", "capacity": "4" },
+					"output": "3 4\n"
+				},
+				{
+					"line": 6,
+					"note": "`reserve(8)` cambia solo la capacidad: pide un buffer de 8, copia los 3 elementos y libera el de 4. `size` sigue en 3.",
+					"vars": { "v": "[10, 20, 30]", "size": "3", "capacity": "8" },
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "La capacidad ya es 8. Los elementos no han cambiado; solo hay más espacio reservado.",
+					"vars": { "v": "[10, 20, 30]", "size": "3", "capacity": "8" },
+					"output": "8\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Salirse con `[]`**: `v[v.size()]` no compila mal ni avisa; es comportamiento indefinido y puede leer memoria ajena. Usa `at()` cuando el índice venga de fuera.",
+				"**Confundir `size` y `capacity`**: `v.capacity()` no dice cuántos elementos hay. Un vector con capacidad 8 y tamaño 0 está vacío; recorrerlo hasta `capacity()` es un error.",
+				"**Guardar `data()` antes de crecer**: tras un `push_back` que reasigna, el puntero anterior apunta a memoria liberada. Vuelve a llamar a `data()` después de la inserción.",
+				"**Usar `sizeof` para contar**: `sizeof(v) / sizeof(v[0])` sobre un `std::vector` da el tamaño del objeto, no el número de elementos. Utiliza `v.size()`.",
+				"**Olvidar la cabecera**: `std::vector` necesita `<vector>`, `std::array` necesita `<array>` y `std::string`, `<string>`. El error típico es `no member named 'vector' in namespace 'std'`.",
+				"**Indexar con enteros negativos**: `v[-1]` convierte el `-1` a un índice gigante sin signo. El compilador no lo detiene y el acceso es inválido.",
+				"**Convertir sin comprobar**: `std::stoi(\"12abc\")` devuelve 12 porque se detiene en la primera letra; `std::stoi(\"abc\")` lanza. Ninguna de las dos valida la cadena completa por ti."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Cuando el tamaño es fijo, evita el heap",
+			"md": "Si el número de elementos se conoce en compilación, `std::array<T, N>` vive completo en el stack, no reserva nada y se copia como un valor. Es la opción natural para vectores pequeños de tamaño constante, como una posición 3D o los pesos de una neurona."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Prefiere `std::vector` por defecto; usa `std::array` si el tamaño es constante y pequeño, y el array crudo solo para interoperar con APIs de C.",
+				"Llama a `reserve` cuando conozcas el número aproximado de elementos; evita `resize` si solo querías capacidad.",
+				"Recorre con `for (const auto& x : v)` para no copiar; usa `auto&` si necesitas modificar.",
+				"Accede con `at` en fronteras del programa (entrada de usuario, archivos) y con `[]` en bucles internos ya acotados.",
+				"Pasa los contenedores como `const std::vector<T>&`; devuélvelos por valor, el movimiento es barato.",
+				"No midas el rendimiento por intuición: un `reserve` mal puesto puede ser peor que dejar crecer el vector.",
+				"Usa `std::string` y sus métodos en lugar de `char*`; para texto que no posees, `std::string_view` evita copias."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Crecer una lista y crecer un vector",
+			"python": {
+				"caption": "lista.py",
+				"code": "datos = []\nfor i in range(1, 6):\n    datos.append(i * 1.5)\nprint(len(datos))   # 5\nprint(datos[-1])    # 7.5"
+			},
+			"cpp": {
+				"caption": "vector.cpp",
+				"code": "std::vector<double> datos;\nfor (int i = 1; i <= 5; ++i) {\n    datos.push_back(i * 1.5);\n}\nstd::cout << datos.size();    // 5\nstd::cout << datos.back();    // 7.5"
+			},
+			"note": "Python oculta la capacidad y comprueba índices negativos; C++ expone `size` y `capacity` y no acepta índices negativos. Esa transparencia permite reservar de antemano, pero exige que tú vigiles los límites."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Estadísticas de un vector",
+			"md": "Dado `std::vector<int> notas{7, 4, 9, 6, 10}`, calcula el mínimo, el máximo y la media con un solo recorrido. Imprime los tres valores separados por espacios y comprueba que la media es un número decimal, no 7.",
+			"hint": "Inicializa el mínimo y el máximo con `notas.front()`. Acumula en un `double` y divide entre `static_cast<double>(notas.size())`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "estadisticas.cpp",
+				"code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> notas{7, 4, 9, 6, 10};\n\n    int minimo = notas.front();\n    int maximo = notas.front();\n    double suma = 0.0;\n\n    for (int n : notas) {\n        if (n < minimo) minimo = n;\n        if (n > maximo) maximo = n;\n        suma += n;\n    }\n\n    std::cout << minimo << ' ' << maximo << ' '\n              << suma / static_cast<double>(notas.size()) << '\\n'; // 4 10 7.2\n    return 0;\n}",
+				"explain": "La suma es 36 y hay 5 notas, así que la media es 7.2. Sin el `static_cast`, `36 / 5` sería 7 por división entera. Un solo recorrido basta porque mínimo, máximo y suma se actualizan en la misma pasada."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Contar palabras largas",
+			"md": "Crea un `std::vector<std::string>` con las palabras `uno`, `computadora`, `de`, `algoritmo`, `ia`. Cuenta cuántas tienen más de 4 caracteres e imprime la cuenta y la palabra más larga. No copies las cadenas al recorrerlas.",
+			"hint": "Recorre con `const std::string&`. Para la más larga, guarda un `std::string` y actualízalo cuando encuentres una mayor.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "largas.cpp",
+				"code": "#include <iostream>\n#include <string>\n#include <vector>\n\nint main() {\n    std::vector<std::string> palabras{\"uno\", \"computadora\", \"de\", \"algoritmo\", \"ia\"};\n\n    int largas = 0;\n    std::string mayor;\n\n    for (const std::string& p : palabras) {\n        if (p.size() > 4) ++largas;\n        if (p.size() > mayor.size()) mayor = p;\n    }\n\n    std::cout << largas << '\\n';  // 2\n    std::cout << mayor << '\\n';   // computadora\n    return 0;\n}",
+				"explain": "`computadora` (11) y `algoritmo` (9) superan los cuatro caracteres, así que la cuenta es 2. `mayor` se actualiza comparando tamaños y acaba siendo `computadora`. Recorrer por referencia constante evita copiar cada cadena y no impide leer su tamaño."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa las operaciones del vector",
+			"lang": "cpp",
+			"code": "std::vector<int> v;\nv.___(10);                        // anade un elemento\nstd::cout << v.___() << '\\n';    // 1\nstd::cout << v.___(0) << '\\n';   // 10, con comprobacion de limites",
+			"answers": ["push_back", "size", "at"],
+			"hint": "Añadir al final es `push_back`; contar elementos, `size`; acceder comprobando el índice, `at`.",
+			"explain": "`push_back(10)` hace que el vector tenga un elemento. `size()` devuelve 1 y `at(0)` devuelve 10 lanzando `std::out_of_range` si el índice no existe, algo que `v[0]` no hace."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, el error habitual es dividir dos enteros y perder la parte decimal. La conversión explícita a `double` antes de dividir obliga a que la operación sea en coma flotante. En el segundo, la clave es distinguir entre el tamaño de una cadena y su contenido: `p.size() > 4` cuenta caracteres, no palabras, y la comparación `p.size() > mayor.size()` actualiza la ganadora. En ambos casos el contenedor conoce su longitud y te ahorra pasar un tamaño aparte; ese es el motivo por el que `std::vector` reemplaza al array crudo en casi todo el código nuevo."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un array crudo es un bloque contiguo sin longitud ni comprobaciones; decae a puntero al pasarlo.",
+				"`std::array<T, N>` guarda el tamaño en el tipo, vive en el stack y permite `.size()`.",
+				"`std::vector<T>` administra un buffer en el heap y crece con `push_back` en tiempo amortizado constante.",
+				"`size` es cuántos elementos hay; `capacity` cuántos caben antes de reasignar. `reserve` cambia solo la capacidad.",
+				"Una reasignación mueve el buffer e invalida punteros, referencias e iteradores anteriores.",
+				"`at` comprueba límites y lanza `std::out_of_range`; `[]` es más rápido y no comprueba.",
+				"`std::string` ofrece tamaño, concatenación, búsqueda y conversiones; `stoi`/`stod` y `to_string` cubren los números.",
+				"Elige el contenedor por el tamaño y las operaciones, no por costumbre."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Un `std::vector<int>` tiene `size() == 3` y `capacity() == 8`. ¿Qué significa?",
+			"options": [
+				"Hay 8 elementos y solo 3 están inicializados",
+				"Hay 3 elementos y espacio para 5 más sin reasignar",
+				"El vector ocupará 8 bytes en total",
+				"`push_back` fallará en la siguiente inserción"
+			],
+			"answer": 1,
+			"explain": "`size` cuenta los elementos construidos y `capacity` el espacio reservado. Con 3 elementos y capacidad 8, las próximas 5 inserciones no necesitan un buffer nuevo."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué provoca que un `int* p = v.data();` quede colgante?",
+			"options": [
+				"Leer `v[0]`",
+				"Un `push_back` que agota la capacidad y reasigna el buffer",
+				"Llamar a `v.size()`",
+				"Recorrer el vector con un range-for"
+			],
+			"answer": 1,
+			"explain": "Al llenarse, el vector reserva un bloque nuevo, copia los elementos y libera el anterior. `p` sigue guardando la dirección vieja, que ya no pertenece al vector."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la diferencia principal entre `v[i]` y `v.at(i)`?",
+			"options": [
+				"`at` devuelve una copia y `[]` una referencia",
+				"`at` comprueba el índice y lanza `std::out_of_range`; `[]` no comprueba",
+				"`[]` solo funciona con vectores vacíos",
+				"`at` es más rápido porque evita la caché"
+			],
+			"answer": 1,
+			"explain": "`at` valida el índice antes de acceder y lanza una excepción si está fuera de rango. `operator[]` confía en ti: un índice inválido es comportamiento indefinido y puede no fallar de inmediato."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · std::vector",
+					"url": "https://en.cppreference.com/w/cpp/container/vector",
+					"note": "interfaz y complejidad"
+				},
+				{
+					"label": "cppreference · std::array",
+					"url": "https://en.cppreference.com/w/cpp/container/array",
+					"note": "array de tamaño fijo"
+				},
+				{
+					"label": "cppreference · std::string",
+					"url": "https://en.cppreference.com/w/cpp/string/basic_string",
+					"note": "texto y conversiones"
+				}
+			]
+		}
+	]
+}

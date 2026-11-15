@@ -1,0 +1,569 @@
+{
+	"id": "cpp-03-variables-operadores",
+	"track": "cpp",
+	"order": 3,
+	"title": "Variables, const, auto y operadores",
+	"subtitle": "Declarar, inicializar y combinar valores sin sorpresas de tipo",
+	"level": "principiante",
+	"minutes": 36,
+	"tags": [
+		"variables",
+		"const",
+		"auto",
+		"operadores"
+	],
+	"keywords": [
+		"declarar variable c++",
+		"inicialización con llaves",
+		"const vs constexpr",
+		"auto c++",
+		"static_cast",
+		"conversión implícita",
+		"precedencia de operadores",
+		"división entera",
+		"desbordamiento",
+		"operador módulo",
+		"narrowing"
+	],
+	"summary": "Las variables de C++ tienen tipo fijo y se inicializan al declararlas. En esta lección distingues const de constexpr, usas auto con criterio, evitas la división entera accidental y conviertes con static_cast cuando el truncamiento es deliberado.",
+	"objectives": [
+		"Declarar e inicializar variables con las distintas formas de C++",
+		"Elegir entre const, constexpr y auto según la intención",
+		"Predecir el resultado de una expresión aplicando precedencia y tipos",
+		"Convertir valores con static_cast sin perder información por accidente",
+		"Reconocer y evitar el desbordamiento de enteros"
+	],
+	"prerequisites": [
+		"Estructura de un programa, cout y tipos"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Una variable es un nombre para un trozo de memoria con un tipo. En Python ese nombre puede apuntar a cualquier objeto y cambiar de tipo; en C++ el tipo se fija al declarar y determina cuántos bytes se reservan y qué operaciones tienen sentido."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una variable?"
+		},
+		{
+			"type": "p",
+			"md": "Declarar una variable **define un objeto**: una región de almacenamiento con nombre, tipo y duración. El nombre es para ti; el tipo es para el compilador; la dirección es para la máquina."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Nombre**: el identificador que usas en el código, como `tasa` o `intentos`.",
+				"**Tipo**: `int`, `double`, `bool`, `std::string`... decide el tamaño y las operaciones válidas.",
+				"**Valor**: el contenido actual, que cambia con la asignación.",
+				"**Dirección**: la posición en memoria; la verás con `&` en la lección de punteros."
+			]
+		},
+		{
+			"type": "p",
+			"md": "`const` añade una restricción: el valor no cambia después de inicializarse. `constexpr` va más allá y exige que el valor se conozca en tiempo de compilación."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Guardar datos de entrada y resultados intermedios con el tipo adecuado.",
+				"Nombrar constantes de negocio o de física una sola vez: `constexpr double igv = 0.18;`.",
+				"Evitar números mágicos y errores al repetir un valor.",
+				"Dejar que `auto` deduzca tipos largos sin escribirlos.",
+				"Controlar conversiones para no perder decimales ni desbordar enteros."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning casi todo lo que manipulas son variables numéricas: características, pesos, tasas de aprendizaje. Elegir `float` o `double` no es cosmético; afecta a la precisión y al coste."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cuando el compilador ve `int intentos = 0;`, reserva espacio para un entero (4 bytes en esta plataforma), escribe el valor inicial y asocia el nombre a esa posición. Una declaración sin inicializar deja el contenido indeterminado: puede ser cualquier cosa que hubiera antes."
+		},
+		{
+			"type": "p",
+			"md": "La **inicialización** ocurre al crear el objeto; la **asignación** reemplaza su valor después. `int a = 5;` inicializa; `a = 7;` asigna. En una línea trivial da igual, pero con constantes y objetos con constructor la diferencia es real."
+		},
+		{
+			"type": "p",
+			"md": "Cuando una constante es `constexpr`, el compilador conoce su valor y puede sustituirlo en cada uso, sin reservar almacenamiento en tiempo de ejecución. Eso permite usarla como tamaño de un array o dentro de una comparación sin coste."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "float o double: elige con intención",
+			"md": "Un `float` ocupa 4 bytes y unos 7 dígitos decimales; un `double`, 8 bytes y unos 15. Las redes neuronales suelen guardar pesos en 32 bits para ahorrar memoria, pero los cálculos críticos se acumulan en `double`. No es una decisión estética."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "limites.cpp",
+			"code": "#include <iostream>\n#include <limits>\n\nint main() {\n    std::cout << \"int máximo: \" << std::numeric_limits<int>::max() << '\\n';\n    std::cout << \"int mínimo: \" << std::numeric_limits<int>::min() << '\\n';\n\n    unsigned int grande = 0;\n    grande = grande - 1;  // da la vuelta: 4294967295\n    std::cout << \"unsigned 0 - 1 = \" << grande << '\\n';\n    return 0;\n}",
+			"highlight": [
+				5,
+				6,
+				10
+			]
+		},
+		{
+			"type": "p",
+			"md": "`std::numeric_limits<int>::max()` imprime 2147483647, y el mínimo, -2147483648. Sumarle 1 al máximo es **comportamiento indefinido**: el estándar no promete qué ocurre. Un `unsigned` sí da la vuelta de forma definida: 0 − 1 se convierte en 4294967295."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "p",
+			"md": "Hay varias formas de inicializar y no son equivalentes en todos los casos. C++ moderno prefiere las llaves porque prohíben las conversiones que pierden información."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Forma",
+				"Ejemplo",
+				"Qué hace"
+			],
+			"rows": [
+				[
+					"Sin inicializar",
+					"`int x;`",
+					"Reserva memoria; el valor es indeterminado"
+				],
+				[
+					"Copia",
+					"`int x = 5;`",
+					"Inicializa con 5; permite conversiones implícitas"
+				],
+				[
+					"Llaves",
+					"`int x{5};`",
+					"Inicializa con 5; rechaza narrowing"
+				],
+				[
+					"Paréntesis",
+					"`int x(5);`",
+					"Inicializa con 5; ambigua en algunos contextos"
+				],
+				[
+					"Constante",
+					"`const int x = 5;`",
+					"No se puede reasignar después"
+				],
+				[
+					"Constante de compilación",
+					"`constexpr int x = 5;`",
+					"Valor conocido al compilar"
+				],
+				[
+					"Deducción",
+					"`auto x = 5;`",
+					"El tipo se deduce del inicializador: `int`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Regla práctica del curso: usa `{}` para inicializar, `const` cuando el valor no cambie y `constexpr` cuando además se conozca al compilar. Usa `auto` cuando el tipo sea evidente por la derecha o demasiado largo para escribirlo."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "basico.cpp",
+			"code": "#include <iostream>\n#include <string>\n\nint main() {\n    int intentos = 0;\n    double tasa = 0.1;\n    constexpr int maximo = 5;\n    std::string mensaje = \"listo\";\n    auto pi = 3.1416;  // auto deduce double\n\n    intentos = intentos + 1;\n\n    std::cout << mensaje << \": \" << intentos << \" de \" << maximo << '\\n';\n    std::cout << \"Tasa: \" << tasa << \" | pi: \" << pi << '\\n';\n    return 0;\n}",
+			"highlight": [
+				7,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "`int intentos = 0;` crea un contador. `constexpr int maximo = 5;` fija el límite y el compilador lo sustituye. `auto pi = 3.1416;` deduce `double` porque el literal tiene punto decimal; con `auto pi = 3;` sería `int`. La asignación `intentos = intentos + 1;` lee el valor, suma y guarda el resultado: no crea una variable nueva."
+		},
+		{
+			"type": "p",
+			"md": "La salida es `listo: 1 de 5` y `Tasa: 0.1 | pi: 3.1416`. `std::cout` no imprime el tipo, solo el valor formateado."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: precedencia y división entera"
+		},
+		{
+			"type": "p",
+			"md": "Los operadores aritméticos siguen la precedencia habitual: primero `*`, `/` y `%`; después `+` y `-`; los paréntesis mandan. Con enteros, `/` descarta la parte decimal en vez de redondear."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "aritmetica.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int a = 7;\n    int b = 2;\n\n    std::cout << \"a + b * 3 = \" << a + b * 3 << '\\n';\n    std::cout << \"(a + b) * 3 = \" << (a + b) * 3 << '\\n';\n    std::cout << \"a / b = \" << a / b << '\\n';\n    std::cout << \"a % b = \" << a % b << '\\n';\n    std::cout << \"a / b en double = \" << static_cast<double>(a) / b << '\\n';\n    return 0;\n}",
+			"highlight": [
+				10,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "`7 + 2 * 3` da 13, no 27: la multiplicación se evalúa antes. `(a + b) * 3` da 27 porque los paréntesis fuerzan la suma. `7 / 2` da 3 y `7 % 2` da 1: cociente y resto de la división entera. Para obtener 3.5 hay que convertir al menos un operando a `double`; `static_cast<double>(a) / b` lo hace de forma explícita y legible."
+		},
+		{
+			"type": "p",
+			"md": "El operador `%` solo existe para enteros. Si lo aplicas a un `double`, el compilador se queja; para reales se usa `std::fmod` de `<cmath>`."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: normalizar una característica"
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning es habitual escalar una columna a un rango común. La fórmula **min-max** es `(x - min) / (max - min)`, y con `double` conserva los decimales que el modelo necesita."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "normalizar.cpp",
+			"code": "#include <iomanip>\n#include <iostream>\n\nint main() {\n    // Una característica (por ejemplo, la edad) que queremos llevar a [0, 1]\n    constexpr double minimo = 18.0;\n    constexpr double maximo = 60.0;\n    double valor = 33.0;\n\n    double normalizado = (valor - minimo) / (maximo - minimo);\n\n    std::cout << std::fixed << std::setprecision(3);\n    std::cout << \"x = \" << valor << \" -> \" << normalizado << '\\n';\n    return 0;\n}",
+			"highlight": [
+				10
+			]
+		},
+		{
+			"type": "p",
+			"md": "Con `x = 33`, `min = 18` y `max = 60`: (33 − 18) / (60 − 18) = 15 / 42 ≈ 0.357. Si los tres valores fueran enteros, la división también sería entera y obtendrías 0. Ese es el error clásico de la normalización en C++."
+		},
+		{
+			"type": "p",
+			"md": "En NumPy escribes `(x - x.min()) / (x.max() - x.min())` y la operación se aplica al array completo. Aquí lo haces valor por valor porque aún no conoces contenedores; la lógica numérica es la misma."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué guarda cada variable"
+		},
+		{
+			"type": "p",
+			"md": "La traza sigue un programa con `a = 7` y `b = 2`. Observa cómo `cociente` y `exacto` reciben resultados distintos a partir de los mismos operandos: la diferencia está en el tipo del destino y en la conversión."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "División entera frente a división real",
+			"code": "#include <iostream>\n\nint main() {\n    int a = 7;\n    int b = 2;\n    int cociente = a / b;\n    double exacto = static_cast<double>(a) / b;\n    int resto = a % b;\n    std::cout << cociente << ' ' << exacto << ' ' << resto << '\\n';\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 4,
+					"note": "`a` ocupa 4 bytes y guarda 7.",
+					"vars": {
+						"a": "7"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`b` guarda 2. Los dos operandos son `int`.",
+					"vars": {
+						"a": "7",
+						"b": "2"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "7 / 2 con enteros: se descarta la parte decimal. No se redondea.",
+					"vars": {
+						"a": "7",
+						"b": "2",
+						"cociente": "3"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "La conversión crea 7.0 y la división pasa a ser real: 3.5.",
+					"vars": {
+						"a": "7",
+						"b": "2",
+						"cociente": "3",
+						"exacto": "3.5"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "El resto de 7 entre 2 es 1.",
+					"vars": {
+						"a": "7",
+						"b": "2",
+						"cociente": "3",
+						"exacto": "3.5",
+						"resto": "1"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "Los tres valores se escriben separados por espacios.",
+					"vars": {
+						"a": "7",
+						"b": "2",
+						"cociente": "3",
+						"exacto": "3.5",
+						"resto": "1"
+					},
+					"output": "3 3.5 1\n"
+				},
+				{
+					"line": 10,
+					"note": "`return 0` cierra el programa con éxito.",
+					"vars": {
+						"a": "7",
+						"b": "2",
+						"cociente": "3",
+						"exacto": "3.5",
+						"resto": "1"
+					},
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Conversiones y static_cast"
+		},
+		{
+			"type": "p",
+			"md": "C++ convierte tipos automáticamente en muchas situaciones: un `int` pasa a `double` sin perder información, un `char` a `int` da su código ASCII, un `double` a `int` trunca. Las dos primeras son seguras; la tercera no."
+		},
+		{
+			"type": "p",
+			"md": "Cuando la conversión es deliberada, escríbela con `static_cast<T>(valor)`. Deja claro que sabes lo que haces y permite que las búsquedas y los revisores la encuentren. `int nota = promedio;` compila, pero oculta la pérdida; `int nota = static_cast<int>(promedio);` la declara."
+		},
+		{
+			"type": "p",
+			"md": "Con inicialización por llaves, el compilador rechaza el narrowing: `int nota{promedio};` es un error, no un aviso. Esa es la razón por la que el curso insiste en `{}`."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Error",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`error: type 'double' cannot be narrowed to 'int'`",
+					"Inicializaste un `int` con llaves usando un `double`",
+					"Convierte con `static_cast<int>(...)`"
+				],
+				[
+					"`warning: variable 'x' is uninitialized`",
+					"Leíste una variable sin valor",
+					"Inicialízala al declararla"
+				],
+				[
+					"Una media da 0",
+					"Dividiste dos enteros",
+					"Convierte el numerador a `double`"
+				],
+				[
+					"`error: assignment of read-only variable`",
+					"Intentaste modificar una `const`",
+					"Quita `const` o usa otra variable"
+				],
+				[
+					"Un `unsigned` muestra un valor enorme",
+					"Restaste más de lo que había",
+					"Usa un tipo con signo o comprueba antes"
+				],
+				[
+					"`error: 'x' was not declared in this scope`",
+					"Usaste la variable fuera de su bloque",
+					"Declárala en el ámbito donde se usa"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "La llave avisa, el cast decide",
+			"wrong": {
+				"caption": "No compila",
+				"code": "#include <iostream>\n\nint main() {\n    double promedio = 7.5;\n    int nota{promedio};\n    std::cout << nota << '\\n';\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "#include <iostream>\n\nint main() {\n    double promedio = 7.5;\n    int nota{static_cast<int>(promedio)};\n    std::cout << nota << '\\n';\n    return 0;\n}"
+			},
+			"explain": "La inicialización con llaves prohíbe perder información de forma implícita. `static_cast<int>` dice explícitamente que aceptas el truncamiento: la salida es 7, no 8."
+		},
+		{
+			"type": "p",
+			"md": "Sobre el desbordamiento: con enteros con signo es comportamiento indefinido, así que no hay un valor «esperado». Con `unsigned` la vuelta está definida, pero casi nunca es lo que quieres. Si un cálculo puede crecer, usa `long long` o `double` y comprueba los límites."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Inicializa siempre: `int total{0};` cuesta lo mismo que `int total;` y evita basura.",
+				"Declara `const` por defecto y relájalo solo si necesitas modificar.",
+				"Usa `constexpr` para constantes conocidas al compilar.",
+				"No abuses de `auto`: úsalo cuando el tipo sea obvio o irrelevante para la lectura.",
+				"Convierte con `static_cast`, nunca con casts estilo C.",
+				"Evita los números mágicos: dales nombre con `constexpr`.",
+				"Elige `double` para cálculos con decimales; `float` solo si el ahorro de memoria importa."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Presupuesto de cómputo",
+			"md": "Una hora de GPU cuesta 2.40 USD y tienes 7 horas contratadas con un descuento del 15 %. Calcula el bruto, el ahorro y el total con variables `constexpr` para los tres datos de entrada, y muestra los resultados con dos decimales. Comprueba que el total es 14.28.",
+			"hint": "El descuento se aplica sobre el bruto: `bruto * 0.15`. Usa `std::fixed` y `std::setprecision(2)`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "presupuesto.cpp",
+				"code": "#include <iomanip>\n#include <iostream>\n\nint main() {\n    constexpr double costo_hora = 2.4;  // USD por hora de GPU\n    constexpr int horas = 7;\n    constexpr double descuento = 0.15;\n\n    double bruto = horas * costo_hora;\n    double ahorro = bruto * descuento;\n    double total = bruto - ahorro;\n\n    std::cout << std::fixed << std::setprecision(2);\n    std::cout << \"Bruto:  USD \" << bruto << '\\n';\n    std::cout << \"Ahorro: USD \" << ahorro << '\\n';\n    std::cout << \"Total:  USD \" << total << '\\n';\n    return 0;\n}",
+				"explain": "`horas * costo_hora` mezcla `int` y `double`, así que el resultado es real. El descuento se calcula sobre el bruto y el total resta ambos valores."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Promedio sin perder decimales",
+			"md": "Guarda tres notas enteras (14, 17 y 11), calcula su suma y su promedio, y muestra ambos con dos decimales. El promedio debe ser 14.00 y no 14. Cambia una nota a 16 y comprueba que el promedio pasa a 15.67.",
+			"hint": "La suma es `int`; convierte la suma a `double` antes de dividir entre 3.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "promedio.cpp",
+				"code": "#include <iomanip>\n#include <iostream>\n\nint main() {\n    int n1 = 14;\n    int n2 = 17;\n    int n3 = 11;\n\n    int suma = n1 + n2 + n3;\n    double promedio = static_cast<double>(suma) / 3;\n\n    std::cout << std::fixed << std::setprecision(2);\n    std::cout << \"Suma: \" << suma << \" | Promedio: \" << promedio << '\\n';\n    return 0;\n}",
+				"explain": "`suma / 3` daría 14 sin decimales. Al convertir la suma a `double`, la división es real y `setprecision(2)` la muestra como 14.00."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Área del círculo",
+			"lang": "cpp",
+			"code": "#include <iostream>\n\nint main() {\n    constexpr double pi = ___;\n    double radio = 2.0;\n    auto area = pi * radio * ___;\n    std::cout << area << '\\n';\n    return ___;\n}",
+			"answers": [
+				"3.14159",
+				"radio",
+				"0"
+			],
+			"hint": "El área es π por el radio al cuadrado. El retorno de `main` indica éxito.",
+			"explain": "Con `radio = 2`, el área es 3.14159 × 2 × 2 = 12.56636. `auto` deduce `double` porque `pi` y `radio` lo son. La respuesta 0 cierra el programa sin errores."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el presupuesto, la decisión importante es el tipo de cada dato: horas es un conteo (`int`), mientras que costo y descuento son reales. Si declararas `costo_hora` como `int`, perderías los 40 centavos y el total cambiaría. `constexpr` documenta que esos valores se conocen al compilar y evita que alguien los modifique por accidente."
+		},
+		{
+			"type": "p",
+			"md": "En el promedio, el error típico es dividir antes de convertir. `suma / 3` se evalúa como división entera y produce 14; después, asignar ese 14 a un `double` no recupera los decimales perdidos. La conversión tiene que ocurrir **antes** de la división, y por eso el `static_cast` envuelve a `suma`."
+		},
+		{
+			"type": "p",
+			"md": "En el área, `auto` no adivina: deduce del inicializador. Como `pi` es `double` y `radio` es `double`, el producto también lo es. Escribir `auto area = 3;` habría dado un `int`, un recordatorio de que la deducción depende por completo de la expresión de la derecha."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una variable es un objeto con nombre, tipo, valor y dirección.",
+				"El tipo decide el tamaño, las operaciones válidas y las conversiones.",
+				"Inicializa siempre; una variable sin inicializar tiene un valor indeterminado.",
+				"`const` impide reasignar; `constexpr` exige un valor conocido al compilar.",
+				"`auto` deduce el tipo del inicializador, no del uso posterior.",
+				"La división entre enteros trunca; convierte a `double` antes de dividir.",
+				"`static_cast<T>(x)` hace explícita una conversión que puede perder información.",
+				"El desbordamiento con signo es comportamiento indefinido; respeta los límites del tipo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué tipo y qué valor tiene `auto x = 7 / 2;`?",
+			"options": [
+				"`double` con 3.5",
+				"`int` con 3",
+				"`int` con 4",
+				"`double` con 3.0"
+			],
+			"answer": 1,
+			"explain": "La expresión `7 / 2` se evalúa primero, con enteros, y da 3. `auto` deduce el tipo de ese resultado: `int`. Para obtener 3.5 hay que escribir `7.0 / 2`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué exige `constexpr` que no exige `const`?",
+			"options": [
+				"Que la variable sea global",
+				"Que el valor se conozca en tiempo de compilación",
+				"Que la variable sea de tipo `int`",
+				"Que se inicialice con llaves"
+			],
+			"answer": 1,
+			"explain": "`const` solo impide modificar el valor después de inicializarlo; puede calcularse en tiempo de ejecución. `constexpr` exige una expresión constante, evaluable por el compilador."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `int nota{7.5};` no compila?",
+			"options": [
+				"Porque `7.5` no es un literal válido",
+				"Porque las llaves prohíben el narrowing de `double` a `int`",
+				"Porque `nota` debería ser `double`",
+				"Porque falta un `static_cast` en la declaración del tipo"
+			],
+			"answer": 1,
+			"explain": "La inicialización con llaves rechaza las conversiones que pierden información. Si el truncamiento es intencional, se escribe `int nota{static_cast<int>(7.5)};`."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference: declaraciones",
+					"url": "https://en.cppreference.com/w/cpp/language/declarations",
+					"note": "tipos, inicialización y ámbito"
+				},
+				{
+					"label": "cppreference: constexpr",
+					"url": "https://en.cppreference.com/w/cpp/language/constexpr",
+					"note": "evaluación en tiempo de compilación"
+				},
+				{
+					"label": "cppreference: static_cast",
+					"url": "https://en.cppreference.com/w/cpp/language/static_cast",
+					"note": "conversiones explícitas"
+				}
+			]
+		}
+	]
+}

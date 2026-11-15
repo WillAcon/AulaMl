@@ -1,0 +1,649 @@
+{
+	"id": "py-17-excepciones",
+	"track": "python",
+	"order": 17,
+	"title": "Errores y excepciones",
+	"subtitle": "try, except, else y finally: capturar lo que puede fallar, lanzar errores con intención y leer el traceback sin miedo",
+	"level": "intermedio",
+	"minutes": 36,
+	"tags": [
+		"excepciones",
+		"errores",
+		"try-except",
+		"traceback",
+		"validacion"
+	],
+	"keywords": [
+		"try except python",
+		"try except else finally",
+		"raise python",
+		"excepción personalizada",
+		"tipos de excepción",
+		"leer traceback",
+		"EAFP",
+		"no silenciar errores",
+		"ValueError",
+		"ZeroDivisionError",
+		"capturar excepciones",
+		"errores en python"
+	],
+	"summary": "Un programa real falla: archivos ausentes, datos sucios y entradas inválidas. Aquí aprendes a capturar solo lo que esperas con try/except/else/finally, a lanzar excepciones propias con mensajes útiles, a encadenar causas y a leer un traceback de abajo hacia arriba.",
+	"objectives": [
+		"Usar try, except, else y finally sabiendo qué se ejecuta en cada caso",
+		"Elegir el tipo de excepción adecuado y capturar solo lo esperado",
+		"Definir excepciones personalizadas que lleven información del error",
+		"Propagar o encadenar un error con raise y raise ... from",
+		"Leer un traceback e identificar la línea y la causa real",
+		"Evitar los bloques que silencian errores y explican por qué son peligrosos"
+	],
+	"prerequisites": [
+		"Composición y diseño de clases"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un programa que solo funciona cuando todo sale bien funciona casi nunca. El archivo que esperabas no está, la red se corta, el usuario escribe «doce» donde pedías un número y el divisor que parecía seguro resulta ser cero. Nada de eso es un error de sintaxis: el código está bien escrito y, aun así, algo falla en tiempo de ejecución."
+		},
+		{
+			"type": "p",
+			"md": "Una **excepción** es la forma que tiene Python de decir «no puedo completar esta operación». Aprender a tratarlas no es añadir `try` por todas partes: es decidir qué fallos sabes resolver, cuáles debes reportar y cuáles deben detener el programa antes de corromper datos."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una excepción?"
+		},
+		{
+			"type": "p",
+			"md": "Una excepción es un **objeto** que representa una condición anómala. Cuando una función no puede cumplir su contrato, *lanza* (`raise`) ese objeto. Si nadie lo captura, el intérprete detiene el programa, imprime el **traceback** y termina con un código de salida distinto de cero."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en una alarma de incendio: no apaga el fuego, avisa de que algo va mal y deja que actúe quien esté preparado. Si nadie responde, el edificio se desaloja. En Python, el `try/except` es el sistema que responde; el traceback es el registro de dónde empezó el fuego."
+		},
+		{
+			"type": "p",
+			"md": "No todas las excepciones son errores de programación. `FileNotFoundError` al leer un archivo que aún no existe es una condición esperable; `TypeError` por sumar un texto y un número es un fallo de tu lógica. La primera se maneja, la segunda se corrige."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Validar entradas**: rechazar una edad negativa o un precio vacío antes de que el dato entre al sistema.",
+				"**Sobrevivir a fallos externos**: un archivo ausente, una API caída o un JSON corrupto no deben tumbar todo el proceso.",
+				"**Informar con precisión**: un mensaje que dice qué fila falló y por qué ahorra horas de depuración.",
+				"**Mantener el estado consistente**: si un cobro falla, no debe quedar registrado a medias.",
+				"**Procesar por lotes**: descartar las filas malas, anotarlas y seguir con el resto del informe.",
+				"**Separar responsabilidades**: la función que valida lanza el error; quien llama decide qué hacer con él."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Capturar no es arreglar",
+			"md": "Un `except` que imprime «algo falló» y continúa esconde el problema y lo traslada a un lugar donde el mensaje ya no tendrá sentido. Si no sabes qué hacer con la excepción, no la captures: deja que suba con su traceback o relánzala con contexto."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cuando se lanza una excepción, Python interrumpe la ejecución normal y empieza a **propagarla**: si la instrucción actual está dentro de un `try`, busca un `except` compatible; si no lo encuentra, la función termina y el objeto sube a quien la llamó. El proceso se repite hasta que alguien la captura o hasta llegar al intérprete."
+		},
+		{
+			"type": "p",
+			"md": "El **traceback** es la lista de marcos que la excepción atravesó. Se lee **de abajo hacia arriba**: la última línea tiene el tipo y el mensaje, y justo encima está la línea exacta donde se lanzó. Las anteriores son el camino de llamadas. Cuando veas cien líneas de biblioteca, busca la primera que sea tu archivo."
+		},
+		{
+			"type": "p",
+			"md": "Todas las excepciones heredan de `BaseException`. De ahí cuelga `Exception`, que agrupa las que un programa normal debería manejar: `ValueError`, `TypeError`, `KeyError`, `ZeroDivisionError`, `FileNotFoundError`. Captura `Exception`, no `BaseException`: esta última incluye `KeyboardInterrupt` y `SystemExit`, que existen para que puedas detener el programa."
+		},
+		{
+			"type": "p",
+			"md": "Un `try` que no falla cuesta casi nada. Lo caro es lanzar y capturar excepciones, así que no las uses como un `if` disfrazado en un bucle de millones de iteraciones."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Las cuatro cláusulas y las dos formas de lanzar",
+			"code": "texto = \"42\"\n\ntry:\n    valor = int(texto)\nexcept ValueError as error:\n    print(\"No es un número:\", error)\nexcept (TypeError, KeyError):\n    print(\"Entrada con el tipo o la clave equivocados\")\nelse:\n    print(\"Conversión correcta:\", valor)\nfinally:\n    print(\"Este bloque se ejecuta siempre\")\n\nclass ErrorDeDato(Exception):\n    \"\"\"Una fila del archivo no se puede procesar.\"\"\"\n\nif not texto:\n    raise ErrorDeDato(\"el texto está vacío\")\n\ntry:\n    try:\n        numero = int(\"doce\")\n    except ValueError as error:\n        raise ErrorDeDato(\"no se pudo convertir\") from error\nexcept ErrorDeDato as error:\n    print(\"ErrorDeDato:\", error)",
+			"highlight": [
+				4,
+				6,
+				7,
+				10,
+				12,
+				17,
+				22,
+				25
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Cláusula",
+				"Cuándo se ejecuta"
+			],
+			"rows": [
+				[
+					"`try`",
+					"Siempre, rodeando el código que puede fallar"
+				],
+				[
+					"`except Tipo`",
+					"Si se lanza una excepción de ese tipo o de una subclase"
+				],
+				[
+					"`else`",
+					"Solo si el `try` terminó sin excepciones"
+				],
+				[
+					"`finally`",
+					"Siempre: con error, sin error, con `return` o con `break`"
+				],
+				[
+					"`raise Error(...)`",
+					"Lanza una excepción nueva"
+				],
+				[
+					"`raise ... from error`",
+					"Lanza una nueva y conserva la original como causa"
+				]
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Lanzar y capturar en los dos lenguajes",
+			"python": {
+				"caption": "errores.py",
+				"code": "class ErrorDeDato(Exception):\n    pass\n\ndef convertir(texto):\n    try:\n        return int(texto)\n    except ValueError as error:\n        raise ErrorDeDato(\"no es un número: \" + texto) from error\n\nfor texto in [\"42\", \"cuarenta\"]:\n    try:\n        print(convertir(texto))\n    except ErrorDeDato as error:\n        print(\"Error:\", error)"
+			},
+			"cpp": {
+				"caption": "errores.cpp",
+				"code": "#include <iostream>\n#include <stdexcept>\n#include <string>\n\nint convertir(const std::string& texto) {\n    try {\n        return std::stoi(texto);\n    } catch (const std::invalid_argument&) {\n        throw std::runtime_error(\"no es un número: \" + texto);\n    }\n}\n\nint main() {\n    try {\n        std::cout << convertir(\"42\") << '\\n';\n        std::cout << convertir(\"cuarenta\") << '\\n';\n    } catch (const std::runtime_error& error) {\n        std::cerr << \"Error: \" << error.what() << '\\n';\n        return 1;\n    }\n    return 0;\n}"
+			},
+			"note": "Python captura por tipo y permite encadenar la causa con `from`. C++ captura con `catch` por referencia y no tiene `finally`: la limpieza se confía a los destructores (RAII). Ambos imprimen 42 y después el mensaje de error."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Excepción",
+				"Aparece cuando..."
+			],
+			"rows": [
+				[
+					"`ValueError`",
+					"El tipo es correcto pero el valor no sirve: `int(\"doce\")`"
+				],
+				[
+					"`TypeError`",
+					"La operación no admite esos tipos: `\"2\" + 2`"
+				],
+				[
+					"`KeyError`",
+					"Falta una clave del diccionario: `datos[\"edad\"]`"
+				],
+				[
+					"`IndexError`",
+					"El índice está fuera de la lista: `[1, 2][5]`"
+				],
+				[
+					"`ZeroDivisionError`",
+					"El divisor vale cero"
+				],
+				[
+					"`FileNotFoundError`",
+					"La ruta no existe o no tienes permisos para leerla"
+				]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: dividir sin romper el programa"
+		},
+		{
+			"type": "p",
+			"md": "El caso clásico. La función devuelve un número o `None`, y el llamador puede decidir qué hacer sin que el proceso termine."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "dividir.py",
+			"code": "def dividir(a, b):\n    try:\n        return a / b\n    except ZeroDivisionError:\n        print(\"No se puede dividir entre cero\")\n        return None\n\nprint(dividir(10, 2))\nprint(dividir(10, 0))",
+			"highlight": [
+				2,
+				4,
+				5,
+				6
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `5.0`, luego el mensaje y `None`. Solo se captura `ZeroDivisionError`: si `a` fuera un texto, el `TypeError` subiría y revelaría un error de programación que no debes ocultar. Un `except:` a secas capturaría también eso y convertiría un bug evidente en un `None` silencioso."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: excepciones propias con datos"
+		},
+		{
+			"type": "p",
+			"md": "Cuando varias funciones comparten una regla de negocio, conviene darle un tipo propio. Así quien llama puede distinguir «el dato no cumple la regla» de «el archivo no existe» sin mirar el texto del mensaje."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "validar_edad.py",
+			"code": "class ErrorDeValidacion(Exception):\n    \"\"\"La entrada no cumple las reglas del dominio.\"\"\"\n\nclass EdadInvalida(ErrorDeValidacion):\n    def __init__(self, valor):\n        super().__init__(f\"edad inválida: {valor}\")\n        self.valor = valor\n\ndef validar_edad(edad):\n    if not isinstance(edad, int):\n        raise TypeError(\"la edad debe ser un entero\")\n    if edad < 0 or edad > 120:\n        raise EdadInvalida(edad)\n    return edad\n\nfor valor in [-5, \"20\", 30]:\n    try:\n        print(\"ok\", validar_edad(valor))\n    except EdadInvalida as error:\n        print(\"EdadInvalida:\", error, \"->\", error.valor)\n    except TypeError as error:\n        print(\"TypeError:\", error)",
+			"highlight": [
+				4,
+				6,
+				7,
+				12,
+				17,
+				19,
+				21
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `EdadInvalida: edad inválida: -5 -> -5`, `TypeError: la edad debe ser un entero` y `ok 30`. `EdadInvalida` hereda de `ErrorDeValidacion`, así que un `except ErrorDeValidacion` también la capturaría: esa es la utilidad de la jerarquía. El atributo `valor` guarda el dato rechazado, algo que un mensaje de texto no siempre permite recuperar."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: procesar un lote y anotar las filas malas"
+		},
+		{
+			"type": "p",
+			"md": "Un informe de ventas recibe filas de un CSV. Una fila con la columna `unidades` no numérica no debe detener las otras cien. El objetivo es separar lo que se pudo calcular de lo que falló, con un motivo legible por cada error."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "lote.py",
+			"code": "class ErrorDeDato(Exception):\n    \"\"\"Una fila del archivo no se puede procesar.\"\"\"\n\ndef convertir(fila):\n    try:\n        producto = fila[\"producto\"].strip()\n        unidades = int(fila[\"unidades\"])\n        precio = float(fila[\"precio\"])\n    except KeyError as error:\n        raise ErrorDeDato(f\"falta la columna {error}\") from error\n    except ValueError as error:\n        raise ErrorDeDato(f\"valor no numérico en {fila}\") from error\n    if unidades < 0 or precio <= 0:\n        raise ErrorDeDato(f\"valores fuera de rango en {producto}\")\n    return producto, unidades * precio\n\nfilas = [\n    {\"producto\": \"teclado\", \"unidades\": \"3\", \"precio\": \"120.0\"},\n    {\"producto\": \"monitor\", \"unidades\": \"x\", \"precio\": \"900.0\"},\n    {\"producto\": \"mouse\", \"unidades\": \"5\"},\n    {\"producto\": \"cable\", \"unidades\": \"-2\", \"precio\": \"15.0\"},\n]\n\ntotal = 0\nerrores = []\nfor fila in filas:\n    try:\n        producto, importe = convertir(fila)\n    except ErrorDeDato as error:\n        errores.append(str(error))\n    else:\n        total += importe\n        print(\"ok:\", producto, importe)\n\nprint(\"total:\", total)\nprint(\"errores:\", len(errores))\nfor error in errores:\n    print(\"-\", error)",
+			"highlight": [
+				9,
+				11,
+				13,
+				27,
+				29,
+				30,
+				31
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida empieza con `ok: teclado 360.0`, sigue con `total: 360.0`, `errores: 3` y tres líneas de motivo: el valor no numérico, la columna que falta y los valores negativos. El `else` del `try` solo se ejecuta cuando `convertir` no lanzó nada, así que el total nunca suma una fila a medias. Y `raise ... from error` conserva la causa original: si depuras, el traceback muestra tanto `ValueError` como `ErrorDeDato`."
+		},
+		{
+			"type": "p",
+			"md": "`convertir` **no imprime**: lanza un error con la información y deja que el bucle decida si lo acumula o lo relanza. Así la misma función sirve en un script, en una API o en una prueba."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el recorrido de try a finally"
+		},
+		{
+			"type": "p",
+			"md": "Sigue una división entre cero. Observa el orden: se lanza en el `try`, se captura en el `except`, el `else` se salta y el `finally` se ejecuta antes de que el `return` llegue a quien llamó."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Excepción, captura y salida garantizada",
+			"code": "def dividir(a, b):\n    try:\n        resultado = a / b\n    except ZeroDivisionError as error:\n        print(\"Error:\", error)\n        return None\n    else:\n        print(\"Sin errores\")\n        return resultado\n    finally:\n        print(\"Termina dividir\")\n\nprint(dividir(10, 0))",
+			"steps": [
+				{
+					"line": 13,
+					"note": "Se llama `dividir(10, 0)`. La función entra con `a = 10` y `b = 0`; el `try` aún no ha ejecutado nada.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {}
+						},
+						{
+							"name": "dividir",
+							"vars": {
+								"a": "10",
+								"b": "0"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`10 / 0` lanza `ZeroDivisionError`. La asignación a `resultado` no llega a ocurrir: la ejecución salta al `except` que coincida con el tipo.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {}
+						},
+						{
+							"name": "dividir",
+							"vars": {
+								"a": "10",
+								"b": "0"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El tipo coincide y la excepción se enlaza a `error`. No se crea `resultado`; el objeto de la excepción sí está disponible.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {}
+						},
+						{
+							"name": "dividir",
+							"vars": {
+								"a": "10",
+								"b": "0",
+								"error": "ZeroDivisionError('division by zero')"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`print` escribe el mensaje de la excepción. El texto «division by zero» lo pone Python, no tu código.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {}
+						},
+						{
+							"name": "dividir",
+							"vars": {
+								"a": "10",
+								"b": "0",
+								"error": "ZeroDivisionError('division by zero')"
+							}
+						}
+					],
+					"output": "Error: division by zero\n"
+				},
+				{
+					"line": 6,
+					"note": "`return None` inicia la salida de la función, pero antes de entregar el valor Python debe ejecutar el `finally`.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {}
+						},
+						{
+							"name": "dividir",
+							"vars": {
+								"a": "10",
+								"b": "0",
+								"error": "ZeroDivisionError('division by zero')"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "El `finally` se ejecuta aunque haya un `return` pendiente. Es el lugar para cerrar un archivo o liberar un recurso, porque corre en todos los caminos.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {}
+						},
+						{
+							"name": "dividir",
+							"vars": {
+								"a": "10",
+								"b": "0",
+								"error": "ZeroDivisionError('division by zero')"
+							}
+						}
+					],
+					"output": "Termina dividir\n"
+				},
+				{
+					"line": 13,
+					"note": "La función devuelve `None` y el `print` exterior lo escribe. El `else` nunca se ejecutó: solo corre cuando el `try` termina sin excepción.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {}
+						}
+					],
+					"output": "None\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje",
+				"Causa habitual",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`NameError: name 'error' is not defined`",
+					"Usaste la variable del `except` fuera de su bloque",
+					"Guarda `str(error)` dentro del bloque o asigna una variable propia"
+				],
+				[
+					"`ValueError: invalid literal for int() with base 10: 'doce'`",
+					"Convertiste texto no numérico sin capturar el fallo",
+					"Captura `ValueError` o valida el texto antes de convertirlo"
+				],
+				[
+					"`TypeError: catching classes that do not inherit from BaseException is not allowed`",
+					"Escribiste `except \"error\":` en lugar de una clase",
+					"Usa `except ValueError:` o el tipo de excepción que corresponda"
+				],
+				[
+					"`IndentationError: expected an indented block`",
+					"El `try` o el `except` quedaron sin cuerpo",
+					"Indenta al menos una instrucción en cada bloque"
+				],
+				[
+					"`ZeroDivisionError: division by zero`",
+					"Dividiste entre un valor que resultó ser cero",
+					"Comprueba el divisor o captura la excepción en el nivel que sepa resolverla"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Capturar todo y seguir como si nada",
+			"wrong": {
+				"caption": "El error se convierte en otro error más confuso",
+				"code": "texto = \"doce\"\ntry:\n    edad = int(texto)\nexcept:\n    pass\n\nprint(edad)"
+			},
+			"right": {
+				"caption": "Un valor por defecto explícito",
+				"code": "texto = \"doce\"\ntry:\n    edad = int(texto)\nexcept ValueError:\n    edad = 0\n\nprint(edad)"
+			},
+			"explain": "En el código incorrecto, el `except` vacío oculta el `ValueError` y `edad` nunca se asigna: el programa falla después con `NameError: name 'edad' is not defined`, un mensaje que no menciona el problema real. En el correcto, la captura es específica y el valor por defecto es una decisión visible."
+		},
+		{
+			"type": "p",
+			"md": "El `NameError` del ejemplo ilustra por qué conviene guardar el mensaje: Python elimina la variable `error` al salir del `except`. Si lo necesitas después, cópialo a otra variable dentro del bloque."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Captura el tipo más específico que sepas manejar; deja el resto subir.",
+				"Nunca uses `except:` desnudo ni `except Exception: pass`.",
+				"Usa `else` para el código que solo debe ejecutarse si no hubo error, y mantenlo fuera del `try`.",
+				"Usa `finally` (o mejor `with`) para liberar recursos.",
+				"Lanza excepciones con un mensaje que explique qué se esperaba y qué llegó.",
+				"Define excepciones propias cuando el error tenga significado de dominio.",
+				"Conserva la causa con `raise Nueva(...) from error`; usa `from None` solo si la original confunde.",
+				"No uses excepciones para el flujo normal: si un caso es esperable y frecuente, resuélvelo con una condición."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "EAFP: es más fácil pedir perdón que permiso",
+			"md": "El estilo *Easier to Ask Forgiveness than Permission* intenta la operación y captura el fallo: `try: nota = datos[clave]` / `except KeyError: nota = 0`. El estilo contrario, *LBYL*, comprueba antes con `if clave in datos`. En Python se prefiere EAFP cuando el fallo es raro, porque evita duplicar la condición. Si el caso ausente es habitual, `datos.get(clave, 0)` es más claro que ambos."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Conversor con excepción de formato",
+			"md": "Define `ErrorDeFormato(campo, valor)` que herede de `Exception`, guarde ambos datos y construya un mensaje como `edad: 'treinta' no es un entero`. Escribe `a_entero(texto, campo)` que convierta con `int` y, si falla con `ValueError` o `TypeError`, lance `ErrorDeFormato` conservando la causa. Recorre `[(\"edad\", \"30\"), (\"edad\", \"treinta\"), (\"peso\", \"72.5\")]` e imprime el resultado o el error con su campo.",
+			"hint": "Captura `(TypeError, ValueError)` en una sola cláusula y usa `raise ... from error`. En el bucle, `except ErrorDeFormato as error:` te da acceso a `error.campo`.",
+			"solution": {
+				"lang": "python",
+				"caption": "conversor.py",
+				"code": "class ErrorDeFormato(Exception):\n    def __init__(self, campo, valor):\n        super().__init__(f\"{campo}: '{valor}' no es un entero\")\n        self.campo = campo\n        self.valor = valor\n\ndef a_entero(texto, campo):\n    try:\n        return int(texto)\n    except (TypeError, ValueError) as error:\n        raise ErrorDeFormato(campo, texto) from error\n\ndatos = [(\"edad\", \"30\"), (\"edad\", \"treinta\"), (\"peso\", \"72.5\")]\nfor campo, texto in datos:\n    try:\n        print(campo, \"=\", a_entero(texto, campo))\n    except ErrorDeFormato as error:\n        print(\"ErrorDeFormato:\", error, \"| campo:\", error.campo)",
+				"explain": "La salida es `edad = 30` y dos líneas `ErrorDeFormato: ... | campo: ...`. La función convierte sin saber quién la llama, y el bucle decide cómo presentar el fallo. La causa original queda en `error.__cause__`, visible en el traceback si no se captura."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Configuración validada con else",
+			"md": "Escribe `leer_puerto(config)` que exija la clave `puerto`, la convierta a entero y compruebe que esté entre 1 y 65535. Cada problema debe lanzar una `ErrorDeConfiguracion` distinta: clave ausente, valor no numérico o puerto fuera de rango. Recorre cuatro configuraciones —`\"8080\"`, sin clave, `\"ochenta\"` y `\"70000\"`— y usa `else` para imprimir solo los puertos válidos.",
+			"hint": "Comprueba `\"puerto\" not in config` antes de convertir. Envolvé solo la conversión en `try/except ValueError` y lanza la nueva excepción con `from error`. El bucle usa `try/except/else`.",
+			"solution": {
+				"lang": "python",
+				"caption": "configuracion.py",
+				"code": "class ErrorDeConfiguracion(Exception):\n    pass\n\ndef leer_puerto(config):\n    if \"puerto\" not in config:\n        raise ErrorDeConfiguracion(\"falta la clave 'puerto'\")\n    try:\n        puerto = int(config[\"puerto\"])\n    except ValueError as error:\n        raise ErrorDeConfiguracion(\"el puerto debe ser numérico\") from error\n    if not 1 <= puerto <= 65535:\n        raise ErrorDeConfiguracion(f\"puerto fuera de rango: {puerto}\")\n    return puerto\n\nconfigs = [{\"puerto\": \"8080\"}, {}, {\"puerto\": \"ochenta\"}, {\"puerto\": \"70000\"}]\nfor config in configs:\n    try:\n        puerto = leer_puerto(config)\n    except ErrorDeConfiguracion as error:\n        print(\"error:\", error)\n    else:\n        print(\"ok:\", puerto)",
+				"explain": "La salida es `ok: 8080` y tres errores distintos. El `else` deja claro que `ok` solo se imprime cuando no hubo excepción. Cada mensaje dice qué falló, y la conversión conserva la causa original para el traceback."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el manejo de la conversión",
+			"lang": "python",
+			"code": "texto = \"42\"\n\ntry:\n    valor = int(texto)\n___ ValueError:\n    print(\"no es un número\")\n___:\n    print(\"conversión correcta:\", valor)",
+			"answers": [
+				"except",
+				"else"
+			],
+			"hint": "La cláusula que captura empieza por `except`; la que se ejecuta solo sin error es `else`.",
+			"explain": "`except` captura el error de conversión y `else` se ejecuta cuando el `try` termina bien. Con `texto = \"42\"` se imprime `conversión correcta: 42`; si cambiaras el texto por `\"cuarenta\"`, se imprimiría `no es un número`."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el conversor, la tentación es devolver `None` cuando algo falla. El problema aparece en el llamador: `None` no distingue «el campo estaba vacío» de «el usuario escribió letras», y tarde o temprano acaba en una operación aritmética con un mensaje incomprensible. Una excepción con `campo` y `valor` obliga a tomar una decisión explícita."
+		},
+		{
+			"type": "p",
+			"md": "En la configuración, el `else` no es decorativo: separa el camino feliz del camino de error. Si imprimes dentro del `try`, una excepción posterior en el `print` también se atribuiría al bloque de conversión. Mantener una sola operación por `try` reduce el riesgo de capturar un error que no era el que esperabas."
+		},
+		{
+			"type": "p",
+			"md": "Sobre el traceback: cuando un error sube desde una biblioteca, lee la última línea y busca hacia arriba la primera entrada de tu archivo. `raise ... from error` conserva la causa; `from None` la oculta cuando solo añade ruido. Ninguna sustituye a un mensaje que explique qué intentabas hacer."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una excepción es un objeto que interrumpe el flujo normal y se propaga hasta que alguien la captura.",
+				"`try` rodea el código arriesgado; `except Tipo` captura; `else` corre sin error; `finally` corre siempre.",
+				"Captura el tipo más específico posible y no silencies errores con `except: pass`.",
+				"`raise` lanza una excepción; `raise ... from error` conserva la causa original.",
+				"Una excepción personalizada hereda de `Exception` y puede llevar atributos con el dato rechazado.",
+				"El traceback se lee de abajo hacia arriba: tipo, mensaje y línea del fallo.",
+				"EAFP prefiere intentar y capturar cuando el fallo es raro; `dict.get` es mejor si el caso es habitual.",
+				"Si no sabes qué hacer con el error, no lo captures: déjalo subir con su contexto."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "En un bloque `try/except/else/finally`, ¿cuándo se ejecuta `else`?",
+			"options": [
+				"Siempre, antes del `except`",
+				"Solo si el `try` termina sin lanzar ninguna excepción",
+				"Solo si se capturó una excepción",
+				"Después del `finally`, en todos los casos"
+			],
+			"answer": 1,
+			"explain": "`else` es el camino feliz: corre únicamente cuando el `try` no lanzó nada. `finally` corre siempre, haya o no excepción, incluso si hay un `return` pendiente."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué diferencia hay entre `except ValueError:` y `except:`?",
+			"options": [
+				"El primero captura solo `ValueError` y sus subclases; el segundo captura cualquier excepción, incluidas las que no deberías manejar",
+				"Son equivalentes, pero el segundo es más rápido",
+				"El primero captura cualquier error y el segundo solo `ValueError`",
+				"El segundo no compila en Python 3"
+			],
+			"answer": 0,
+			"explain": "`except` sin tipo captura todo, también `KeyboardInterrupt` y errores de programación que conviene ver. Al limitar el tipo, un `TypeError` inesperado sigue subiendo y revela el bug."
+		},
+		{
+			"type": "quiz",
+			"question": "Una función lanza `EdadInvalida`, que hereda de `ErrorDeValidacion`, que hereda de `Exception`. ¿Qué cláusula la captura en `try/except ErrorDeValidacion`?",
+			"options": [
+				"No la captura, porque el tipo exacto es otro",
+				"Sí, porque `except` también acepta subclases del tipo indicado",
+				"Solo si se escribe `except Exception as EdadInvalida`",
+				"Solo si la excepción se lanza con `from`"
+			],
+			"answer": 1,
+			"explain": "La captura por tipo incluye subclases. Por eso el orden importa: un `except Exception` colocado antes que `except ValueError` se quedaría con todo y la cláusula específica nunca se ejecutaría."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "Errores y excepciones",
+					"url": "https://docs.python.org/es/3/tutorial/errors.html",
+					"note": "try/except/else/finally, raise y excepciones propias"
+				},
+				{
+					"label": "Excepciones incorporadas",
+					"url": "https://docs.python.org/es/3/library/exceptions.html",
+					"note": "jerarquía completa de tipos"
+				},
+				{
+					"label": "Módulo traceback",
+					"url": "https://docs.python.org/es/3/library/traceback.html",
+					"note": "formatear y registrar trazas en programas reales"
+				}
+			]
+		}
+	]
+}

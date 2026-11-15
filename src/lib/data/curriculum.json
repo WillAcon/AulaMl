@@ -1,0 +1,198 @@
+{
+	"tracks": [
+		{
+			"id": "python",
+			"name": "Python",
+			"short": "PY",
+			"tagline": "De cero a producción con datos e IA",
+			"description": "Aprende Python desde la sintaxis más básica hasta NumPy, Pandas, scikit-learn, PyTorch y el despliegue de modelos. El lenguaje que domina la ciencia de datos y el Machine Learning.",
+			"modules": [
+				{
+					"id": "py-m1",
+					"title": "Introducción a Python",
+					"description": "El lenguaje, el entorno, las variables y los operadores.",
+					"lessons": ["py-01-que-es-python", "py-02-variables-tipos", "py-03-operadores"]
+				},
+				{
+					"id": "py-m2",
+					"title": "Estructuras de control",
+					"description": "Decisiones y repetición: el corazón de todo programa.",
+					"lessons": ["py-04-condicionales", "py-05-bucles"]
+				},
+				{
+					"id": "py-m3",
+					"title": "Estructuras de datos",
+					"description": "Texto, listas, tuplas, diccionarios, conjuntos y comprensiones.",
+					"lessons": [
+						"py-06-strings",
+						"py-07-listas-tuplas",
+						"py-08-diccionarios-sets",
+						"py-09-comprensiones"
+					]
+				},
+				{
+					"id": "py-m4",
+					"title": "Funciones",
+					"description": "Encapsular lógica, reutilizar código y controlar el alcance.",
+					"lessons": [
+						"py-10-funciones",
+						"py-11-args-kwargs-scope",
+						"py-12-lambda-recursividad"
+					]
+				},
+				{
+					"id": "py-m5",
+					"title": "Programación orientada a objetos",
+					"description": "Modela el mundo con clases, herencia y composición.",
+					"lessons": [
+						"py-13-clases",
+						"py-14-herencia",
+						"py-15-dunder",
+						"py-16-composicion"
+					]
+				},
+				{
+					"id": "py-m6",
+					"title": "Errores y archivos",
+					"description": "Programas que no se caen y que leen datos reales.",
+					"lessons": ["py-17-excepciones", "py-18-archivos"]
+				},
+				{
+					"id": "py-m7",
+					"title": "Python avanzado",
+					"description": "Generadores, decoradores, tipado, tests, logging y asincronía.",
+					"lessons": [
+						"py-19-iteradores-generadores",
+						"py-20-decoradores",
+						"py-21-tipos-dataclasses",
+						"py-22-modulos-entornos",
+						"py-23-testing-logging",
+						"py-24-concurrencia"
+					]
+				},
+				{
+					"id": "py-m8",
+					"title": "Python para ciencia de datos",
+					"description": "NumPy, Pandas, visualización y análisis exploratorio.",
+					"lessons": [
+						"py-25-numpy",
+						"py-26-pandas",
+						"py-27-limpieza",
+						"py-28-visualizacion",
+						"py-29-eda-estadistica"
+					]
+				},
+				{
+					"id": "py-m9",
+					"title": "Python para Machine Learning",
+					"description": "Fundamentos, modelos clásicos, validación, redes y Transformers.",
+					"lessons": [
+						"py-30-fundamentos-ml",
+						"py-31-regresion",
+						"py-32-arboles",
+						"py-33-kmeans",
+						"py-34-validacion",
+						"py-35-pytorch",
+						"py-36-nlp-transformers"
+					]
+				},
+				{
+					"id": "py-m10",
+					"title": "Proyectos reales",
+					"description": "Del notebook a una API desplegada en producción.",
+					"lessons": ["py-37-proyecto-api", "py-38-despliegue"]
+				}
+			]
+		},
+		{
+			"id": "cpp",
+			"name": "C++",
+			"short": "C++",
+			"tagline": "Rendimiento, memoria y motores de IA",
+			"description": "Aprende C++ moderno desde el primer programa hasta templates, memoria, STL, Eigen y bindings con Python. Entiende qué ocurre debajo de cada abstracción y por qué es el lenguaje del alto rendimiento.",
+			"modules": [
+				{
+					"id": "cpp-m1",
+					"title": "Fundamentos de C++",
+					"description": "Compilador, estructura de un programa, tipos y operadores.",
+					"lessons": [
+						"cpp-01-que-es-cpp",
+						"cpp-02-estructura-tipos",
+						"cpp-03-variables-operadores"
+					]
+				},
+				{
+					"id": "cpp-m2",
+					"title": "Estructuras de control",
+					"description": "if, else if, switch y los tres bucles clásicos.",
+					"lessons": ["cpp-04-condicionales", "cpp-05-bucles"]
+				},
+				{
+					"id": "cpp-m3",
+					"title": "Funciones",
+					"description": "Declaración, paso de argumentos, sobrecarga y recursión.",
+					"lessons": ["cpp-06-funciones", "cpp-07-referencias-sobrecarga"]
+				},
+				{
+					"id": "cpp-m4",
+					"title": "Memoria y punteros",
+					"description": "Stack, heap, direcciones, RAII y punteros inteligentes.",
+					"lessons": [
+						"cpp-08-memoria-punteros",
+						"cpp-09-referencias-new-delete",
+						"cpp-10-raii-smart-pointers"
+					]
+				},
+				{
+					"id": "cpp-m5",
+					"title": "Estructuras de datos",
+					"description": "Arrays, vector, string, map, set, iteradores y algoritmos.",
+					"lessons": [
+						"cpp-11-arrays-vector",
+						"cpp-12-map-set",
+						"cpp-13-iteradores-algoritmos"
+					]
+				},
+				{
+					"id": "cpp-m6",
+					"title": "Programación orientada a objetos",
+					"description": "Clases, herencia, polimorfismo, regla de cinco y templates.",
+					"lessons": [
+						"cpp-14-clases",
+						"cpp-15-herencia",
+						"cpp-16-regla-cinco",
+						"cpp-17-templates"
+					]
+				},
+				{
+					"id": "cpp-m7",
+					"title": "C++ moderno",
+					"description": "Lambdas, move semantics, optional, excepciones e hilos.",
+					"lessons": [
+						"cpp-18-lambdas",
+						"cpp-19-move-optional",
+						"cpp-20-excepciones-hilos"
+					]
+				},
+				{
+					"id": "cpp-m8",
+					"title": "C++ para alto rendimiento",
+					"description": "Complejidad, cache, profiling, paralelismo y SIMD.",
+					"lessons": ["cpp-21-rendimiento", "cpp-22-simd"]
+				},
+				{
+					"id": "cpp-m9",
+					"title": "C++ para Inteligencia Artificial",
+					"description": "Eigen, implementación de modelos desde cero y pybind11.",
+					"lessons": ["cpp-23-eigen", "cpp-24-ml-desde-cero", "cpp-25-pybind11"]
+				},
+				{
+					"id": "cpp-m10",
+					"title": "Proyectos reales",
+					"description": "Un motor matricial y un servidor de inferencia.",
+					"lessons": ["cpp-26-proyecto-matricial", "cpp-27-proyecto-inferencia"]
+				}
+			]
+		}
+	]
+}

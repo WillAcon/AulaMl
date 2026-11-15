@@ -1,0 +1,769 @@
+{
+	"id": "cpp-24-ml-desde-cero",
+	"track": "cpp",
+	"order": 24,
+	"title": "Machine Learning desde cero en C++",
+	"subtitle": "Regresión lineal con gradiente descendente, sin bibliotecas y con las cuentas a la vista",
+	"level": "avanzado",
+	"minutes": 58,
+	"tags": [
+		"machine learning",
+		"regresión lineal",
+		"gradiente descendente",
+		"mse"
+	],
+	"keywords": [
+		"machine learning en c++",
+		"regresión lineal c++",
+		"gradiente descendente c++",
+		"error cuadrático medio",
+		"mse c++",
+		"entrenar modelo c++",
+		"descenso de gradiente a mano",
+		"predicción c++",
+		"ml sin librerías",
+		"c++ vs python machine learning"
+	],
+	"summary": "Un modelo lineal se puede entrenar con treinta líneas de C++ y un bucle. Aquí calculas el error cuadrático medio, derivas sus gradientes, los aplicas paso a paso con números verificables y entrenas una regresión completa hasta que la predicción coincide con la recta que generó los datos.",
+	"objectives": [
+		"Calcular el error cuadrático medio de un modelo lineal",
+		"Derivar e implementar los gradientes de la pérdida respecto de w y b",
+		"Ejecutar a mano un paso de gradiente descendente y comprobarlo con el programa",
+		"Entrenar una regresión hasta que converja y predecir valores nuevos",
+		"Explicar qué papel juegan la tasa de aprendizaje y el escalado de las entradas"
+	],
+	"prerequisites": [
+		"Arrays, std::vector y std::string",
+		"Funciones: declaración, parámetros y retorno",
+		"Eigen: álgebra lineal en C++"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un modelo de Machine Learning no es magia: es una función con parámetros que se ajustan para que el error sea pequeño. En esta lección construyes la regresión lineal más simple posible en C++ puro, sin bibliotecas, y sigues cada número a mano. Al terminar sabrás qué hay dentro de una línea de `model.fit()` y podrás comprobarlo con una calculadora."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es entrenar un modelo?"
+		},
+		{
+			"type": "p",
+			"md": "Entrenar es buscar los parámetros que hacen mínima una medida de error. En regresión lineal el modelo es `y = w·x + b`, donde `w` es la pendiente y `b` el término independiente. Entrenar consiste en empezar con valores cualesquiera, medir cuánto se equivoca el modelo y corregir los parámetros en la dirección que reduce el error."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Modelo**: la forma de la función. Aquí una recta con dos parámetros.",
+				"**Pérdida**: un número que mide el error. Aquí el error cuadrático medio.",
+				"**Gradiente**: la derivada de la pérdida respecto de cada parámetro; indica hacia dónde crece el error.",
+				"**Tasa de aprendizaje**: cuánto avanzas en esa dirección en cada paso."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve hacerlo en C++?"
+		},
+		{
+			"type": "p",
+			"md": "En Python escribirías cuatro líneas con NumPy y funcionaría. La razón para bajarlo a C++ es la misma por la que existen PyTorch y TensorFlow por debajo: controlar la memoria, evitar la sobrecarga del intérprete y poder ejecutar el modelo donde no hay Python, como un móvil, un microcontrolador o un servicio con latencia de microsegundos."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Entender el algoritmo**: al escribirlo sin bibliotecas, cada derivada deja de ser una caja negra.",
+				"**Inferencia embebida**: un modelo lineal entrenado ocupa dos `double` y se evalúa en nanosegundos.",
+				"**Prototipos verificables**: puedes comparar tu implementación con la de una biblioteca línea por línea.",
+				"**Base para modelos mayores**: la misma estructura sirve para regresión logística o una red pequeña."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: modelo, pérdida y gradiente"
+		},
+		{
+			"type": "p",
+			"md": "Para cada muestra `i` el modelo predice `ŷ_i = w·x_i + b`. El error de esa muestra es `ŷ_i − y_i`, y la pérdida promedia sus cuadrados: `MSE = (1/n) · Σ (ŷ_i − y_i)²`. Se eleva al cuadrado para que los errores positivos y negativos no se cancelen y para castigar más los grandes."
+		},
+		{
+			"type": "p",
+			"md": "La derivada de esa pérdida respecto de cada parámetro tiene una forma cerrada. Respecto de la pendiente: `∂MSE/∂w = (2/n) · Σ x_i · (ŷ_i − y_i)`. Respecto del término independiente: `∂MSE/∂b = (2/n) · Σ (ŷ_i − y_i)`. No hace falta memorizarlas: se obtienen aplicando la regla de la cadena al cuadrado."
+		},
+		{
+			"type": "p",
+			"md": "El gradiente apunta hacia donde la pérdida **crece**. Por eso la actualización resta: `w ← w − lr · ∂MSE/∂w`, y lo mismo con `b`. Si el gradiente es negativo, restar un negativo suma, y el parámetro se mueve en la dirección que baja el error."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "El 2 del numerador y la tasa de aprendizaje",
+			"md": "El factor 2 de las derivadas es constante, así que se puede absorber en la tasa de aprendizaje. Muchos libros escriben la pérdida como la mitad del error cuadrático para que desaparezca. Lo importante es ser coherente: si quitas el 2 de la derivada, la tasa efectiva se duplica."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: la función de pérdida"
+		},
+		{
+			"type": "p",
+			"md": "Empieza por la pieza más pequeña: una función que recibe los datos, la pendiente y el término independiente, y devuelve un solo número. Es la que te dirá si el entrenamiento mejora o empeora."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "mse.cpp",
+			"code": "#include <cstdio>\n#include <vector>\n\ndouble mse(const std::vector<double>& x, const std::vector<double>& y, double w, double b) {\n    double suma = 0.0;\n    for (std::size_t i = 0; i < x.size(); ++i) {\n        const double error = w * x[i] + b - y[i];\n        suma += error * error;\n    }\n    return suma / static_cast<double>(x.size());\n}\n\nint main() {\n    const std::vector<double> x{1.0, 2.0, 3.0, 4.0};\n    const std::vector<double> y{2.0, 4.0, 6.0, 8.0};\n\n    std::printf(\"w=0.0  b=0.0   -> %.6f\\n\", mse(x, y, 0.0, 0.0));\n    std::printf(\"w=1.5  b=0.5   -> %.6f\\n\", mse(x, y, 1.5, 0.5));\n    std::printf(\"w=1.75 b=0.575 -> %.6f\\n\", mse(x, y, 1.75, 0.575));\n    std::printf(\"w=2.0  b=0.0   -> %.6f\\n\", mse(x, y, 2.0, 0.0));\n    return 0;\n}",
+			"highlight": [
+				7,
+				8,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los cuatro resultados son `30.000000`, `0.875000`, `0.080625` y `0.000000`. El último confirma la respuesta: los datos salen de la recta `y = 2x`, así que `w = 2` y `b = 0` dejan error cero. Los demás son los pasos intermedios que el entrenamiento irá recorriendo."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: un paso de gradiente a mano"
+		},
+		{
+			"type": "p",
+			"md": "Empieza con `w = 0` y `b = 0`. Las predicciones son todas cero, así que los errores son `-2, -4, -6, -8`. Sus cuadrados suman `4 + 16 + 36 + 64 = 120`, y al dividir entre cuatro muestras la pérdida es `30`."
+		},
+		{
+			"type": "table",
+			"head": [
+				"x",
+				"y",
+				"ŷ = 0",
+				"error = ŷ − y",
+				"error²"
+			],
+			"rows": [
+				[
+					"1",
+					"2",
+					"0",
+					"-2",
+					"4"
+				],
+				[
+					"2",
+					"4",
+					"0",
+					"-4",
+					"16"
+				],
+				[
+					"3",
+					"6",
+					"0",
+					"-6",
+					"36"
+				],
+				[
+					"4",
+					"8",
+					"0",
+					"-8",
+					"64"
+				],
+				[
+					"Σ",
+					"—",
+					"—",
+					"-20",
+					"120"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Ahora los gradientes. Para `w`: `(2/4) · (1·(-2) + 2·(-4) + 3·(-6) + 4·(-8)) = 0.5 · (-60) = -30`. Para `b`: `(2/4) · (-20) = -10`. Ambos son negativos, así que restarlos aumenta los parámetros: la recta está demasiado plana y demasiado baja."
+		},
+		{
+			"type": "p",
+			"md": "Con `lr = 0.05`: `w = 0 − 0.05 · (-30) = 1.5` y `b = 0 − 0.05 · (-10) = 0.5`. Un solo paso ya llevó la pérdida de 30 a 0.875. El segundo paso, calculado igual, da `w = 1.75` y `b = 0.575`, con pérdida `0.080625`. El programa de la sección siguiente reproduce exactamente esos números."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: X, predicción y error época a época"
+		},
+		{
+			"type": "p",
+			"md": "Cada fila es una muestra y cada columna un vector: la entrada, la respuesta correcta, la predicción y el error. El visor redondea a dos decimales, así que los valores exactos aparecen en las notas de cada paso."
+		},
+		{
+			"type": "matrix",
+			"title": "Predicciones y error tras cada actualización",
+			"data": [
+				[
+					1,
+					2,
+					0,
+					-2
+				],
+				[
+					2,
+					4,
+					0,
+					-4
+				],
+				[
+					3,
+					6,
+					0,
+					-6
+				],
+				[
+					4,
+					8,
+					0,
+					-8
+				]
+			],
+			"rowLabels": [
+				"muestra 1",
+				"muestra 2",
+				"muestra 3",
+				"muestra 4"
+			],
+			"colLabels": [
+				"x",
+				"y",
+				"ŷ",
+				"error"
+			],
+			"steps": [
+				{
+					"note": "Época 0, con `w = 0` y `b = 0`: todas las predicciones son cero y los errores son `-y`. MSE = 30.",
+					"highlight": [
+						[
+							0,
+							2
+						],
+						[
+							1,
+							2
+						],
+						[
+							2,
+							2
+						],
+						[
+							3,
+							2
+						]
+					]
+				},
+				{
+					"note": "Tras el primer paso, `w = 1.5` y `b = 0.5`: las predicciones son 2, 3.5, 5 y 6.5. MSE = 0.875.",
+					"data": [
+						[
+							1,
+							2,
+							2,
+							0
+						],
+						[
+							2,
+							4,
+							3.5,
+							-0.5
+						],
+						[
+							3,
+							6,
+							5,
+							-1
+						],
+						[
+							4,
+							8,
+							6.5,
+							-1.5
+						]
+					],
+					"highlight": [
+						[
+							0,
+							1
+						],
+						[
+							0,
+							2
+						],
+						[
+							1,
+							1
+						],
+						[
+							1,
+							2
+						],
+						[
+							2,
+							1
+						],
+						[
+							2,
+							2
+						],
+						[
+							3,
+							1
+						],
+						[
+							3,
+							2
+						]
+					]
+				},
+				{
+					"note": "Segundo paso, `w = 1.75` y `b = 0.575`: predicciones 2.325, 4.075, 5.825 y 7.575. MSE = 0.080625.",
+					"data": [
+						[
+							1,
+							2,
+							2.325,
+							0.325
+						],
+						[
+							2,
+							4,
+							4.075,
+							0.075
+						],
+						[
+							3,
+							6,
+							5.825,
+							-0.175
+						],
+						[
+							4,
+							8,
+							7.575,
+							-0.425
+						]
+					],
+					"highlight": [
+						[
+							0,
+							3
+						],
+						[
+							1,
+							3
+						],
+						[
+							2,
+							3
+						],
+						[
+							3,
+							3
+						]
+					]
+				},
+				{
+					"note": "Tercer paso, `w = 1.79375` y `b = 0.58`: predicciones 2.37375, 4.1675, 5.96125 y 7.755. MSE = 0.057318.",
+					"data": [
+						[
+							1,
+							2,
+							2.37375,
+							0.37375
+						],
+						[
+							2,
+							4,
+							4.1675,
+							0.1675
+						],
+						[
+							3,
+							6,
+							5.96125,
+							-0.03875
+						],
+						[
+							4,
+							8,
+							7.755,
+							-0.245
+						]
+					],
+					"highlight": [
+						[
+							0,
+							2
+						],
+						[
+							0,
+							3
+						],
+						[
+							3,
+							2
+						],
+						[
+							3,
+							3
+						]
+					]
+				},
+				{
+					"note": "Época 10: `w = 1.821657`, `b = 0.524349`. Los errores ya son pequeños pero el término independiente sigue alto. MSE = 0.045919.",
+					"data": [
+						[
+							1,
+							2,
+							2.346006,
+							0.346006
+						],
+						[
+							2,
+							4,
+							4.167663,
+							0.167663
+						],
+						[
+							3,
+							6,
+							5.98932,
+							-0.01068
+						],
+						[
+							4,
+							8,
+							7.810977,
+							-0.189023
+						]
+					],
+					"highlight": [
+						[
+							0,
+							3
+						],
+						[
+							1,
+							3
+						],
+						[
+							2,
+							3
+						],
+						[
+							3,
+							3
+						]
+					]
+				},
+				{
+					"note": "Época 500: `w = 1.999890`, `b = 0.000324`. Los errores son del orden de 10⁻⁴ y la escala de la matriz los muestra como cero.",
+					"data": [
+						[
+							1,
+							2,
+							2.000214,
+							0.000214
+						],
+						[
+							2,
+							4,
+							4.000104,
+							0.000104
+						],
+						[
+							3,
+							6,
+							5.999994,
+							-0.000006
+						],
+						[
+							4,
+							8,
+							7.999884,
+							-0.000116
+						]
+					],
+					"highlight": [
+						[
+							0,
+							3
+						],
+						[
+							1,
+							3
+						],
+						[
+							2,
+							3
+						],
+						[
+							3,
+							3
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en la forma de los errores: en la época 10 el modelo sobreestima las muestras pequeñas (+0.35 en `x = 1`) y subestima las grandes (-0.19 en `x = 4`), señal de que la recta está girada y le falta pendiente. La pérdida cae de 30 a 0.046 en diez épocas y después avanza mucho más despacio: hacen falta otras 490 para llegar prácticamente a cero."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: quinientas épocas de entrenamiento"
+		},
+		{
+			"type": "p",
+			"md": "Este es el programa completo. Calcula la pérdida con los parámetros actuales, obtiene los dos gradientes y actualiza. La impresión se hace después de actualizar, así que `w`, `b` y `MSE` de cada línea corresponden al mismo modelo."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "entrenamiento.cpp",
+			"code": "#include <cstdio>\n#include <vector>\n\ndouble mse(const std::vector<double>& x, const std::vector<double>& y, double w, double b) {\n    double suma = 0.0;\n    for (std::size_t i = 0; i < x.size(); ++i) {\n        const double error = w * x[i] + b - y[i];\n        suma += error * error;\n    }\n    return suma / static_cast<double>(x.size());\n}\n\nint main() {\n    const std::vector<double> x{1.0, 2.0, 3.0, 4.0};\n    const std::vector<double> y{2.0, 4.0, 6.0, 8.0};\n    const std::size_t n = x.size();\n\n    double w = 0.0;\n    double b = 0.0;\n    const double lr = 0.05;\n\n    for (int epoca = 1; epoca <= 500; ++epoca) {\n        double gw = 0.0;\n        double gb = 0.0;\n        for (std::size_t i = 0; i < n; ++i) {\n            const double error = w * x[i] + b - y[i];\n            gw += 2.0 * x[i] * error / static_cast<double>(n);\n            gb += 2.0 * error / static_cast<double>(n);\n        }\n        w -= lr * gw;\n        b -= lr * gb;\n\n        if (epoca == 1 || epoca == 2 || epoca == 3 || epoca == 10 || epoca == 500) {\n            std::printf(\"epoca %3d  w=%.6f  b=%.6f  MSE=%.8f\\n\", epoca, w, b, mse(x, y, w, b));\n        }\n    }\n    std::printf(\"prediccion en x=5: %.6f\\n\", w * 5.0 + b);\n    return 0;\n}",
+			"highlight": [
+				28,
+				29,
+				32,
+				33
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Época",
+				"w",
+				"b",
+				"MSE"
+			],
+			"rows": [
+				[
+					"1",
+					"1.500000",
+					"0.500000",
+					"0.87500000"
+				],
+				[
+					"2",
+					"1.750000",
+					"0.575000",
+					"0.08062500"
+				],
+				[
+					"3",
+					"1.793750",
+					"0.580000",
+					"0.05731797"
+				],
+				[
+					"10",
+					"1.821657",
+					"0.524349",
+					"0.04591871"
+				],
+				[
+					"500",
+					"1.999890",
+					"0.000324",
+					"0.00000002"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "La predicción para `x = 5` es `9.999773`, frente al valor exacto `10`. El modelo aprendió la recta con un error de 0.000227. Observa también la pérdida: baja muy rápido al principio y luego avanza a trompicones, porque los dos parámetros no son independientes cuando `x` no está centrada."
+		},
+		{
+			"type": "h",
+			"text": "Vectorización y comparación con Python"
+		},
+		{
+			"type": "p",
+			"md": "El bucle interno hace el mismo trabajo que una operación vectorizada: multiplicar un vector por un escalar, restar otro vector y promediar. La versión de Python lo expresa en dos líneas; la de C++ deja ver cada operación y permite cambiar el tipo de dato o paralelizarla."
+		},
+		{
+			"type": "compare",
+			"title": "El mismo entrenamiento en dos lenguajes",
+			"python": {
+				"caption": "entrenamiento.py",
+				"code": "import numpy as np\n\nx = np.array([1.0, 2.0, 3.0, 4.0])\ny = np.array([2.0, 4.0, 6.0, 8.0])\n\nw, b, lr = 0.0, 0.0, 0.05\nfor _ in range(500):\n    error = (w * x + b) - y\n    w -= lr * 2 * np.mean(x * error)\n    b -= lr * 2 * np.mean(error)\n\nprint(w, b)          # 2.0 0.0\nprint(w * 5 + b)     # 10.0"
+			},
+			"cpp": {
+				"caption": "entrenamiento.cpp",
+				"code": "for (int epoca = 1; epoca <= 500; ++epoca) {\n    double gw = 0.0, gb = 0.0;\n    for (std::size_t i = 0; i < n; ++i) {\n        const double error = w * x[i] + b - y[i];\n        gw += 2.0 * x[i] * error / n;\n        gb += 2.0 * error / n;\n    }\n    w -= lr * gw;\n    b -= lr * gb;\n}"
+			},
+			"note": "`np.mean(x * error)` es exactamente `Σ x_i · e_i / n`: la misma suma que el bucle. La diferencia no es matemática sino de expresión: NumPy oculta el recorrido y C++ lo muestra. Con cuatro muestras da igual; con cien millones, la versión de NumPy delega en C y la tuya compite con ella."
+		},
+		{
+			"type": "p",
+			"md": "Si traduces el modelo a producción, esa traducción es literal: el modelo entrenado son dos números. Guardarlos en un archivo y evaluar `w * x + b` en el servidor cuesta menos que importar una biblioteca de aprendizaje automático."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Signo del gradiente**: sumar en lugar de restar hace que la pérdida crezca en cada época. Si la pérdida aumenta desde el primer paso, revisa el signo antes que nada.",
+				"**Tasa demasiado grande**: con `lr` alta la pérdida oscila y puede llegar a infinito. Prueba valores como 0.01, 0.05 y 0.1 y mira la primera época.",
+				"**Olvidar dividir entre `n`**: sin el promedio, el gradiente escala con el número de muestras y la tasa efectiva cambia según el dataset.",
+				"**Entrenar y evaluar con los mismos datos sin separar**: la pérdida de entrenamiento no dice si el modelo generaliza.",
+				"**Comparar con `==`**: la pérdida nunca llega a cero exacto con datos reales; usa tolerancias."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Centra y escala las entradas antes de entrenar: acelera la convergencia y evita que la tasa dependa de las unidades.",
+				"Guarda la historia de la pérdida por época y revísala; una curva plana o creciente indica un problema de tasa.",
+				"Usa nombres que digan qué son: `gw`, `gb`, `lr`, `epoca`, no `a`, `b`, `c`.",
+				"Fija una semilla si en algún momento añades aleatoriedad al inicializar.",
+				"Compara tu implementación con una biblioteca conocida usando los mismos datos y la misma pérdida.",
+				"Con datos reales, divide en entrenamiento y prueba antes de creer cualquier cifra de error."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "p",
+			"md": "Dos ejercicios sobre el mismo programa: uno para afianzar la pérdida y otro para añadir una condición de parada real."
+		},
+		{
+			"type": "exercise",
+			"title": "Comprobar la pérdida de tres modelos",
+			"md": "Usa la función `mse` para calcular la pérdida de tres modelos sobre los mismos datos: `(w=0, b=0)`, `(w=1.5, b=0.5)` y `(w=2, b=0)`. Antes de ejecutar, calcula a mano el primero y el tercero; después compara.",
+			"hint": "Con `w = 0` y `b = 0` los errores son `-2, -4, -6, -8`. Sus cuadrados suman 120 y hay cuatro muestras.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "tres_perdidas.cpp",
+				"code": "#include <cstdio>\n#include <vector>\n\ndouble mse(const std::vector<double>& x, const std::vector<double>& y, double w, double b) {\n    double suma = 0.0;\n    for (std::size_t i = 0; i < x.size(); ++i) {\n        const double error = w * x[i] + b - y[i];\n        suma += error * error;\n    }\n    return suma / static_cast<double>(x.size());\n}\n\nint main() {\n    const std::vector<double> x{1.0, 2.0, 3.0, 4.0};\n    const std::vector<double> y{2.0, 4.0, 6.0, 8.0};\n\n    std::printf(\"(0, 0)    -> %.6f\\n\", mse(x, y, 0.0, 0.0));\n    std::printf(\"(1.5, 0.5) -> %.6f\\n\", mse(x, y, 1.5, 0.5));\n    std::printf(\"(2, 0)    -> %.6f\\n\", mse(x, y, 2.0, 0.0));\n    return 0;\n}",
+				"explain": "Los resultados son 30, 0.875 y 0. El tercero es exactamente cero porque los datos salen de `y = 2x`: el mínimo global de esta pérdida está en `(2, 0)`. Si un entrenamiento termina con pérdida mayor que cero en estos datos, no ha llegado al óptimo."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Parar cuando el gradiente sea pequeño",
+			"md": "Añade al bucle de entrenamiento una condición de parada: detente cuando `|gw|` y `|gb|` sean menores que `0.001`. Imprime la época en la que ocurre y los parámetros en ese momento. ¿Cuántas épocas tarda en comparación con las 500 fijas?",
+			"hint": "Comprueba la condición justo después de calcular los gradientes, antes de actualizar, o después de actualizar, pero sé coherente. Incluye `<cmath>` para `std::fabs`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "parada.cpp",
+				"code": "#include <cmath>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    const std::vector<double> x{1.0, 2.0, 3.0, 4.0};\n    const std::vector<double> y{2.0, 4.0, 6.0, 8.0};\n    const std::size_t n = x.size();\n\n    double w = 0.0;\n    double b = 0.0;\n    const double lr = 0.05;\n\n    for (int epoca = 1; epoca <= 20000; ++epoca) {\n        double gw = 0.0;\n        double gb = 0.0;\n        for (std::size_t i = 0; i < n; ++i) {\n            const double error = w * x[i] + b - y[i];\n            gw += 2.0 * x[i] * error / static_cast<double>(n);\n            gb += 2.0 * error / static_cast<double>(n);\n        }\n        w -= lr * gw;\n        b -= lr * gb;\n\n        if (std::fabs(gw) < 1e-3 && std::fabs(gb) < 1e-3) {\n            std::printf(\"parada en la epoca %d: w=%.6f b=%.6f\\n\", epoca, w, b);\n            return 0;\n        }\n    }\n    std::printf(\"no convergio en 20000 epocas\\n\");\n    return 0;\n}",
+				"explain": "Con `lr = 0.05` el programa se detiene en la época 347, con `w = 1.998894` y `b = 0.003252`. Ahora el criterio es la pendiente, no un número fijo de vueltas: si mañana cambias la escala de los datos, el bucle se adapta en lugar de quedarse corto o pasarse. Ese es el motivo por el que las bibliotecas serias usan tolerancias y no épocas fijas."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la actualización",
+			"lang": "cpp",
+			"code": "for (std::size_t i = 0; i < n; ++i) {\n    const double error = w * x[i] + b - ___;\n    gw += 2.0 * ___ * error / n;\n    gb += 2.0 * error / n;\n}\nw -= ___ * gw;\nb -= lr * gb;",
+			"answers": [
+				"y[i]",
+				"x[i]",
+				"lr"
+			],
+			"hint": "El error es predicción menos valor real; el gradiente de `w` pesa cada error por su entrada; la tasa se llama `lr`.",
+			"explain": "`error` compara la predicción con `y[i]`. El gradiente respecto de `w` multiplica cada error por `x[i]`, porque la derivada de `w·x` respecto de `w` es `x`. Y la actualización resta la tasa `lr` multiplicada por el gradiente."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio la comprobación a mano es el punto: si tu cálculo de 30 y de 0 coincide con el programa, la función de pérdida está bien escrita. Ese hábito detecta el noventa por ciento de los errores de implementación antes de mirar el entrenamiento completo."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la parada por gradiente dice algo sobre el problema: 347 épocas para una recta de dos parámetros es mucho. La razón es que `x` va de 1 a 4 y la matriz de segundas derivadas tiene valores muy distintos en sus dos direcciones, así que el descenso avanza deprisa en una y despacio en la otra. Centrar `x` restando su media reduce esa diferencia y acorta el entrenamiento."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Entrenar es ajustar parámetros para minimizar una pérdida medible.",
+				"El MSE promedia los errores al cuadrado y vale 0 cuando el modelo acierta en todas las muestras.",
+				"Los gradientes son `(2/n)·Σ x·e` y `(2/n)·Σ e`; la actualización resta `lr` veces el gradiente.",
+				"Un paso con `lr = 0.05` desde `(0, 0)` da `(1.5, 0.5)` y baja la pérdida de 30 a 0.875.",
+				"Tras 500 épocas el modelo llega a `w = 1.999890`, `b = 0.000324` y predice 9.999773 donde el valor exacto es 10.",
+				"Un criterio de parada por gradiente es más robusto que un número fijo de épocas.",
+				"Centrar y escalar las entradas acelera la convergencia sin cambiar el mínimo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Con `w = 0` y `b = 0`, ¿cuánto vale el MSE sobre `x = [1, 2, 3, 4]`, `y = [2, 4, 6, 8]`?",
+			"options": [
+				"7.5",
+				"20",
+				"30",
+				"120"
+			],
+			"answer": 2,
+			"explain": "Los errores son -2, -4, -6 y -8; sus cuadrados suman 4 + 16 + 36 + 64 = 120, y al promediar entre cuatro muestras queda 30. El 120 es la suma, no el promedio."
+		},
+		{
+			"type": "quiz",
+			"question": "Si el gradiente respecto de `w` es negativo, ¿qué hace un paso de gradiente descendente?",
+			"options": [
+				"Reduce `w`, porque el error crece al aumentarlo",
+				"Aumenta `w`, porque restar un número negativo suma",
+				"Deja `w` igual y cambia solo `b`",
+				"Reinicia el entrenamiento"
+			],
+			"answer": 1,
+			"explain": "El gradiente apunta hacia donde la pérdida crece. Si es negativo, crecer en `w` reduce la pérdida, y la actualización `w ← w − lr·g` lo aumenta al restar un valor negativo."
+		},
+		{
+			"type": "quiz",
+			"question": "La pérdida baja durante veinte épocas y de repente empieza a crecer hasta infinito. ¿Cuál es la causa más probable?",
+			"options": [
+				"Faltan muestras en el dataset",
+				"La tasa de aprendizaje es demasiado grande",
+				"El MSE está mal definido",
+				"`w` y `b` deberían ser enteros"
+			],
+			"answer": 1,
+			"explain": "Una tasa grande hace que cada paso se pase del mínimo y caiga en el otro lado del valle, con un error mayor cada vez. Bajar `lr`, por ejemplo a 0.01, suele resolverlo."
+		},
+		{
+			"type": "links",
+			"title": "Para seguir",
+			"items": [
+				{
+					"label": "Eigen · álgebra lineal en C++",
+					"url": "https://eigen.tuxfamily.org/dox/",
+					"note": "resolver el mismo problema con matrices"
+				},
+				{
+					"label": "scikit-learn · LinearRegression",
+					"url": "https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html",
+					"note": "comparar tu implementación con una biblioteca"
+				},
+				{
+					"label": "An Introduction to Statistical Learning",
+					"url": "https://www.statlearning.com/",
+					"note": "capítulo 3: regresión lineal"
+				}
+			]
+		}
+	]
+}

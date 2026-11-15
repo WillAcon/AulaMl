@@ -1,0 +1,601 @@
+{
+	"id": "cpp-01-que-es-cpp",
+	"track": "cpp",
+	"order": 1,
+	"title": "¿Qué es C++? Compilador y primer programa",
+	"subtitle": "Del código fuente al ejecutable: qué hace el compilador y cómo escribir tu primer programa",
+	"level": "principiante",
+	"minutes": 35,
+	"tags": [
+		"compilador",
+		"g++",
+		"primer programa",
+		"estándares"
+	],
+	"keywords": [
+		"qué es c++",
+		"compilador",
+		"g++",
+		"clang",
+		"compilar c++",
+		"primer programa",
+		"hola mundo",
+		"fases de compilación",
+		"enlazador",
+		"c++20",
+		"errores de compilación",
+		"main"
+	],
+	"summary": "C++ es un lenguaje compilado: tu código pasa por preprocesador, compilador y enlazador antes de convertirse en un ejecutable. En esta lección escribes tu primer programa, lo compilas con g++, aprendes a leer los errores y eliges el estándar con -std=c++20.",
+	"objectives": [
+		"Explicar la diferencia entre un lenguaje compilado y uno interpretado",
+		"Compilar y ejecutar un archivo .cpp desde la terminal",
+		"Describir las fases de preprocesado, compilación, ensamblado y enlazado",
+		"Interpretar los primeros errores de compilación y de enlazado",
+		"Seleccionar el estándar con -std=c++20 y comprobarlo con __cplusplus"
+	],
+	"prerequisites": [],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En Python escribes `print(\"Hola\")`, pulsas Enter y el resultado aparece. En C++ ese mismo saludo recorre cuatro etapas antes de llegar a la pantalla: preprocesador, compilador, ensamblador y enlazador. Entender esa cadena es la mitad de aprender el lenguaje; la otra mitad es saber leer lo que te dice cuando algo falla."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es C++?"
+		},
+		{
+			"type": "p",
+			"md": "C++ es un lenguaje de programación **compilado, de tipado estático y de propósito general**. Lo creó Bjarne Stroustrup en 1979 como una extensión de C con clases; hoy es un estándar ISO que se revisa cada tres años. Su promesa es doble: control fino sobre la memoria y el rendimiento, sin renunciar a abstracciones de alto nivel."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Compilado**: no hay un intérprete que lea tu archivo en tiempo de ejecución. Un programa traductor convierte el código en instrucciones de máquina y produce un ejecutable.",
+				"**Tipado estático**: cada variable tiene un tipo conocido antes de ejecutar. El compilador rechaza operaciones que no encajan, como sumar un texto a una fecha.",
+				"**Con enlace**: tu código no está solo; se une a la biblioteca estándar y a otras bibliotecas en la fase de enlazado.",
+				"**Cercano al hardware**: puedes trabajar con bytes, direcciones y memoria, algo imposible en Python puro.",
+				"**Multiparadigma**: admite programación procedural, orientada a objetos y genérica."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La contrapartida es la que notarás primero: más verbosidad y errores que aparecen antes de ejecutar. Ese coste compra velocidad y control."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Por qué C++ sigue importando en Machine Learning",
+			"md": "PyTorch ejecuta sus operaciones en kernels de C++ y CUDA; TensorFlow, OpenCV, Eigen y XGBoost también están escritos en C++. Cuando en Python llamas a `model.fit()`, el trabajo pesado ocurre en código compilado. Aprender C++ te permite leer esas tripas, escribir extensiones y entender por qué una operación tarda lo que tarda."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Estos son ámbitos donde C++ no es una curiosidad sino la herramienta habitual:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Videojuegos y motores gráficos**: Unreal Engine está escrito en C++; los bucles de render se miden en milisegundos.",
+				"**Sistemas y navegadores**: partes de Windows, Chrome, Firefox y LLVM están en C++.",
+				"**Computación científica**: simulaciones físicas, dinámica molecular y álgebra lineal con Eigen.",
+				"**Machine Learning**: bibliotecas de entrenamiento e inferencia, y extensiones nativas para Python.",
+				"**Sistemas embebidos y robótica**: drones, controladores y sensores con memoria limitada."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En este curso lo usarás sobre todo en el cuarto punto: programas que calculan, leen datos y toman decisiones, para entender qué hay debajo de NumPy."
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: del .cpp al ejecutable"
+		},
+		{
+			"type": "p",
+			"md": "Cuando compilas, no ocurre una sola cosa. El compilador es en realidad una cadena de programas, y cada uno recibe la salida del anterior. La opción `-v` de `g++` te muestra la lista completa si tienes curiosidad."
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"**Preprocesado**: se resuelven las líneas que empiezan por `#`; `#include <iostream>` se sustituye por la cabecera completa.",
+				"**Compilación**: se comprueban sintaxis y tipos y se genera ensamblador. Un error aquí detiene el proceso.",
+				"**Ensamblado**: se produce código objeto (`.o`), con referencias pendientes a funciones externas.",
+				"**Enlazado**: se une tu objeto con la biblioteca estándar. Si falta `main`, el error aparece en esta fase."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La diferencia con Python es de momento, no de capacidad. Python traduce a bytecode y ejecuta; C++ produce un binario que el sistema operativo lanza directamente, incluso donde no hay compilador instalado."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "El ejecutable ya no necesita el código",
+			"md": "Puedes borrar el `.cpp` y el programa sigue funcionando. También puedes copiar el binario a otra máquina con el mismo sistema y arquitectura. Por eso distribuir software en C++ exige compilar para cada plataforma."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: el esqueleto de un programa"
+		},
+		{
+			"type": "p",
+			"md": "Todo programa necesita una función `main`: es el punto de entrada que el sistema operativo llama. Un archivo mínimo, que compila aunque no haga nada visible, es este:"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "minimo.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Cada pieza tiene una función. `#include <iostream>` declara los flujos de entrada y salida; sin esa línea, `std::cout` no existe para el compilador. `int main()` indica que la función devuelve un entero al sistema. Las llaves delimitan el cuerpo y `return 0` comunica que el programa terminó bien."
+		},
+		{
+			"type": "list",
+			"items": [
+				"Las directivas `#include` van al principio, fuera de `main`.",
+				"Las sentencias terminan en `;`. Olvidarlo es el error más frecuente al empezar.",
+				"Los bloques usan llaves `{}`; la indentación es solo estilo, no sintaxis.",
+				"Los nombres de la biblioteca estándar viven en el espacio de nombres `std`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Tu primer programa, línea por línea"
+		},
+		{
+			"type": "p",
+			"md": "Este es el programa completo. Escríbelo en un archivo llamado `hola.cpp`, no en un editor de texto con formato: la extensión `.cpp` le dice al compilador qué esperar."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "hola.cpp",
+			"code": "// Mi primer programa en C++\n#include <iostream>\n\nint main() {\n    std::cout << \"Hola, mundo\" << '\\n';\n    std::cout << \"Estoy aprendiendo C++\" << '\\n';\n    return 0;\n}",
+			"highlight": [
+				5,
+				6
+			]
+		},
+		{
+			"type": "p",
+			"md": "La primera línea es un comentario: el compilador la ignora. `std::cout` es el flujo de salida estándar. El operador `<<` envía el valor de la derecha al flujo de la izquierda y devuelve el flujo, y por eso puedes encadenar valores. `'\\n'` es un salto de línea; con comillas dobles sería una cadena de un carácter."
+		},
+		{
+			"type": "p",
+			"md": "Compílalo y ejecútalo. El nombre del ejecutable lo eliges con `-o`; si lo omites, `g++` escribe `a.out`."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Compilar y ejecutar",
+			"code": "g++ -std=c++20 -Wall -Wextra -Wpedantic hola.cpp -o hola\n./hola",
+			"highlight": [
+				1
+			]
+		},
+		{
+			"type": "p",
+			"md": "`-std=c++20` fija el estándar. `-Wall` y `-Wextra` activan avisos que en otros lenguajes serían errores silenciosos. `-Wpedantic` avisa de extensiones no estándar."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: comprobar el entorno y separar errores"
+		},
+		{
+			"type": "p",
+			"md": "Un programa puede escribir en dos flujos: `std::cout` para la salida normal y `std::cerr` para los errores. Se redirigen por separado, algo útil cuando la salida se guarda en un archivo y los errores deben verse en la terminal."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "entorno.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    std::cout << \"== Verificación del entorno ==\\n\";\n    std::cout << \"Estándar: \" << __cplusplus << '\\n';\n    std::cout << \"Compilador listo\\n\";\n    std::cerr << \"Aviso: este mensaje va a stderr\\n\";\n    return 0;\n}",
+			"highlight": [
+				5,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "La macro `__cplusplus` contiene el estándar con el que compilas en formato numérico: `201703` para C++17 y `202002` para C++20. Es la forma más rápida de comprobar que `-std=c++20` surtió efecto. `std::endl` inserta un salto y vacía el búfer; `'\\n'` solo inserta el salto."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Tres formas de mirar la misma ejecución",
+			"code": "g++ -std=c++20 -Wall -Wextra entorno.cpp -o entorno\n./entorno                 # todo junto\n./entorno 2>/dev/null     # solo stdout\n./entorno 1>/dev/null     # solo stderr"
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un flujo de trabajo completo"
+		},
+		{
+			"type": "p",
+			"md": "Repite lo que harás cientos de veces: crear una carpeta, compilar con avisos, ejecutar y comprobar el código de salida. El **código de salida** es el número que `main` devuelve al sistema operativo; la integración continua lo usa para decidir si un paso falló."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Ciclo completo en la terminal",
+			"code": "mkdir -p ~/curso-cpp && cd ~/curso-cpp\ng++ -std=c++20 -Wall -Wextra -Wpedantic hola.cpp -o hola\n./hola\necho $?      # 0: terminó sin errores",
+			"highlight": [
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "Ahora un programa que termina con un código distinto de cero. No es un capricho: así se comunican los fallos en las herramientas de línea de comandos."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "estado.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    std::cout << \"Terminando con un error simulado\\n\";\n    return 3;\n}",
+			"highlight": [
+				5
+			]
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "El código de salida no se imprime solo",
+			"code": "g++ -std=c++20 -Wall -Wextra estado.cpp -o estado\n./estado; echo $?     # imprime 3"
+		},
+		{
+			"type": "p",
+			"md": "El programa se ejecuta completo; el 3 no es un error del compilador, es información para quien lo invocó. `return 0` equivale a «todo bien»."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué ocurre al ejecutar el programa"
+		},
+		{
+			"type": "p",
+			"md": "La traza siguiente separa dos momentos que suelen confundirse: lo que hace el compilador con el archivo y lo que hace el programa ya compilado. Fíjate en que la salida solo aparece cuando el flujo de ejecución llega a cada `std::cout`."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "De la compilación a la ejecución",
+			"code": "#include <iostream>\n\nint main() {\n    std::cout << \"Paso 1: compilar\\n\";\n    std::cout << \"Paso 2: enlazar\\n\";\n    std::cout << \"Paso 3: ejecutar\\n\";\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 1,
+					"note": "El preprocesador sustituye `#include <iostream>` por la declaración de los flujos. Esto ocurre antes de compilar y no produce salida.",
+					"vars": {
+						"fase": "preprocesado",
+						"código de salida": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "El binario ya está enlazado. Al lanzarlo, el sistema operativo transfiere el control a `main`.",
+					"vars": {
+						"fase": "ejecución",
+						"código de salida": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El primer `std::cout` escribe el texto y el salto de línea. La salida empieza aquí.",
+					"vars": {
+						"fase": "ejecución",
+						"código de salida": "—"
+					},
+					"output": "Paso 1: compilar\n"
+				},
+				{
+					"line": 5,
+					"note": "El flujo de salida conserva el orden: la segunda línea se escribe después de la primera.",
+					"vars": {
+						"fase": "ejecución",
+						"código de salida": "—"
+					},
+					"output": "Paso 2: enlazar\n"
+				},
+				{
+					"line": 6,
+					"note": "Tercera escritura. Nada se ejecuta «en paralelo»: cada sentencia termina antes de la siguiente.",
+					"vars": {
+						"fase": "ejecución",
+						"código de salida": "—"
+					},
+					"output": "Paso 3: ejecutar\n"
+				},
+				{
+					"line": 7,
+					"note": "`return 0` devuelve el control al sistema con estado 0. Ninguna línea imprime ese número: se consulta con `echo $?`.",
+					"vars": {
+						"fase": "fin",
+						"código de salida": "0"
+					},
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Estándares: de C++11 a C++23"
+		},
+		{
+			"type": "p",
+			"md": "C++ se revisa cada tres años y el nombre corto usa el año del borrador. Elegir estándar cambia qué sintaxis acepta el compilador."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Estándar",
+				"Año",
+				"Qué aportó"
+			],
+			"rows": [
+				[
+					"C++11",
+					"2011",
+					"`auto`, lambdas, `nullptr`, `constexpr`, movimiento y `std::thread`"
+				],
+				[
+					"C++14",
+					"2014",
+					"`auto` en el retorno, literales binarios, `std::make_unique`"
+				],
+				[
+					"C++17",
+					"2017",
+					"`if constexpr`, enlaces estructurados, `std::filesystem`, `std::optional`"
+				],
+				[
+					"C++20",
+					"2020",
+					"Conceptos, rangos, módulos, corrutinas, `<=>` y `std::span`"
+				],
+				[
+					"C++23",
+					"2023",
+					"`std::expected`, `std::print` y subíndices multidimensionales"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Este curso usa C++20 porque es el estándar moderno mejor soportado por g++, clang++ y MSVC. Si compilas sin `-std`, el valor por defecto puede ser antiguo."
+		},
+		{
+			"type": "compare",
+			"title": "Ejecutar el mismo saludo",
+			"python": {
+				"caption": "saludo.py",
+				"code": "saludo = \"Hola, mundo\"\nprint(saludo)"
+			},
+			"cpp": {
+				"caption": "saludo.cpp",
+				"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string saludo = \"Hola, mundo\";\n    std::cout << saludo << '\\n';\n    return 0;\n}"
+			},
+			"note": "Python ejecuta el archivo tal cual con el intérprete. C++ necesita dos pasos: compilar para producir un binario y ejecutar ese binario. A cambio, el binario arranca sin analizar el texto del programa cada vez."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes (y cómo se leen)"
+		},
+		{
+			"type": "p",
+			"md": "En Python la traza se lee por la última línea. En C++ suele ser al contrario: **el primer error es la causa** y los siguientes son consecuencias. Corrige el primero, recompila y vuelve a leer."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje del compilador",
+				"Qué significa",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`fatal error: iostream: No such file or directory`",
+					"La cabecera está mal escrita",
+					"Revisa la ortografía: `#include <iostream>`"
+				],
+				[
+					"`use of undeclared identifier 'cout'`",
+					"Falta `#include <iostream>` o el prefijo `std::`",
+					"Incluye la cabecera y escribe `std::cout`"
+				],
+				[
+					"`expected ';' after expression`",
+					"Olvidaste el punto y coma de una sentencia",
+					"Añádelo; el compilador suele señalar la línea anterior"
+				],
+				[
+					"`Undefined symbols: \"_main\"` (macOS) o `undefined reference to 'main'` (Linux)",
+					"No existe `int main()` o está mal escrito",
+					"Corrige el nombre: `main`, no `mian`"
+				],
+				[
+					"`warning: unused variable 'x'`",
+					"Declaraste algo que no usas",
+					"Elimínalo o úsalo: un aviso puede esconder un error"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los dos últimos mensajes cambian según la plataforma: clang++ en macOS habla de símbolos indefinidos y g++ en Linux de referencias indefinidas. El significado es el mismo: el enlazador no encontró algo que el código prometía."
+		},
+		{
+			"type": "diff",
+			"title": "Compilar no es lo mismo que ejecutar",
+			"wrong": {
+				"caption": "Enlaza, pero falla",
+				"code": "#include <iostream>\n\nint mian() {\n    std::cout << \"Hola\" << std::endl;\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "#include <iostream>\n\nint main() {\n    std::cout << \"Hola\" << std::endl;\n    return 0;\n}"
+			},
+			"explain": "El archivo con `mian` compila sin quejas: la función es válida. El error llega al enlazar, porque el punto de entrada debe llamarse `main`. Es un fallo que no es de sintaxis sino de enlazado, y por eso el mensaje no menciona ninguna línea."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas al compilar"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Compila siempre con `-std=c++20 -Wall -Wextra -Wpedantic`: los avisos detectan errores reales.",
+				"Pon nombre al ejecutable con `-o`; `a.out` se sobrescribe en cada compilación.",
+				"Un archivo, un programa, una función `main`.",
+				"Compila después de cada cambio pequeño: un error entre 100 líneas es más caro que entre 10.",
+				"Lee el primer error completo; el resto suele desaparecer al corregirlo.",
+				"No ejecutes un binario viejo: si la compilación falló, corres la versión anterior."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "p",
+			"md": "Dos ejercicios para fijar el flujo y uno para completar el esqueleto."
+		},
+		{
+			"type": "exercise",
+			"title": "Tu presentación en tres líneas",
+			"md": "Crea `presentacion.cpp` que imprima tu nombre, tu carrera y un objetivo, cada uno en su propia línea. Compílalo con `g++ -std=c++20 -Wall -Wextra -Wpedantic` y ejecútalo. Después cambia el orden de las líneas y vuelve a compilar: comprueba que la salida cambia en el mismo orden.",
+			"hint": "Cada línea de salida es un `std::cout` que termina en un salto de línea. No necesitas variables todavía.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "presentacion.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    std::cout << \"Nombre: Grace Hopper\\n\";\n    std::cout << \"Carrera: Ingeniería de Sistemas\\n\";\n    std::cout << \"Objetivo: escribir mi primer ejecutable\\n\";\n    return 0;\n}",
+				"explain": "Tres sentencias producen tres líneas. El orden de ejecución es el orden en que están escritas, no el orden en que las imaginaste."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Detective del estándar",
+			"md": "Escribe `estandar.cpp` que imprima el valor de `__cplusplus`. Compílalo dos veces, con `-std=c++17` y con `-std=c++20`, y anota los dos números que aparecen. Después cambia `return 0;` por `return 3;` y comprueba con `echo $?` que el sistema recibe 3.",
+			"hint": "`__cplusplus` ya es un número listo para imprimir: no lleva comillas. El código de salida se consulta inmediatamente después de ejecutar.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "estandar.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    std::cout << \"Compilado con el estándar \" << __cplusplus << '\\n';\n    return 0;\n}",
+				"explain": "Con `-std=c++17` el programa imprime 201703; con `-std=c++20`, 202002. Si aparece otro valor, el flag no llegó al compilador."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el esqueleto",
+			"lang": "cpp",
+			"code": "#include ___\n\nint ___( ) {\n    std::___ << \"Hola desde C++\\n\";\n    return ___;\n}",
+			"answers": [
+				"<iostream>",
+				"main",
+				"cout",
+				"0"
+			],
+			"hint": "La cabecera va entre ángulos y el flujo de salida vive en `std`.",
+			"explain": "`#include <iostream>` declara `std::cout`; `main` es el punto de entrada; `std::cout` escribe en la salida estándar; `return 0` cierra con éxito. Ese es el esqueleto mínimo de cualquier programa del curso."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, tres `std::cout` producen tres líneas y hacen visible que el orden de las sentencias es el orden de la salida. Podrías usar un solo `std::cout` con tres saltos de línea; ambas versiones son correctas, pero la primera se lee mejor cuando cada línea tiene un propósito."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, `__cplusplus` no es una variable tuya: es una macro que el compilador define antes de compilar. Por eso cambia según el flag y no según el contenido del archivo. El `return 3` no imprime nada: el 3 sale por `echo $?`, que lee el estado que el proceso dejó al terminar."
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de completar, las cuatro piezas son obligatorias: sin cabecera no existe `std::cout`, sin `main` el enlazador no encuentra el punto de entrada, sin `std::` el nombre no se resuelve y sin `return` la función no cumple su contrato."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"C++ es compilado y de tipado estático: el binario se produce antes de ejecutar.",
+				"La cadena de compilación es preprocesador, compilador, ensamblador y enlazador.",
+				"`main` es el punto de entrada obligatorio y devuelve un entero al sistema operativo.",
+				"`std::cout << valor` escribe en la salida estándar; `'\\n'` es un salto de línea.",
+				"`std::cerr` es el flujo de errores y se redirige por separado.",
+				"La orden base es `g++ -std=c++20 -Wall -Wextra -Wpedantic archivo.cpp -o programa`.",
+				"El primer error del compilador suele ser la causa; los demás son consecuencias.",
+				"`__cplusplus` revela el estándar activo: 202002 para C++20."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué produce `g++ hola.cpp` si no indicas la opción `-o`?",
+			"options": [
+				"Un archivo llamado `hola` en el directorio actual",
+				"Un archivo llamado `a.out`",
+				"Nada: el nombre del ejecutable es obligatorio",
+				"Un archivo `hola.o` listo para ejecutar"
+			],
+			"answer": 1,
+			"explain": "Sin `-o`, g++ escribe el ejecutable como `a.out` en el directorio actual. En macOS y Linux es el nombre histórico por defecto; con `-o hola` eliges tú el nombre."
+		},
+		{
+			"type": "quiz",
+			"question": "¿En qué fase aparece un error como `undefined reference to main`?",
+			"options": [
+				"En el preprocesado",
+				"En la compilación",
+				"En el enlazado",
+				"En la ejecución"
+			],
+			"answer": 2,
+			"explain": "La compilación de cada archivo puede terminar bien y el error aparecer al unir las piezas. El enlazador busca la función `main` y no la encuentra, así que falla antes de producir el ejecutable."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué valor imprime `__cplusplus` al compilar con `-std=c++20`?",
+			"options": [
+				"20",
+				"2020",
+				"202002",
+				"2020L"
+			],
+			"answer": 2,
+			"explain": "La macro usa el formato AAAAMM: 202002 para la revisión de 2020. C++17 da 201703. El sufijo L no forma parte del valor impreso."
+		},
+		{
+			"type": "links",
+			"title": "Para seguir practicando",
+			"items": [
+				{
+					"label": "cppreference: referencia del lenguaje",
+					"url": "https://en.cppreference.com/w/cpp",
+					"note": "consulta obligada para cabeceras y estándares"
+				},
+				{
+					"label": "Documentación de GCC",
+					"url": "https://gcc.gnu.org/onlinedocs/",
+					"note": "opciones de compilación y avisos"
+				},
+				{
+					"label": "isocpp.org: empezar con C++",
+					"url": "https://isocpp.org/get-started",
+					"note": "guías y compiladores recomendados"
+				}
+			]
+		}
+	]
+}

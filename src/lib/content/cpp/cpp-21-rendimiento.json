@@ -1,0 +1,551 @@
+{
+	"id": "cpp-21-rendimiento",
+	"track": "cpp",
+	"order": 21,
+	"title": "Optimización, profiling y complejidad",
+	"subtitle": "Medir antes de tocar, entender Big-O y aprovechar la memoria y el compilador",
+	"level": "avanzado",
+	"minutes": 46,
+	"tags": [
+		"rendimiento",
+		"profiling",
+		"complejidad",
+		"cache"
+	],
+	"keywords": [
+		"optimizar c++",
+		"profiling en c++",
+		"big o",
+		"complejidad algorítmica",
+		"medir tiempo en c++",
+		"std::chrono",
+		"perf linux",
+		"instruments macos",
+		"-O2",
+		"localidad de caché",
+		"vectorización automática",
+		"cuello de botella",
+		"benchmark c++"
+	],
+	"summary": "Optimizar sin medir es adivinar. Esta lección enseña a calcular el coste de un algoritmo, a medirlo con std::chrono, a leer un perfil con perf o Instruments y a reordenar bucles para que la caché y el compilador trabajen a tu favor.",
+	"objectives": [
+		"Estimar el coste de un bucle con notación Big-O y compararlo con el tiempo real",
+		"Medir código con std::chrono::steady_clock evitando los errores clásicos de medición",
+		"Explicar qué es una línea de caché y por qué el orden de los bucles cambia el tiempo",
+		"Interpretar la salida de perf o Instruments para localizar el código caliente",
+		"Decidir cuándo compilar con -O2 y cuándo la vectorización automática no llega"
+	],
+	"prerequisites": [
+		"Memoria, stack, heap y punteros",
+		"Arrays, std::vector y std::string",
+		"Templates y programación genérica"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un programa rápido no es el que acumula trucos: es el que dedica el tiempo donde de verdad se consume. Aquí aprendes a medir con `std::chrono` y a distinguir los tres cuellos de botella que explican casi todo en C++: cuántas operaciones pides, cómo recorres la memoria y qué consigue vectorizar el compilador."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es optimizar un programa?"
+		},
+		{
+			"type": "p",
+			"md": "Optimizar es reducir el trabajo que el procesador hace para llegar al mismo resultado. No es añadir construcciones exóticas ni comentarios sobre lo rápido que va: es cambiar lo que se ejecuta millones de veces y comprobar con una medición que el cambio sirvió. Si no puedes medir la diferencia, no has optimizado: has modificado."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Menos operaciones**: cambiar un algoritmo cuadrático por uno lineal reduce el trabajo por un factor que crece con los datos.",
+				"**Mejor uso de la memoria**: recorrer los datos en el orden en que están guardados evita esperar a la RAM.",
+				"**Más trabajo por instrucción**: con instrucciones SIMD procesas cuatro o más `double` a la vez.",
+				"**Más núcleos**: repartir el bucle entre hilos solo ayuda cuando las tres palancas anteriores ya están resueltas."
+			]
+		},
+		{
+			"type": "p",
+			"md": "El reparto del tiempo no es uniforme: una fracción pequeña del código consume la mayor parte de la ejecución, y ahí una hora de trabajo produce un cambio visible. El resto no merece que lo toques."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve medir antes de optimizar?"
+		},
+		{
+			"type": "p",
+			"md": "Imagina un entrenamiento que tarda cuatro horas. El equipo sospecha del cálculo de la pérdida y propone reescribirlo con punteros. Un perfil muestra que el ochenta por ciento del tiempo está en una lectura de archivos repetida en cada época. La sospecha era razonable y falsa."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Bucles calientes**: los que se ejecutan millones de veces y suman casi todo el tiempo.",
+				"**Datos que no caben en caché**: cuando el conjunto supera unos megabytes, el orden de acceso pesa más que la aritmética.",
+				"**Latencia frente a rendimiento**: a veces no importa el total sino el tiempo hasta la primera respuesta.",
+				"**Decisiones de diseño**: elegir entre `std::vector` y `std::list` se decide con números, no con intuición."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La ley de Amdahl pone un límite: si el veinte por ciento del tiempo es irreducible, ninguna optimización del ochenta restante bajará el total de ese veinte."
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: coste, caché y compilador"
+		},
+		{
+			"type": "p",
+			"md": "La notación **Big-O** describe cómo crece el número de operaciones cuando crece el tamaño de la entrada, ignorando constantes. Un algoritmo `O(n)` hace una operación por elemento; uno `O(n²)` hace una por cada pareja. La constante importa poco cuando `n` es grande, porque el exponente domina."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Coste",
+				"Ejemplo en C++",
+				"Operaciones con n = 1 000 000"
+			],
+			"rows": [
+				[
+					"`O(1)`",
+					"`v[i]`, `map.find` promedio en hash",
+					"1"
+				],
+				[
+					"`O(log n)`",
+					"`std::map::find`, búsqueda binaria",
+					"≈ 20"
+				],
+				[
+					"`O(n)`",
+					"Recorrer un `std::vector`",
+					"1 000 000"
+				],
+				[
+					"`O(n log n)`",
+					"`std::sort`",
+					"≈ 20 000 000"
+				],
+				[
+					"`O(n²)`",
+					"Doble bucle sobre los mismos datos",
+					"10¹²"
+				],
+				[
+					"`O(n³)`",
+					"Multiplicación de matrices ingenua",
+					"10¹⁸"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "A mil millones de operaciones simples por segundo, `10¹²` operaciones son unos diecisiete minutos y `10¹⁸` son más de treinta años. Esa es la razón por la que cambiar de exponente gana siempre a microoptimizar: pasar de `O(n²)` a `O(n log n)` con un millón de elementos convierte diecisiete minutos en veinte milisegundos."
+		},
+		{
+			"type": "p",
+			"md": "El segundo cuello de botella es la memoria. El procesador no lee la RAM byte a byte: trae **líneas de caché** de 64 bytes, ocho `double` contiguos. Si tu bucle usa esos ocho valores seguidos, el coste se reparte entre ocho operaciones; si salta de fila en fila, paga el viaje completo por un solo valor."
+		},
+		{
+			"type": "p",
+			"md": "Las latencias explican la diferencia: un acceso en L1 cuesta del orden de un nanosegundo; uno que falla hasta la RAM, del orden de cien. En ese tiempo el procesador podría ejecutar cientos de instrucciones."
+		},
+		{
+			"type": "p",
+			"md": "El tercer factor es el compilador. Con `-O2` desenrolla bucles, mantiene variables en registros y agrupa operaciones en instrucciones SIMD; con `-O0` no hace casi nada de eso. Un benchmark sin optimizar mide un programa que nunca vas a distribuir."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Big-O no es tiempo",
+			"md": "Dos algoritmos `O(n)` pueden diferir en un factor diez por constantes, y uno `O(n log n)` con `n` pequeño puede perder contra uno `O(n²)`. Big-O ordena el crecimiento, no predice milisegundos. Para eso está el cronómetro."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: medir con std::chrono"
+		},
+		{
+			"type": "p",
+			"md": "`std::chrono` separa dos ideas: un **instante** (`time_point`) y una **duración** (`duration`). Tomas dos instantes con `steady_clock::now()` y restas: el resultado es una duración que puedes convertir a la unidad que quieras."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "cronometro.cpp",
+			"code": "#include <chrono>\n#include <cstdio>\n#include <numeric>\n#include <vector>\n\nint main() {\n    std::vector<double> datos(10'000'000);\n    std::iota(datos.begin(), datos.end(), 0.0);\n\n    const auto inicio = std::chrono::steady_clock::now();\n    double suma = 0.0;\n    for (double valor : datos) suma += valor;\n    const auto fin = std::chrono::steady_clock::now();\n\n    const double ms = std::chrono::duration<double, std::milli>(fin - inicio).count();\n    std::printf(\"suma = %.0f en %.2f ms\\n\", suma, ms);\n    return 0;\n}",
+			"highlight": [
+				8,
+				11,
+				13
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`steady_clock` es monótono: nunca retrocede aunque se ajuste la hora del sistema; `system_clock` sí puede saltar.",
+				"`duration<double, std::milli>` convierte la diferencia a milisegundos; sin eso obtienes «ticks» del reloj.",
+				"`.count()` devuelve el número; sin él, `printf` no sabe imprimir la duración.",
+				"La suma se imprime al final: sin usar el resultado, el compilador puede borrar el bucle y medirás cero."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: sumar cincuenta millones de doubles"
+		},
+		{
+			"type": "p",
+			"md": "Dos versiones del mismo cálculo. La primera acumula en una sola variable; la segunda usa cuatro acumuladores independientes para que el procesador no espere a que termine una suma antes de empezar la siguiente."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "dos_sumas.cpp",
+			"code": "#include <chrono>\n#include <cstdio>\n#include <vector>\n\ndouble suma_serial(const std::vector<double>& v) {\n    double s = 0.0;\n    for (double x : v) s += x;  // una dependencia encadenada\n    return s;\n}\n\ndouble suma_cuatro(const std::vector<double>& v) {\n    double a = 0.0, b = 0.0, c = 0.0, d = 0.0;\n    const std::size_t n = v.size();\n    std::size_t i = 0;\n    for (; i + 4 <= n; i += 4) {\n        a += v[i];\n        b += v[i + 1];\n        c += v[i + 2];\n        d += v[i + 3];\n    }\n    for (; i < n; ++i) a += v[i];\n    return a + b + c + d;\n}\n\nint main() {\n    std::vector<double> v(50'000'000, 1.0);\n\n    const auto t0 = std::chrono::steady_clock::now();\n    const double r1 = suma_serial(v);\n    const auto t1 = std::chrono::steady_clock::now();\n    const double r2 = suma_cuatro(v);\n    const auto t2 = std::chrono::steady_clock::now();\n\n    auto ms = [](auto x, auto y) {\n        return std::chrono::duration<double, std::milli>(y - x).count();\n    };\n    std::printf(\"serial %.2f ms -> %.0f\\n\", ms(t0, t1), r1);\n    std::printf(\"cuatro %.2f ms -> %.0f\\n\", ms(t1, t2), r2);\n    return 0;\n}",
+			"highlight": [
+				7,
+				15,
+				16,
+				17,
+				18
+			]
+		},
+		{
+			"type": "p",
+			"md": "En un Apple M1 Max con `clang` y `-O2`, la versión serial tarda unos 47 ms y la de cuatro acumuladores unos 12, tomando el mejor de cinco intentos: cuatro veces menos con las mismas sumas. El motivo es la dependencia: en `s += x` cada suma necesita la anterior. Con cuatro cadenas independientes, la unidad de coma flotante trabaja en paralelo sin usar un hilo."
+		},
+		{
+			"type": "p",
+			"md": "El mismo programa con `-O0` tarda unos 211 ms. Ese factor de cuatro indica que el compilador deja de guardar cada variable en memoria y empieza a vectorizar."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: localidad de caché en una matriz"
+		},
+		{
+			"type": "p",
+			"md": "Una matriz de 2048 por 2048 `double` ocupa 32 MB, más de lo que cabe en la caché de un núcleo. Sumarla toda es el mismo número de operaciones en cualquier orden, pero no cuesta lo mismo."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "localidad.cpp",
+			"code": "#include <algorithm>\n#include <chrono>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    constexpr int n = 2048;\n    std::vector<double> m(static_cast<std::size_t>(n) * n, 1.0);\n\n    double mejor_fila = 1e9, mejor_columna = 1e9;\n    double suma_fila = 0.0, suma_columna = 0.0;\n\n    for (int repeticion = 0; repeticion < 5; ++repeticion) {\n        auto t0 = std::chrono::steady_clock::now();\n        double s = 0.0;\n        for (int r = 0; r < n; ++r)\n            for (int c = 0; c < n; ++c) s += m[static_cast<std::size_t>(r) * n + c];\n        auto t1 = std::chrono::steady_clock::now();\n        suma_fila = s;\n        mejor_fila = std::min(mejor_fila, std::chrono::duration<double, std::milli>(t1 - t0).count());\n\n        t0 = std::chrono::steady_clock::now();\n        s = 0.0;\n        for (int c = 0; c < n; ++c)\n            for (int r = 0; r < n; ++r) s += m[static_cast<std::size_t>(r) * n + c];\n        t1 = std::chrono::steady_clock::now();\n        suma_columna = s;\n        mejor_columna = std::min(mejor_columna, std::chrono::duration<double, std::milli>(t1 - t0).count());\n    }\n\n    std::printf(\"por fila    = %.0f  (%.2f ms)\\n\", suma_fila, mejor_fila);\n    std::printf(\"por columna = %.0f  (%.2f ms)\\n\", suma_columna, mejor_columna);\n    std::printf(\"factor      = %.1fx\\n\", mejor_columna / mejor_fila);\n    return 0;\n}",
+			"highlight": [
+				15,
+				16,
+				22,
+				23
+			]
+		},
+		{
+			"type": "p",
+			"md": "Medido con `-O2`, la pasada por filas tarda unos 4 ms y la de columnas unos 13: tres veces más. Ambas suman 4194304. Por filas avanzas de forma contigua y aprovechas cada línea de caché; por columnas saltas 16 KB entre un elemento y el siguiente."
+		},
+		{
+			"type": "p",
+			"md": "La conclusión es incómoda: el orden de los bucles es una decisión de rendimiento. En una matriz guardada por filas, deja que el índice de columna sea el que varía más rápido. Es gratis y suele ser la optimización más rentable."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: cómo crece el trabajo con los datos"
+		},
+		{
+			"type": "p",
+			"md": "Antes de cronometrar nada conviene saber cuántas operaciones vas a pedir. La traza siguiente cuenta el trabajo de una multiplicación de matrices ingenua, que hace una multiplicación por cada terna de índices."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "El coste O(n³) de una multiplicación ingenua",
+			"code": "#include <iostream>\n\nlong long pasos_matmul(long long n) {\n    return n * n * n;  // una multiplicación por cada terna (i, j, k)\n}\n\nint main() {\n    for (long long n : {8, 16, 32}) {\n        std::cout << n << \" -> \" << pasos_matmul(n) << '\\n';\n    }\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 8,
+					"note": "Primera vuelta del rango: `n` vale 8. Todavía no se ha calculado ningún coste.",
+					"vars": {
+						"n": "8",
+						"pasos_matmul(n)": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "`8 * 8 * 8 = 512` multiplicaciones. Con matrices de 8 por 8, el coste es diminuto.",
+					"vars": {
+						"n": "8",
+						"pasos_matmul(n)": "512"
+					},
+					"output": "8 -> 512\n"
+				},
+				{
+					"line": 8,
+					"note": "Segunda vuelta: `n` se duplica a 16. Los datos son el doble de grandes.",
+					"vars": {
+						"n": "16",
+						"pasos_matmul(n)": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "`16³ = 4096`: ocho veces más trabajo que en la vuelta anterior, no el doble. Ese es el efecto del exponente.",
+					"vars": {
+						"n": "16",
+						"pasos_matmul(n)": "4096"
+					},
+					"output": "16 -> 4096\n"
+				},
+				{
+					"line": 8,
+					"note": "Tercera vuelta: `n` vuelve a duplicarse a 32.",
+					"vars": {
+						"n": "32",
+						"pasos_matmul(n)": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "`32³ = 32768`. Otra vez ocho veces más: duplicar la entrada multiplica el trabajo por ocho.",
+					"vars": {
+						"n": "32",
+						"pasos_matmul(n)": "32768"
+					},
+					"output": "32 -> 32768\n"
+				},
+				{
+					"line": 11,
+					"note": "El bucle termina. Con `n` de 1000 el mismo cálculo pediría mil millones de multiplicaciones: ahí ya se mide en segundos.",
+					"vars": {
+						"n": "32",
+						"pasos_matmul(n)": "32768"
+					},
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en el patrón: cada vez que duplicas el tamaño, el trabajo se multiplica por ocho. Un dataset que pasa de mil a diez mil filas no tarda diez veces más, tarda mil. Ningún speedup de diez núcleos compensa ese salto: primero cambia el algoritmo."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: perfilado con perf e Instruments"
+		},
+		{
+			"type": "p",
+			"md": "Un cronómetro dice cuánto tarda el programa; un perfilador, en qué función. `perf` viene con Linux e `Instruments` con macOS: muestrean la pila de llamadas y agregan los resultados sin instrumentar el código."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Perfilar en Linux y en macOS",
+			"code": "# Linux: cuántas instrucciones, fallos de caché y ramas mal predichas\nperf stat -e cycles,instructions,cache-misses,branch-misses ./programa\n\n# Linux: perfil con pilas de llamadas y luego informe interactivo\nperf record -g ./programa\nperf report\n\n# macOS: grabar un perfil de tiempo y abrirlo en Instruments\nxcrun xctrace record --template 'Time Profiler' --launch ./programa --output perfil.trace\nopen perfil.trace"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Tiempo propio** (`self`): el consumido dentro de la función, sin contar las que llama.",
+				"**Fallos de caché**: si son altos en un bucle contiguo, sospecha de un acceso con salto.",
+				"**Ramas mal predichas**: aparecen en condiciones difíciles de predecir dentro del bucle."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Un perfil bien leído convierte una discusión en una lista ordenada. Si la función más costosa es la que esperabas, ya sabes dónde trabajar; si no lo es, acabas de ahorrarte una optimización inútil."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes al medir"
+		},
+		{
+			"type": "diff",
+			"title": "Una sola medición no es una medición",
+			"wrong": {
+				"caption": "Incorrecto: una pasada y un reloj de pared",
+				"code": "const auto t0 = std::chrono::system_clock::now();\ncalcular(datos);\nconst auto t1 = std::chrono::system_clock::now();\nstd::cout << (t1 - t0).count() << \" ticks\\n\";"
+			},
+			"right": {
+				"caption": "Correcto: varias repeticiones y el mejor tiempo",
+				"code": "double mejor = 1e9;\nfor (int rep = 0; rep < 5; ++rep) {\n    const auto t0 = std::chrono::steady_clock::now();\n    consumir(calcular(datos));\n    const auto t1 = std::chrono::steady_clock::now();\n    mejor = std::min(mejor, std::chrono::duration<double, std::milli>(t1 - t0).count());\n}"
+			},
+			"explain": "`system_clock` puede ajustarse a mitad de la medición y `count()` devuelve ticks sin unidad. Una sola pasada incluye el arranque en frío de la caché y cualquier interrupción del sistema. Repite, quédate con el mejor tiempo y no descartes el resultado: si nadie lo usa, el compilador borra el cálculo."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Medir con `-O0`**: cronometras un programa que no existe en producción. Usa `-O2`, las mismas opciones con las que entregas.",
+				"**Descartar el resultado**: si la función devuelve algo que no se imprime ni se guarda, el compilador puede eliminarla.",
+				"**Incluir entrada y salida**: `std::cout` dentro del bucle medido domina el tiempo. Separa el cálculo de la impresión.",
+				"**Una sola repetición**: la primera pasada paga el arranque en frío. Haz cinco y quédate con la mejor.",
+				"**Comparar máquinas distintas**: un portátil con el gobernador de frecuencia activo no da los mismos números que un servidor."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas de optimización"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe la versión clara y compruébala con datos pequeños; optimiza solo lo que el perfil señale.",
+				"Elige el algoritmo antes que el microdetalle: `O(n log n)` feo gana a `O(n²)` elegante.",
+				"Recorre los datos en el orden en que están guardados; en matrices por filas, el índice de columna varía más rápido.",
+				"Compila con `-O2` y, si el bucle es numérico, prueba `-march=native` para permitir instrucciones del procesador.",
+				"Prefiere `std::vector` a contenedores con nodos dispersos cuando domina el recorrido secuencial.",
+				"Mide el antes y el después con el mismo binario y anota el número.",
+				"No sacrifiques claridad por un cinco por ciento: el código se lee muchas más veces de las que se ejecuta."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "p",
+			"md": "Tres prácticas cortas: medir tres formas de lo mismo, arreglar un recorrido que desperdicia caché y completar un cronómetro."
+		},
+		{
+			"type": "exercise",
+			"title": "Tres formas de sumar un vector",
+			"md": "Mide el tiempo de sumar veinte millones de `double` con índice, con `range-for` y con `std::accumulate`. Imprime las tres sumas y los tres tiempos. ¿Cuál gana?",
+			"hint": "Con `-O2` las tres versiones suelen compilarse al mismo código. Imprime cada suma para que el compilador no pueda eliminar el bucle.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "tres_sumas.cpp",
+				"code": "#include <chrono>\n#include <cstdio>\n#include <numeric>\n#include <vector>\n\ndouble ms(std::chrono::steady_clock::time_point a, std::chrono::steady_clock::time_point b) {\n    return std::chrono::duration<double, std::milli>(b - a).count();\n}\n\nint main() {\n    std::vector<double> v(20'000'000, 1.0);\n\n    const auto t0 = std::chrono::steady_clock::now();\n    double s1 = 0.0;\n    for (std::size_t i = 0; i < v.size(); ++i) s1 += v[i];\n    const auto t1 = std::chrono::steady_clock::now();\n\n    double s2 = 0.0;\n    for (double valor : v) s2 += valor;\n    const auto t2 = std::chrono::steady_clock::now();\n\n    const double s3 = std::accumulate(v.begin(), v.end(), 0.0);\n    const auto t3 = std::chrono::steady_clock::now();\n\n    std::printf(\"indice     %6.2f ms  suma=%.0f\\n\", ms(t0, t1), s1);\n    std::printf(\"range-for  %6.2f ms  suma=%.0f\\n\", ms(t1, t2), s2);\n    std::printf(\"accumulate %6.2f ms  suma=%.0f\\n\", ms(t2, t3), s3);\n    return 0;\n}",
+				"explain": "Medido con `-O2`, las tres versiones tardan unos 19 ms cada una: el compilador genera el mismo bucle. La lección es que la forma de escribir el bucle importa menos que el nivel de optimización y el orden de acceso. Si compilas con `-O0`, la versión con índice suele perder por el cálculo repetido de `v.size()`."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Sumar por columnas sin saltar de fila",
+			"md": "Una matriz de 1024 por 1024 está guardada por filas. Calcula la suma de cada columna de dos formas: recorriendo cada columna de arriba abajo y recorriendo las filas una sola vez mientras acumulas en un vector auxiliar. Compara los tiempos y explica la diferencia.",
+			"hint": "La segunda versión necesita un vector de 1024 acumuladores, pero lee la matriz de forma contigua. Los dos resultados deben coincidir.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "suma_columnas.cpp",
+				"code": "#include <chrono>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    constexpr int n = 1024;\n    std::vector<double> m(static_cast<std::size_t>(n) * n, 1.0);\n    std::vector<double> por_columna(n, 0.0);\n\n    auto t0 = std::chrono::steady_clock::now();\n    std::vector<double> a(n, 0.0);\n    for (int c = 0; c < n; ++c)\n        for (int r = 0; r < n; ++r) a[c] += m[static_cast<std::size_t>(r) * n + c];\n    auto t1 = std::chrono::steady_clock::now();\n\n    for (int r = 0; r < n; ++r) {\n        const double* fila = &m[static_cast<std::size_t>(r) * n];\n        for (int c = 0; c < n; ++c) por_columna[c] += fila[c];\n    }\n    auto t2 = std::chrono::steady_clock::now();\n\n    const double ms_a = std::chrono::duration<double, std::milli>(t1 - t0).count();\n    const double ms_b = std::chrono::duration<double, std::milli>(t2 - t1).count();\n    std::printf(\"por columnas %6.2f ms  suma=%.0f\\n\", ms_a, a[0]);\n    std::printf(\"una pasada   %6.2f ms  suma=%.0f\\n\", ms_b, por_columna[0]);\n    return 0;\n}",
+				"explain": "La primera versión salta 8 KB entre un elemento y el siguiente, así que cada acceso paga una línea de caché para usar un solo `double`. La segunda lee la matriz en orden y reparte el coste de cada línea entre ocho valores. Medido con `-O2` en un Apple M1 Max, la diferencia va de cinco a diez veces según la ejecución. El vector auxiliar ocupa 8 KB: cabe en L1 y no es un problema."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el cronómetro",
+			"lang": "cpp",
+			"code": "const auto inicio = std::chrono::___::now();\ntrabajo_pesado(datos);\nconst auto fin = std::chrono::steady_clock::now();\n\nconst double ms = std::chrono::duration<double, std::milli>(fin - ___).___();\nstd::printf(\"%.2f ms\\n\", ___);",
+			"answers": [
+				"steady_clock",
+				"inicio",
+				"count",
+				"ms"
+			],
+			"hint": "El reloj monótono se llama `steady_clock`; la duración de la que quieres el número se obtiene con `count()`.",
+			"explain": "`steady_clock` no retrocede aunque se ajuste la hora del sistema. Restar dos `time_point` produce una `duration`, y `count()` la convierte en un número imprimible. Sin `count()` no hay valor que pasar a `printf`."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio ninguna versión gana. Con `-O2` el compilador reduce las tres a un bucle equivalente y el tiempo lo fija el ancho de banda, no la sintaxis. Medido con `-O0` habrías aprendido algo falso sobre `range-for`."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el vector auxiliar cambia el patrón de acceso: en lugar de pedir un `double` y saltar, lees una fila completa seguida. Ese patrón se llama **bloqueo** y es la base de las bibliotecas de álgebra lineal: si un cálculo no cabe en caché, se parte en trozos que sí quepan."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Optimizar es reducir trabajo y comprobarlo con una medición; sin número antes y después no hay optimización.",
+				"Big-O describe el crecimiento: pasar de `O(n²)` a `O(n log n)` vence a cualquier microoptimización.",
+				"Cada línea de caché trae ocho `double` contiguos: aprovéchalos.",
+				"Recorrer una matriz por filas puede ser tres veces más rápido que por columnas con las mismas operaciones.",
+				"`std::chrono::steady_clock`, varias repeticiones y el mejor tiempo: la forma mínima de medir bien.",
+				"Compila con `-O2` al medir: `-O0` mide un programa que nunca vas a entregar.",
+				"`perf` e `Instruments` dicen en qué función se va el tiempo; el cronómetro dice cuánto."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Un algoritmo tarda 1 segundo con 1 000 elementos y su coste es O(n²). ¿Cuánto tardará aproximadamente con 10 000 elementos?",
+			"options": [
+				"10 segundos",
+				"100 segundos",
+				"1 000 segundos",
+				"1 segundo, porque el coste no cambia"
+			],
+			"answer": 1,
+			"explain": "Al multiplicar la entrada por 10, un coste cuadrático multiplica el trabajo por 100: de 1 segundo a unos 100 segundos. Con 100 000 elementos serían casi tres horas."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué recorrer una matriz guardada por filas en orden de columnas es más lento?",
+			"options": [
+				"Porque hace más multiplicaciones",
+				"Porque cada acceso usa una línea de caché distinta y desaprovecha los otros siete valores",
+				"Porque el compilador no puede usar `-O2` en ese bucle",
+				"Porque el índice se calcula con coma flotante"
+			],
+			"answer": 1,
+			"explain": "El número de operaciones es idéntico. La diferencia está en la memoria: al saltar de fila en fila, cada línea de 64 bytes se trae para usar un solo `double`, y el procesador espera a la RAM una y otra vez."
+		},
+		{
+			"type": "quiz",
+			"question": "Mides una función, no imprimes su resultado y el cronómetro marca 0,00 ms. ¿Qué ha pasado?",
+			"options": [
+				"El reloj no tiene suficiente resolución",
+				"La función es demasiado rápida para medirse",
+				"El compilador eliminó el cálculo porque su resultado no se usaba",
+				"Falta incluir `<chrono>`"
+			],
+			"answer": 2,
+			"explain": "Bajo la regla del «como si», el compilador puede borrar cualquier cálculo cuyo resultado no afecte a la salida. Imprime la suma o guárdala en algo que se lea al final del programa."
+		},
+		{
+			"type": "compare",
+			"title": "Medir la misma suma en Python y en C++",
+			"python": {
+				"caption": "suma.py",
+				"code": "import time\nimport numpy as np\n\nx = np.ones(50_000_000)\nt0 = time.perf_counter()\ns = x.sum()\nt1 = time.perf_counter()\nprint(f\"{s:.0f} en {1000 * (t1 - t0):.1f} ms\")"
+			},
+			"cpp": {
+				"caption": "suma.cpp",
+				"code": "std::vector<double> x(50'000'000, 1.0);\nconst auto t0 = std::chrono::steady_clock::now();\ndouble s = 0.0;\nfor (double v : x) s += v;\nconst auto t1 = std::chrono::steady_clock::now();"
+			},
+			"note": "En Python el bucle lo ejecuta NumPy en C, ya vectorizado: no mides Python, mides C. La comparación honesta no es «Python contra C++» sino «tu bucle en C++ contra el bucle de NumPy». Escrito a mano sin acumuladores, puedes perder contra la biblioteca."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · std::chrono",
+					"url": "https://en.cppreference.com/w/cpp/chrono",
+					"note": "relojes, duraciones y conversiones"
+				},
+				{
+					"label": "perf wiki",
+					"url": "https://perf.wiki.kernel.org/index.php/Main_Page",
+					"note": "perfilado en Linux"
+				},
+				{
+					"label": "Apple · Instruments",
+					"url": "https://developer.apple.com/xcode/instruments/",
+					"note": "perfilado en macOS"
+				},
+				{
+					"label": "GCC · opciones de optimización",
+					"url": "https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html",
+					"note": "qué activa cada nivel de -O"
+				}
+			]
+		}
+	]
+}

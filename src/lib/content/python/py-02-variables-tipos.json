@@ -1,0 +1,580 @@
+{
+	"id": "py-02-variables-tipos",
+	"track": "python",
+	"order": 2,
+	"title": "Variables y tipos de datos",
+	"subtitle": "Nombres que apuntan a objetos, tipos que no se mezclan y conversiones que no pierden datos",
+	"level": "principiante",
+	"minutes": 30,
+	"tags": [
+		"variables",
+		"tipos",
+		"memoria"
+	],
+	"keywords": [
+		"qué es una variable",
+		"asignación en python",
+		"int float str bool",
+		"None en python",
+		"type()",
+		"conversión de tipos",
+		"casting",
+		"nombre de variable válido",
+		"memoria de una variable",
+		"referencia a un objeto",
+		"id()",
+		"variable sin valor"
+	],
+	"summary": "Una variable es un nombre que apunta a un objeto en memoria, y cada objeto tiene un tipo que decide qué operaciones acepta. Aquí aprendes a crear variables con nombres válidos, a identificar int, float, str, bool y None, y a convertir entre tipos sin perder información por el camino.",
+	"objectives": [
+		"Crear variables y distinguir nombres válidos de palabras reservadas",
+		"Identificar los tipos int, float, str, bool y NoneType con type()",
+		"Explicar por qué dos nombres pueden apuntar al mismo objeto",
+		"Convertir valores entre texto y números controlando los errores de valor",
+		"Elegir el tipo adecuado para representar precios, cantidades y promedios"
+	],
+	"prerequisites": [
+		"¿Qué es Python y cómo preparar tu entorno?"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En la lección anterior guardaste un texto en `nombre` y lo imprimiste. Darle un nombre a un valor es la operación más frecuente del código: sin nombres, cada dato se repetiría en cada línea hasta volver el programa ilegible."
+		},
+		{
+			"type": "p",
+			"md": "Una **variable** es un nombre que apunta a un valor que vive en memoria. La palabra sugiere una caja que cambia de contenido, pero el modelo correcto es una etiqueta pegada a un objeto. Esa diferencia, que parece filosófica, explica casi todos los comportamientos que verás con listas y modelos."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una variable?"
+		},
+		{
+			"type": "p",
+			"md": "Imagina el guardarropa de una fiesta: cada abrigo lleva una etiqueta con un número, y la etiqueta no es el abrigo, solo indica cuál te llevas. En Python, `precio` es la etiqueta y `89.9` es el abrigo: un objeto `float` que ocupa un lugar en la memoria del proceso."
+		},
+		{
+			"type": "p",
+			"md": "Cuando escribes `precio = 89.9` ocurren tres cosas: se evalúa la expresión de la derecha, se registra en el espacio de nombres que `precio` apunta a ese objeto y la instrucción termina. Una asignación no produce salida visible."
+		},
+		{
+			"type": "p",
+			"md": "Cada objeto tiene identidad (`id()`), tipo (`type()`) y valor. El nombre no tiene tipo; el objeto sí. Por eso la misma variable puede apuntar hoy a un entero y mañana a un texto sin que Python proteste: lo que cambia es el objeto, no la etiqueta."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven las variables?"
+		},
+		{
+			"type": "p",
+			"md": "En un programa real cumplen cuatro funciones concretas:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Recordar** un resultado: guardas el subtotal y lo reutilizas al aplicar el impuesto.",
+				"**Nombrar** un dato: `promedio_final` comunica más que `x`.",
+				"**Reutilizar** un valor: cambias la tasa de descuento en una línea y todo se actualiza.",
+				"**Adaptar** el programa a otros datos: el mismo cálculo sirve para 4 productos o para 40 000."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En un entrenamiento verás `tasa_aprendizaje = 0.01`, `n_epocas = 100` o `semilla = 42`: parámetros que decides tú y que el resto del código lee. Un dataset también es una tabla de variables, y confundir una columna de texto con una numérica rompe el modelo antes de empezar."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El intérprete mantiene un **espacio de nombres**: una tabla que asocia cada nombre con la dirección del objeto al que apunta. Al asignar, busca el nombre y actualiza la flecha; si no existía, lo crea. Si el objeto anterior se queda sin referencias, el recolector de basura lo libera."
+		},
+		{
+			"type": "p",
+			"md": "Asignar de nuevo no modifica el objeto anterior, solo mueve la etiqueta. Por eso el siguiente programa imprime lo que imprime:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Dos etiquetas y un solo número",
+			"code": "a = 10\nb = a\na = 20\n\nprint(a, b)",
+			"highlight": [
+				3
+			]
+		},
+		{
+			"type": "p",
+			"md": "La línea 1 crea el entero `10` y pega la etiqueta `a`. La línea 2 no copia el número: hace que `b` apunte al mismo objeto. La línea 3 crea `20` y mueve únicamente `a`. Por eso la última línea imprime `20 10`: `b` sigue en el `10` original. Si esperabas `20 20`, estabas pensando en una caja compartida."
+		},
+		{
+			"type": "p",
+			"md": "Con objetos mutables la historia cambia. El siguiente ejemplo usa una lista, que estudiarás después; aquí importa la identidad, no la lista:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Dos nombres, un mismo objeto",
+			"code": "precios = [10, 20]\nalias = precios\n\nprint(id(precios) == id(alias))\nprint(precios is alias)",
+			"highlight": [
+				2
+			]
+		},
+		{
+			"type": "p",
+			"md": "Ambas salidas son `True`. `id` identifica al objeto mientras vive e `is` comprueba si dos nombres apuntan al mismo. No hubo copia: si modificas la lista a través de `alias`, el cambio se verá en `precios`. Guardar una referencia no es duplicar un dato."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: nombre, igual y expresión"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica es `nombre = expresión`. A la izquierda va el nombre que defines; a la derecha, cualquier expresión que produzca un valor. El signo `=` no significa «es igual a», sino «guarda esto bajo este nombre»."
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un nombre puede tener letras (incluidas `ñ` y vocales acentuadas), dígitos y guiones bajos, pero **no empieza por dígito**: `edad2` sí, `2edad` no.",
+				"No puede ser palabra reservada: `if`, `for`, `class`, `def`, `import`, `None`, `True` y `False` están ocupadas.",
+				"Python distingue mayúsculas: `Total` y `total` son variables distintas.",
+				"La convención es `snake_case`: `precio_total`, no `precioTotal`.",
+				"Puedes asignar varios nombres a la vez con `x, y = 3, 4`.",
+				"Al reasignar puedes cambiar de tipo, aunque no siempre sea buena idea."
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Asignación múltiple e intercambio",
+			"code": "base, altura = 3, 4.5\nbase, altura = altura, base\n\nprint(base, altura)",
+			"highlight": [
+				2
+			]
+		},
+		{
+			"type": "p",
+			"md": "La primera línea crea `3` (`int`) y `4.5` (`float`). La segunda evalúa la tupla de la derecha **antes** de asignar, así que el intercambio funciona sin variable temporal; el resultado es `4.5 3`. En otros lenguajes harían falta tres líneas."
+		},
+		{
+			"type": "h",
+			"text": "Los cinco tipos que usarás todo el tiempo"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Tipo",
+				"Ejemplos",
+				"Qué representa",
+				"type() devuelve"
+			],
+			"rows": [
+				[
+					"`int`",
+					"`42`, `-7`, `0`",
+					"Enteros, sin parte decimal",
+					"`<class 'int'>`"
+				],
+				[
+					"`float`",
+					"`3.14`, `-0.5`, `2.0`",
+					"Decimales en coma flotante de 64 bits",
+					"`<class 'float'>`"
+				],
+				[
+					"`str`",
+					"`\"hola\"`, `'2024'`",
+					"Texto: secuencia de caracteres",
+					"`<class 'str'>`"
+				],
+				[
+					"`bool`",
+					"`True`, `False`",
+					"Valor lógico: verdadero o falso",
+					"`<class 'bool'>`"
+				],
+				[
+					"`NoneType`",
+					"`None`",
+					"Ausencia de valor",
+					"`<class 'NoneType'>`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "`None` no es cero ni cadena vacía: marca explícitamente que no hay dato. Si una nota aún no se registró, `nota = None` es más honesto que `nota = 0`, porque cero es una nota real. Más adelante lo comprobarás con `if nota is None`."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "True vale 1, pero no lo uses como número",
+			"md": "`bool` es una especialización de `int`: `True + True` da `2` y `sum([True, False, True])` da `2`. Sirve para contar aciertos, no para escribir `verdadero = 1`. Si el dato es lógico, usa `True` y `False`."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Los float no son decimales exactos",
+			"md": "`0.1 + 0.2` no da `0.3`, da `0.30000000000000004` por la representación binaria. Nunca compares dos `float` con `==`: usa `abs(a - b) < 1e-9`. Para dinero, muchos sistemas guardan céntimos como `int`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: la ficha de un producto"
+		},
+		{
+			"type": "p",
+			"md": "Guardemos los datos mínimos de un artículo, cada uno con el tipo que le corresponde por naturaleza:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "producto.py",
+			"code": "producto = \"teclado\"\nprecio = 89.9\nstock = 12\ndisponible = stock > 0\n\nprint(producto)\nprint(type(producto))\nprint(type(precio))\nprint(type(disponible))",
+			"highlight": [
+				4,
+				7
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`producto = \"teclado\"` crea un `str`; las comillas delimitan el texto y no forman parte del valor.",
+				"`precio = 89.9` crea un `float`. El separador decimal es el punto; `89,9` sería una tupla.",
+				"`stock = 12` crea un `int`, adecuado porque las unidades no se parten.",
+				"`disponible = stock > 0` evalúa la comparación y guarda `True`. La variable ya no contiene 12, contiene la respuesta a una pregunta.",
+				"`type(...)` devuelve el tipo del objeto y `print` lo muestra."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `teclado`, `<class 'str'>`, `<class 'float'>` y `<class 'bool'>`. Si `stock` fuera `0`, `disponible` sería `False`. Ojo: `disponible` se calcula una sola vez; si luego cambias `stock`, no se actualiza. Las variables no son fórmulas de hoja de cálculo, son valores congelados al asignar."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: convertir entre tipos"
+		},
+		{
+			"type": "p",
+			"md": "Los datos rara vez llegan con el tipo que necesitas: un formulario, un CSV o una API entregan texto aunque por dentro sean números. La conversión, o **casting**, produce un objeto nuevo del tipo pedido y no modifica el original."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "conversiones.py",
+			"code": "texto_edad = \"42\"\nedad = int(texto_edad)\nestatura = float(\"1.68\")\ncodigo = str(2024)\n\nprint(edad + 8)\nprint(estatura * 2)\nprint(codigo + \"-A\")\nprint(int(3.9), int(-3.9))",
+			"highlight": [
+				2,
+				3,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "`int(\"42\")` devuelve 42, así que `edad + 8` da `50`. `float(\"1.68\")` permite multiplicar y obtener `3.36`. `str(2024)` convierte el número en texto para concatenarlo; sin eso, `2024 + \"-A\"` lanzaría `TypeError`. La última línea muestra que `int(3.9)` da `3` y `int(-3.9)` da `-3`: trunca hacia cero, no redondea."
+		},
+		{
+			"type": "list",
+			"items": [
+				"`int(\"3.5\")` falla con `ValueError`: el texto no es un entero.",
+				"`float(\"1,68\")` también falla, porque la coma no es el separador decimal.",
+				"`bool(\"False\")` es `True`: la cadena no está vacía. Solo `0`, `0.0`, `\"\"`, `[]`, `{}`, `()` y `None` son falsos.",
+				"`str(3.0)` produce `\"3.0\"`; usa `:.0f` si necesitas `\"3\"`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: ticket de una venta con descuento"
+		},
+		{
+			"type": "p",
+			"md": "Una tienda vende 4 unidades a 12.5 soles y aplica 10 % de descuento sobre el subtotal. El programa debe mostrar las cifras como en un comprobante:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ticket.py",
+			"code": "precio = 12.5\ncantidad = 4\nsubtotal = precio * cantidad\ndescuento = subtotal * 0.10\ntotal = subtotal - descuento\n\nprint(f\"Subtotal: S/ {subtotal:.2f}\")\nprint(f\"Descuento: S/ {descuento:.2f}\")\nprint(f\"Total: S/ {total:.2f}\")",
+			"highlight": [
+				4,
+				5
+			]
+		},
+		{
+			"type": "p",
+			"md": "`12.5 * 4` da `50.0`, el 10 % es `5.0` y el total `45.0`. El sufijo `:.2f` redondea solo al mostrar: no cambia el valor guardado. El descuento se calcula desde `subtotal`, así que si el precio cambia, las tres cifras siguen siendo coherentes. Nota que `subtotal` es `float` aunque valga 50: `precio` ya era `float` y la multiplicación conserva ese tipo."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la memoria paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "La traza muestra el mismo cálculo sin formato. Lee la columna de variables como una foto completa: lo que no aparece todavía es porque aún no existe."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Qué guarda cada variable en cada línea",
+			"code": "precio = 12.5\ncantidad = 4\nsubtotal = precio * cantidad\ndescuento = subtotal * 0.10\ntotal = subtotal - descuento\nprint(total)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se crea el `float` 12.5 y la etiqueta `precio` apunta a él.",
+					"vars": {
+						"precio": "12.5"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "Se crea el `int` 4. `precio` no cambia.",
+					"vars": {
+						"precio": "12.5",
+						"cantidad": "4"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Se evalúa `12.5 * 4`; el resultado es un `float` nuevo, 50.0.",
+					"vars": {
+						"precio": "12.5",
+						"cantidad": "4",
+						"subtotal": "50.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El 10 % de 50.0 es 5.0. `subtotal` sigue intacto.",
+					"vars": {
+						"precio": "12.5",
+						"cantidad": "4",
+						"subtotal": "50.0",
+						"descuento": "5.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Se resta 50.0 - 5.0 y se guarda el nuevo objeto 45.0.",
+					"vars": {
+						"precio": "12.5",
+						"cantidad": "4",
+						"subtotal": "50.0",
+						"descuento": "5.0",
+						"total": "45.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`print` convierte el `float` a texto y lo escribe con su parte decimal.",
+					"vars": {
+						"precio": "12.5",
+						"cantidad": "4",
+						"subtotal": "50.0",
+						"descuento": "5.0",
+						"total": "45.0"
+					},
+					"output": "45.0\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`NameError: name 'presio' is not defined`",
+					"Nombre mal escrito o aún no asignado",
+					"Corrige la ortografía; `Precio` y `precio` son distintos"
+				],
+				[
+					"`TypeError: can only concatenate str (not \"int\") to str`",
+					"Uniste texto y número con `+`",
+					"Usa `str(numero)` o una f-string"
+				],
+				[
+					"`ValueError: invalid literal for int() with base 10: '3.5'`",
+					"`int()` recibió un texto con decimales",
+					"Convierte con `float(\"3.5\")`"
+				],
+				[
+					"`SyntaxError: leading zeros in decimal integer literals`",
+					"Escribiste `007`",
+					"Escribe `7` o guarda el código como texto"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El `TypeError` tiene una variante silenciosa que no lanza error y produce un resultado absurdo:"
+		},
+		{
+			"type": "diff",
+			"title": "Multiplicar texto por un número no es multiplicar",
+			"wrong": {
+				"caption": "Sin error, pero mal",
+				"code": "precio = \"12.5\"\ncantidad = 2\ntotal = precio * cantidad\nprint(total)  # 12.512.5"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "precio = 12.5\ncantidad = 2\ntotal = precio * cantidad\nprint(total)  # 25.0"
+			},
+			"explain": "En Python, `str * int` repite la cadena. Si el precio llegó como texto, el programa no falla: imprime `12.512.5`. Convierte con `float(precio)` antes de operar."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Elige nombres que respondan «¿qué es esto?»: `precio_con_igv`, no `p2`.",
+				"Reserva las letras sueltas para contadores de bucles cortos.",
+				"Declara cada variable cerca de donde la usas y con el tipo correcto.",
+				"No reutilices un mismo nombre para cosas distintas en la misma función.",
+				"Usa `None` para «sin dato» y `0` solo cuando cero sea un valor real.",
+				"Convierte y valida los datos externos antes de calcular con ellos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "De Celsius a Fahrenheit",
+			"md": "Guarda `37.0` en `celsius` y calcula los grados Fahrenheit con `F = C * 9 / 5 + 32`. Muestra el resultado con un decimal, por ejemplo `37 °C = 98.6 °F`. Después prueba con `-5.0` y comprueba que obtienes `23.0 °F`.",
+			"hint": "Multiplica por 9, divide entre 5 y suma 32. El formato `:.1f` te da un decimal.",
+			"solution": {
+				"lang": "python",
+				"caption": "temperatura.py",
+				"code": "celsius = 37.0\nfahrenheit = celsius * 9 / 5 + 32\n\nprint(f\"{celsius:.0f} °C = {fahrenheit:.1f} °F\")",
+				"explain": "`celsius * 9 / 5` se evalúa de izquierda a derecha y luego se suma 32. Con 37.0 el resultado es 98.6; con -5.0 es 23.0. La f-string aplica el formato solo al texto: `fahrenheit` conserva todos sus decimales."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Promedio de notas que llegan como texto",
+			"md": "Tres notas llegan como cadenas: `\"16\"`, `\"14.5\"` y `\"18\"`. Convierte cada una al tipo numérico adecuado, calcula el promedio y muéstralo con dos decimales. El resultado esperado es `16.17`.",
+			"hint": "`float` acepta tanto `\"16\"` como `\"14.5\"`. Suma las tres y divide entre 3.",
+			"solution": {
+				"lang": "python",
+				"caption": "promedio.py",
+				"code": "nota1 = float(\"16\")\nnota2 = float(\"14.5\")\nnota3 = float(\"18\")\n\npromedio = (nota1 + nota2 + nota3) / 3\nprint(f\"Promedio: {promedio:.2f}\")",
+				"explain": "La suma da 48.5 y la división 16.1666..., que el formato redondea a 16.17. Si hubieras usado `int(\"14.5\")` el programa fallaría con `ValueError`; si hubieras sumado las cadenas, obtendrías una concatenación sin sentido."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la conversión",
+			"lang": "python",
+			"code": "edad_texto = \"21\"\n\nedad = ___\nprint(edad + 1)\n\nprint(___(edad))",
+			"answers": [
+				"int(edad_texto)",
+				"type"
+			],
+			"hint": "Convierte el texto a entero y luego averigua el tipo del resultado.",
+			"explain": "`int(edad_texto)` produce el entero 21, así que `edad + 1` imprime 22. `type(edad)` devuelve `<class 'int'>`. Sin la conversión, `\"21\" + 1` lanzaría un `TypeError`."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, el error típico es escribir `celsius * 9 / (5 + 32)`: los paréntesis alteran la precedencia. También conviene recordar que `/` produce un `float` aunque los operandos sean enteros. El formato `:.1f` se aplica al mostrar, así que no modifica la variable."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la decisión clave es `float` y no `int`, porque `\"14.5\"` no es un entero válido. Una vez convertidas, la suma es aritmética normal y la división entre 3 da el promedio. Si pidieran descartar decimales, aplicarías `round(promedio, 2)` antes de imprimir."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una variable es un nombre que apunta a un objeto; el nombre no tiene tipo, el objeto sí.",
+				"Los tipos básicos son `int`, `float`, `str`, `bool` y `NoneType`; `type(x)` te dice cuál es.",
+				"`None` significa «sin valor»; no es `0`, `\"\"` ni `False`.",
+				"Al asignar no se copia: dos nombres pueden apuntar al mismo objeto, como confirma `id()`.",
+				"`int()`, `float()`, `str()` y `bool()` convierten, pero pueden fallar o sorprender.",
+				"`int()` trunca hacia cero; no redondea.",
+				"Nombres en `snake_case`, sin empezar por dígito y sin palabras reservadas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué tipo tiene el resultado de `10 / 2`?",
+			"options": [
+				"`int`, porque la división es exacta",
+				"`float`, porque `/` siempre produce decimales",
+				"`str`, porque se muestra como texto",
+				"Depende de la versión de Python"
+			],
+			"answer": 1,
+			"explain": "El operador `/` en Python 3 siempre devuelve `float`: `10 / 2` es `5.0`. Para obtener un entero se usa `//`, que da `5`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime `precio = \"12.5\"` seguido de `print(precio * 2)`?",
+			"options": [
+				"`25.0`",
+				"`25`",
+				"`12.512.5`",
+				"`TypeError`"
+			],
+			"answer": 2,
+			"explain": "Multiplicar una cadena por un entero la repite. No hay error, y ese es el peligro: el resultado parece un número pero es texto duplicado. La solución es `float(precio) * 2`."
+		},
+		{
+			"type": "quiz",
+			"question": "Después de `a = 10`, `b = a` y `a = 20`, ¿qué vale `b`?",
+			"options": [
+				"`20`, porque las variables comparten la caja",
+				"`10`, porque quedó apuntando al objeto original",
+				"`None`, porque `a` cambió",
+				"Provoca un error de referencia"
+			],
+			"answer": 1,
+			"explain": "La asignación copia la referencia, no el valor futuro. `b` sigue apuntando al entero 10; solo la etiqueta `a` se movió al objeto 20."
+		},
+		{
+			"type": "links",
+			"title": "Para profundizar",
+			"items": [
+				{
+					"label": "Tipos incorporados (documentación oficial)",
+					"url": "https://docs.python.org/es/3/library/stdtypes.html",
+					"note": "referencia de int, float, str y bool"
+				},
+				{
+					"label": "Modelo de datos de Python",
+					"url": "https://docs.python.org/es/3/reference/datamodel.html",
+					"note": "identidad, tipo y valor de los objetos"
+				},
+				{
+					"label": "Python Tutor",
+					"url": "https://pythontutor.com/",
+					"note": "visualiza las referencias paso a paso"
+				}
+			]
+		}
+	]
+}

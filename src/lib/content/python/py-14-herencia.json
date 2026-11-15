@@ -1,0 +1,534 @@
+{
+	"id": "py-14-herencia",
+	"track": "python",
+	"order": 14,
+	"title": "Herencia, polimorfismo y abstracción",
+	"subtitle": "Reutilizar comportamiento sin copiarlo: super(), sobrescritura, clases abstractas y el orden de resolución MRO",
+	"level": "intermedio",
+	"minutes": 44,
+	"tags": [
+		"poo",
+		"herencia",
+		"polimorfismo",
+		"abc",
+		"mro"
+	],
+	"keywords": [
+		"qué es la herencia en python",
+		"super()",
+		"sobrescribir un método",
+		"polimorfismo python",
+		"clase abstracta",
+		"ABC abstractmethod",
+		"duck typing",
+		"MRO",
+		"isinstance issubclass",
+		"cuándo usar herencia",
+		"heredar de Exception",
+		"método abstracto"
+	],
+	"summary": "La herencia permite que una clase reutilice el comportamiento de otra y que objetos distintos respondan al mismo mensaje. Aquí aprendes a usar super(), a sobrescribir métodos, a exigir contratos con clases abstractas y a decidir cuándo heredar es mala idea.",
+	"objectives": [
+		"Declarar una clase derivada y llamar a super().__init__() en el orden correcto",
+		"Sobrescribir un método reutilizando la versión heredada",
+		"Recorrer una lista de objetos distintos con una sola llamada polimórfica",
+		"Definir un contrato con ABC y @abstractmethod",
+		"Leer el MRO con __mro__ y explicar qué versión de un método se ejecuta",
+		"Decidir entre herencia y composición según la relación «es un» o «tiene un»"
+	],
+	"prerequisites": [
+		"Clases y objetos"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En la lección anterior aprendiste a crear una clase con `__init__` y métodos: un molde que produce objetos con estado propio. En cuanto tienes dos clases parecidas aparece el problema siguiente: comparten casi todo el código y solo se diferencian en un detalle. Copiar y pegar el método en ambas funciona hasta que el detalle común cambia y hay que corregirlo dos veces."
+		},
+		{
+			"type": "p",
+			"md": "La **herencia** resuelve eso declarando que una clase *es una versión especializada* de otra. Aquí la usas para reutilizar comportamiento, entiendes cómo Python decide qué método ejecutar, cómo exigir un contrato y cuándo la respuesta correcta es no heredar."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la herencia?"
+		},
+		{
+			"type": "p",
+			"md": "La herencia es una relación entre clases: `class Perro(Animal)` significa «un perro **es un** animal», y por tanto recibe sus atributos y métodos. `Animal` es la **clase base** (o superclase) y `Perro` la **clase derivada** (o subclase)."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en una ficha de producto: la ficha genérica tiene referencia, precio y descripción; la ficha de un televisor añade las pulgadas. La ficha del televisor no repite los campos comunes, los hereda y agrega los suyos. Si mañana cambia el formato de la referencia, cambia en un solo sitio y todas las fichas lo reflejan."
+		},
+		{
+			"type": "p",
+			"md": "Heredar no copia el código dentro de la subclase. La subclase guarda una referencia a su base y, cuando buscas un atributo que no definió, Python lo busca allí. Ese detalle explica por qué un cambio en la base afecta de inmediato a todas las subclases y por qué una jerarquía mal pensada se vuelve frágil."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Sobrescritura**: la subclase define un método con el mismo nombre y reemplaza el comportamiento heredado.",
+				"**Extensión**: la subclase llama a `super()` y añade algo antes o después, sin perder lo anterior.",
+				"**Herencia simple**: una sola base. Es el caso del 95 % del código real y el único que necesitas dominar para empezar.",
+				"**Herencia múltiple**: varias bases. Existe y funciona, pero introduce ambigüedad; aquí la usas solo para combinar interfaces pequeñas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Estos son los usos que aparecerán una y otra vez en el resto del curso:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Jerarquías del dominio**: `Empleado` → `Vendedor`, `Gerente`; `Figura` → `Rectangulo`, `Circulo`.",
+				"**Contratos**: una clase abstracta fija qué métodos debe ofrecer cualquier implementación, por ejemplo un transformador de datos.",
+				"**Extensiones de bibliotecas**: `scikit-learn` espera que tu modelo herede de `BaseEstimator` y cumpla la interfaz `fit`/`predict`.",
+				"**Errores propios**: `class ErrorDeDato(Exception)` hereda de `Exception` para poder lanzarse con `raise`, como verás en la lección de excepciones.",
+				"**Polimorfismo**: recorrer una lista de objetos distintos y llamar al mismo método, dejando que cada uno responda a su manera."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "«Es un» o «tiene un»",
+			"md": "Antes de escribir `class Auto(Vehiculo)`, pregúntate si un auto **es** un vehículo (herencia) o **tiene** un motor (composición). La mayoría de los abusos de herencia nacen de confundir estas dos relaciones; la lección siguiente está dedicada por completo a la segunda."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cuando escribes `perro.hablar()`, Python no mira solo en el objeto. Sigue un orden: primero los atributos de la instancia (`perro.__dict__`), después la clase (`Perro`) y, si el nombre no aparece, recorre las clases base en el orden que define el **MRO** (*Method Resolution Order*). Ese orden se calcula con el algoritmo C3 y puedes consultarlo con `Perro.__mro__`."
+		},
+		{
+			"type": "p",
+			"md": "El MRO importa cuando hay herencia múltiple. Con `class D(B, C)` y ambas heredando de `A`, el orden es `D, B, C, A, object`: Python busca en `B` antes que en `C` y solo llega a `A` si ninguna de las dos define el método. `object` es la base de todo, y por eso cualquier objeto tiene `__str__`, `__eq__` y compañía aunque tú no los escribas."
+		},
+		{
+			"type": "p",
+			"md": "`super()` no significa «mi clase padre». Significa «el siguiente en el MRO **de esta instancia**». En herencia simple coincide con la base, pero en una jerarquía con diamante es lo que garantiza que cada clase inicialice su parte una sola vez. Por eso `super().__init__(nombre)` es la forma correcta y `Animal.__init__(self, nombre)` es una bomba de tiempo: fija la clase base a mano y rompe cualquier subclase intermedia."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Duck typing: si grazna como un pato",
+			"md": "Python no exige que un objeto herede de nada para usarlo. Si el objeto tiene un método `hablar()`, el bucle `for a in animales: a.hablar()` funciona. A eso se le llama *duck typing*: el tipo importa menos que los métodos que el objeto ofrece. La herencia sirve para compartir implementación, no para autorizar el uso."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "El esqueleto de una jerarquía",
+			"code": "class Base:\n    def __init__(self, nombre):\n        self.nombre = nombre\n\n    def saludar(self):\n        return f\"Hola, {self.nombre}\"\n\nclass Derivada(Base):\n    def __init__(self, nombre, turno):\n        super().__init__(nombre)      # primero la parte heredada\n        self.turno = turno\n\n    def saludar(self):                # sobrescribe el método\n        base = super().saludar()      # reutiliza lo que ya existía\n        return f\"{base} (turno {self.turno})\"\n\nd = Derivada(\"Ana\", \"mañana\")\nprint(d.saludar())\nprint(isinstance(d, Base))",
+			"highlight": [
+				10,
+				11,
+				14,
+				15
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Forma",
+				"Qué hace"
+			],
+			"rows": [
+				[
+					"`class Hija(Base):`",
+					"Declara que `Hija` hereda de `Base`"
+				],
+				[
+					"`super().__init__(...)`",
+					"Ejecuta el inicializador siguiente en el MRO"
+				],
+				[
+					"`super().metodo()`",
+					"Reutiliza la versión heredada dentro de una sobrescritura"
+				],
+				[
+					"`isinstance(obj, Base)`",
+					"`True` si el objeto es de la clase o de cualquier subclase"
+				],
+				[
+					"`issubclass(Hija, Base)`",
+					"`True` si la clase hereda, directa o indirectamente, de otra"
+				],
+				[
+					"`Hija.__mro__`",
+					"Tupla con el orden de búsqueda de métodos"
+				]
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Sobrescribir un método en los dos lenguajes",
+			"python": {
+				"caption": "herencia.py",
+				"code": "class Animal:\n    def hablar(self):\n        return \"...\"\n\nclass Perro(Animal):\n    def hablar(self):\n        return \"Guau\"\n\nprint(Perro().hablar())"
+			},
+			"cpp": {
+				"caption": "herencia.cpp",
+				"code": "#include <iostream>\n#include <string>\n#include <utility>\n\nclass Animal {\npublic:\n    explicit Animal(std::string nombre) : nombre_(std::move(nombre)) {}\n    virtual ~Animal() = default;\n    virtual std::string hablar() const { return \"...\"; }\n    std::string nombre() const { return nombre_; }\n\nprivate:\n    std::string nombre_;\n};\n\nclass Perro : public Animal {\npublic:\n    explicit Perro(std::string nombre) : Animal(std::move(nombre)) {}\n    std::string hablar() const override { return \"Guau\"; }\n};\n\nint main() {\n    Perro p{\"Toby\"};\n    std::cout << p.hablar() << '\\n';\n    std::cout << p.nombre() << '\\n';\n    return 0;\n}"
+			},
+			"note": "En Python el despacho es dinámico por defecto: no hace falta ninguna palabra clave. En C++ necesitas `virtual` para que la llamada se resuelva en ejecución y `override` para que el compilador avise si la firma no coincide."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: un perro que hereda de animal"
+		},
+		{
+			"type": "p",
+			"md": "El caso mínimo de una jerarquía: la base guarda el nombre, la subclase añade la raza y sobrescribe `hablar`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "animales.py",
+			"code": "class Animal:\n    def __init__(self, nombre):\n        self.nombre = nombre\n\n    def hablar(self):\n        return \"...\"\n\nclass Perro(Animal):\n    def __init__(self, nombre, raza):\n        super().__init__(nombre)\n        self.raza = raza\n\n    def hablar(self):\n        return \"Guau\"\n\np = Perro(\"Toby\", \"mestizo\")\nprint(p.hablar())\nprint(p.nombre, p.raza)\nprint(isinstance(p, Animal))",
+			"highlight": [
+				10,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "`super().__init__(nombre)` asigna `self.nombre`; sin esa línea, `p.nombre` lanzaría `AttributeError`. La sobrescritura de `hablar` no borra la versión de `Animal`: solo la tapa en la búsqueda. `isinstance(p, Animal)` devuelve `True` porque `Perro` está en la cadena de `Animal`, aunque `p` sea de la clase derivada."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: polimorfismo con una lista"
+		},
+		{
+			"type": "p",
+			"md": "El polimorfismo es la consecuencia práctica de la sobrescritura: un mismo mensaje, respuestas distintas según el objeto. Fíjate en que el bucle no pregunta de qué clase es cada animal."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "polimorfismo.py",
+			"code": "class Animal:\n    def __init__(self, nombre):\n        self.nombre = nombre\n\nclass Perro(Animal):\n    def hablar(self):\n        return \"Guau\"\n\nclass Gato(Animal):\n    def hablar(self):\n        return \"Miau\"\n\nanimales = [Perro(\"Toby\"), Gato(\"Luna\")]\nfor animal in animales:\n    print(f\"{animal.nombre}: {animal.hablar()}\")",
+			"highlight": [
+				13,
+				14,
+				15
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Toby: Guau` y `Luna: Miau`. Si mañana añades `class Vaca(Animal)` con `return \"Muu\"`, el bucle sigue igual: no hay `if isinstance(...)` ni `elif`. Esa es la señal de un diseño polimórfico sano. La alternativa —una función que inspecciona tipos y crece con cada animal nuevo— obliga a modificar código que ya funcionaba cada vez que aparece una especie."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un contrato para transformadores de datos"
+		},
+		{
+			"type": "p",
+			"md": "En un proyecto de Machine Learning cada paso de preprocesamiento se ajusta con los datos de entrenamiento y luego transforma datos nuevos. Si cada clase inventa nombres de métodos, el pipeline no puede tratarlas igual. Una **clase abstracta** fija el contrato: qué métodos existen y con qué nombres."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "transformadores.py",
+			"code": "from abc import ABC, abstractmethod\n\nclass Transformador(ABC):\n    @abstractmethod\n    def ajustar(self, datos):\n        ...\n\n    @abstractmethod\n    def transformar(self, datos):\n        ...\n\nclass EscaladorMinMax(Transformador):\n    def __init__(self):\n        self.minimo = None\n        self.maximo = None\n\n    def ajustar(self, datos):\n        self.minimo = min(datos)\n        self.maximo = max(datos)\n\n    def transformar(self, datos):\n        rango = self.maximo - self.minimo\n        return [round((x - self.minimo) / rango, 2) for x in datos]\n\nclass Centrador(Transformador):\n    def __init__(self):\n        self.media = 0\n\n    def ajustar(self, datos):\n        self.media = sum(datos) / len(datos)\n\n    def transformar(self, datos):\n        return [round(x - self.media, 2) for x in datos]\n\ndatos = [10, 20, 30]\nfor transformador in (EscaladorMinMax(), Centrador()):\n    transformador.ajustar(datos)\n    print(type(transformador).__name__, transformador.transformar(datos))",
+			"highlight": [
+				3,
+				4,
+				8,
+				36,
+				37,
+				38
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `EscaladorMinMax [0.0, 0.5, 1.0]` y `Centrador [-10.0, 0.0, 10.0]`. `ABC` y `@abstractmethod` hacen que `Transformador` no se pueda instanciar y que una subclase incompleta falle **al crearse**, no al usarse, con `TypeError: Can't instantiate abstract class Centrador with abstract method transformar`. Detectar el error al construir es mucho más barato que descubrirlo a mitad de un entrenamiento."
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en lo que **no** hace el bucle: no comprueba la clase, no usa `hasattr`, no pregunta por el nombre. Solo llama a los métodos que el contrato garantiza. Si un compañero escribe su propio transformador y hereda de `Transformador`, el código funciona sin tocarlo. `type(transformador).__name__` obtiene el nombre de la clase concreta sin necesidad de guardarlo en un atributo."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: crear un objeto y resolver un método"
+		},
+		{
+			"type": "p",
+			"md": "Sigue la creación de `Perro(\"Toby\", \"mestizo\")` y las tres consultas finales. En cada paso observa el contenido de `p` y el orden que devuelve `Perro.__mro__`."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Del `class` al método que realmente se ejecuta",
+			"code": "class Animal:\n    def __init__(self, nombre):\n        self.nombre = nombre\n\n    def hablar(self):\n        return \"...\"\n\nclass Perro(Animal):\n    def __init__(self, nombre, raza):\n        super().__init__(nombre)\n        self.raza = raza\n\n    def hablar(self):\n        return \"Guau\"\n\np = Perro(\"Toby\", \"mestizo\")\nprint(p.hablar())\nprint(isinstance(p, Animal))\nprint([c.__name__ for c in Perro.__mro__])",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se define la clase `Animal`. El cuerpo se ejecuta una vez: crea las funciones `__init__` y `hablar` y las guarda como atributos de la clase, no del objeto.",
+					"vars": {
+						"Animal": "<class 'Animal'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "`Perro` hereda de `Animal`. Todavía no hay instancias: solo queda registrado que su base es `Animal` y que puede reutilizar lo que allí se definió.",
+					"vars": {
+						"Animal": "<class 'Animal'>",
+						"Perro": "<class 'Perro'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 16,
+					"note": "Se llama `Perro.__init__` con `self = p`. `super().__init__(nombre)` ejecuta el `__init__` de `Animal`, que asigna `nombre`; después se asigna `raza`. El objeto queda con los dos atributos.",
+					"vars": {
+						"Animal": "<class 'Animal'>",
+						"Perro": "<class 'Perro'>",
+						"p": "Perro(nombre='Toby', raza='mestizo')"
+					},
+					"output": ""
+				},
+				{
+					"line": 17,
+					"note": "`p.hablar()` busca en la instancia (no está), luego en `Perro` (está) y se detiene. La versión de `Animal` nunca se ejecuta porque la búsqueda no llega hasta ella.",
+					"vars": {
+						"Animal": "<class 'Animal'>",
+						"Perro": "<class 'Perro'>",
+						"p": "Perro(nombre='Toby', raza='mestizo')"
+					},
+					"output": "Guau\n"
+				},
+				{
+					"line": 18,
+					"note": "`isinstance` recorre la cadena de clases: `p` es un `Perro`, que es un `Animal`. Devuelve `True`.",
+					"vars": {
+						"Animal": "<class 'Animal'>",
+						"Perro": "<class 'Perro'>",
+						"p": "Perro(nombre='Toby', raza='mestizo')"
+					},
+					"output": "True\n"
+				},
+				{
+					"line": 19,
+					"note": "`__mro__` muestra el orden real de búsqueda: primero `Perro`, después `Animal` y al final `object`, la base de todas las clases.",
+					"vars": {
+						"Animal": "<class 'Animal'>",
+						"Perro": "<class 'Perro'>",
+						"p": "Perro(nombre='Toby', raza='mestizo')"
+					},
+					"output": "['Perro', 'Animal', 'object']\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje",
+				"Causa habitual",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`TypeError: __init__() missing 1 required positional argument: 'raza'`",
+					"Llamaste `Perro(\"Toby\")` sin el argumento que pide la subclase",
+					"Revisa la firma del `__init__` de la clase que instancias"
+				],
+				[
+					"`AttributeError: 'Perro' object has no attribute 'nombre'`",
+					"La subclase no llamó a `super().__init__()`",
+					"Llama a `super().__init__(...)` antes de usar atributos heredados"
+				],
+				[
+					"`TypeError: Can't instantiate abstract class Transformador with abstract methods ajustar, transformar`",
+					"Intentaste crear un objeto de una clase abstracta o de una subclase incompleta",
+					"Implementa todos los métodos marcados con `@abstractmethod`"
+				],
+				[
+					"`AttributeError: 'int' object has no attribute 'upper'`",
+					"Pasaste un tipo inesperado a un método que asumía texto",
+					"Valida el argumento antes de usarlo o conviértelo explícitamente"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Olvidar super().__init__ no da error hasta que falta el atributo",
+			"wrong": {
+				"caption": "Falla al leer nombre",
+				"code": "class Perro(Animal):\n    def __init__(self, nombre, raza):\n        self.raza = raza\n\np = Perro(\"Toby\", \"mestizo\")\nprint(p.nombre)"
+			},
+			"right": {
+				"caption": "Inicializa la parte heredada",
+				"code": "class Perro(Animal):\n    def __init__(self, nombre, raza):\n        super().__init__(nombre)\n        self.raza = raza\n\np = Perro(\"Toby\", \"mestizo\")\nprint(p.nombre)"
+			},
+			"explain": "El `__init__` de la subclase reemplaza al de la base: si no lo llamas, `self.nombre` nunca se asigna. El error aparece más tarde, al leer el atributo, y el mensaje no menciona `super()` por ningún lado. La regla es simple: inicializa la parte heredada primero."
+		},
+		{
+			"type": "p",
+			"md": "El último error no es de herencia, pero aparece cuando una subclase especializa: el método heredado asume un contrato que el llamador rompió. Los mensajes se leen de abajo hacia arriba: tipo, motivo y línea."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Hereda solo cuando puedas decir «X **es un** Y» sin forzar la frase.",
+				"Llama a `super().__init__(...)` en la primera línea del `__init__` de la subclase.",
+				"Sobrescribe para **especializar**, no para desactivar: una subclase que lanza `NotImplementedError` donde la base funcionaba suele indicar un mal diseño.",
+				"No heredes solo para reutilizar una función: si la relación no es de tipo, usa composición o una función libre.",
+				"Mantén la firma y el significado de los métodos heredados: si `area()` devuelve metros cuadrados, ninguna subclase puede devolver otra cosa (principio de sustitución de Liskov).",
+				"Define contratos con `ABC` y `@abstractmethod` cuando varias clases deban ofrecer la misma interfaz.",
+				"Prefiere `isinstance(obj, Base)` a `type(obj) is Base`: lo primero acepta subclases, lo segundo no."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Figuras con área obligatoria",
+			"md": "Crea una clase abstracta `Figura` con un método abstracto `area()` y un método concreto `describir()` que devuelva el nombre de la clase y el área con dos decimales. Implementa `Rectangulo(base, altura)` y `Circulo(radio)`, y recorre una lista con un rectángulo de 3×4 y un círculo de radio 2. Comprueba que instanciar `Figura` directamente lanza `TypeError`.",
+			"hint": "Importa `ABC` y `abstractmethod` desde `abc`, y `pi` desde `math`. Dentro de `describir` puedes usar `type(self).__name__` para obtener el nombre de la clase concreta.",
+			"solution": {
+				"lang": "python",
+				"caption": "figuras.py",
+				"code": "import math\nfrom abc import ABC, abstractmethod\n\nclass Figura(ABC):\n    @abstractmethod\n    def area(self):\n        ...\n\n    def describir(self):\n        return f\"{type(self).__name__}: área {self.area():.2f}\"\n\nclass Rectangulo(Figura):\n    def __init__(self, base, altura):\n        self.base = base\n        self.altura = altura\n\n    def area(self):\n        return self.base * self.altura\n\nclass Circulo(Figura):\n    def __init__(self, radio):\n        self.radio = radio\n\n    def area(self):\n        return math.pi * self.radio ** 2\n\nfor figura in [Rectangulo(3, 4), Circulo(2)]:\n    print(figura.describir())\n\ntry:\n    Figura()\nexcept TypeError as error:\n    print(\"TypeError:\", error)",
+				"explain": "`Figura` no implementa `area`, así que el bucle solo puede usar `describir`, que a su vez llama a `area` en la subclase. `type(self).__name__` devuelve `Rectangulo` o `Circulo` sin que tengas que pasar el nombre como argumento. La última comprobación confirma el contrato: `Figura` es un molde, no un objeto utilizable."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Nómina con sobrescritura y super()",
+			"md": "Modela `Empleado(nombre, base)` con un método `sueldo()` que devuelva el sueldo base. Crea `Vendedor(nombre, base, ventas)`, que suma un 10 % de las ventas, y `Gerente(nombre, base, bono)`, que suma un bono fijo. Los dos deben reutilizar `super().sueldo()`. Recorre una planilla con un empleado, un vendedor y un gerente, imprime cada sueldo con dos decimales y el total.",
+			"hint": "Define `sueldo()` en la base y sobrescríbelo en las dos subclases llamando primero a `super().sueldo()`. Para el total usa `sum(e.sueldo() for e in planilla)`.",
+			"solution": {
+				"lang": "python",
+				"caption": "planilla.py",
+				"code": "class Empleado:\n    def __init__(self, nombre, base):\n        self.nombre = nombre\n        self.base = base\n\n    def sueldo(self):\n        return self.base\n\n    def __str__(self):\n        return f\"{self.nombre}: {self.sueldo():.2f}\"\n\nclass Vendedor(Empleado):\n    def __init__(self, nombre, base, ventas):\n        super().__init__(nombre, base)\n        self.ventas = ventas\n\n    def sueldo(self):\n        return super().sueldo() + self.ventas * 0.1\n\nclass Gerente(Empleado):\n    def __init__(self, nombre, base, bono):\n        super().__init__(nombre, base)\n        self.bono = bono\n\n    def sueldo(self):\n        return super().sueldo() + self.bono\n\nplanilla = [Empleado(\"Ana\", 1500), Vendedor(\"Luis\", 1200, 5000), Gerente(\"Eva\", 3000, 800)]\nfor empleado in planilla:\n    print(empleado)\nprint(\"Total:\", sum(e.sueldo() for e in planilla))",
+				"explain": "Cada subclase guarda solo el dato que le es propio (`ventas` o `bono`) y delega el resto en `Empleado`. `super().sueldo()` lee el atributo base sin repetir la lógica. El total da 7000.0: 1500 + (1200 + 500) + (3000 + 800). Si mañana cambia la forma de calcular el sueldo base, se cambia en un único método."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el contrato abstracto",
+			"lang": "python",
+			"code": "from abc import ABC, ___\n\nclass Forma(___):\n    @abstractmethod\n    def area(self):\n        ...\n\nclass Cuadrado(Forma):\n    def __init__(self, lado):\n        self.lado = lado\n\n    def area(self):\n        return self.lado ** 2\n\nprint(Cuadrado(3).area())",
+			"answers": [
+				"abstractmethod",
+				"ABC"
+			],
+			"hint": "El decorador se importa junto a `ABC`, y la clase abstracta hereda de esa misma clase especial.",
+			"explain": "`abstractmethod` marca el método que las subclases deben implementar y `ABC` es la base que activa la comprobación al crear objetos. `Cuadrado(3).area()` imprime `9`; si borraras `area` de `Cuadrado`, la instanciación fallaría con `TypeError`."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de figuras, la decisión clave es poner `describir` en la clase abstracta: depende de `area`, que aún no existe, y se resuelve en tiempo de ejecución. Es el patrón **método plantilla**, y explica por qué una clase abstracta puede tener código útil."
+		},
+		{
+			"type": "p",
+			"md": "En la nómina, `super().sueldo()` no es un detalle de estilo. Con `Empleado.sueldo(self)` fijas la base a mano y cualquier clase intermedia queda fuera de la cadena. Con `super()` cada clase aporta su parte y el MRO decide el orden."
+		},
+		{
+			"type": "p",
+			"md": "Una alternativa: para sumar totales no necesitas herencia; una lista de diccionarios resuelve lo mismo. La herencia aporta cuando hay comportamiento compartido que evoluciona junto, no cuando solo agrupa datos. La próxima lección cubre el otro extremo: clases que colaboran sin heredar."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`class Hija(Base)` declara una relación «es un» y hereda atributos y métodos.",
+				"`super().__init__(...)` inicializa la parte heredada; sin esa llamada faltan atributos.",
+				"Sobrescribir es definir un método con el mismo nombre en la subclase; `super().metodo()` reutiliza la versión heredada.",
+				"El polimorfismo permite recorrer objetos distintos y llamar al mismo método sin preguntar el tipo.",
+				"El MRO fija el orden de búsqueda; `super()` avanza al siguiente de ese orden, no a la clase padre literal.",
+				"`ABC` y `@abstractmethod` impiden instanciar clases incompletas y documentan el contrato.",
+				"El duck typing funciona sin herencia: basta con que el objeto tenga el método que usas.",
+				"Si la relación real es «tiene un», la respuesta es composición, no herencia."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace exactamente `super().__init__(nombre)` dentro del `__init__` de `Perro`?",
+			"options": [
+				"Crea una copia de la clase `Animal` dentro de `Perro`",
+				"Ejecuta el `__init__` siguiente en el MRO de la instancia, que en herencia simple es el de `Animal`",
+				"Devuelve el objeto `Animal` para asignarlo a `self`",
+				"Llama al `__init__` de todas las clases base a la vez"
+			],
+			"answer": 1,
+			"explain": "`super()` devuelve un objeto proxy que busca el método en la siguiente clase del MRO. En herencia simple eso es la base directa; en jerarquías con diamante es la clase que toca según el orden, y por eso no se fija a mano."
+		},
+		{
+			"type": "quiz",
+			"question": "Con `class D(B, C)`, donde `B` y `C` heredan de `A`, `B` no define `saludar` y `C` sí, ¿qué versión se ejecuta al llamar `D().saludar()`?",
+			"options": [
+				"La de `A`, porque es la base común",
+				"La de `C`, porque el MRO es `D, B, C, A` y se encuentra antes que en `A`",
+				"Se lanza `AttributeError` por la ambigüedad",
+				"Se ejecutan `C` y `A` en cadena automáticamente"
+			],
+			"answer": 1,
+			"explain": "El MRO de `D` es `D, B, C, A, object`. La búsqueda pasa por `B` sin encontrar el método y lo encuentra en `C` antes de llegar a `A`. No hay ambigüedad porque el orden es determinista."
+		},
+		{
+			"type": "quiz",
+			"question": "¿En cuál de estos casos NO conviene usar herencia?",
+			"options": [
+				"Un `Vendedor` que es un tipo de `Empleado` con una comisión adicional",
+				"Un `Circulo` que es una `Figura` con su propia fórmula de área",
+				"Un `Informe` que necesita un `LectorCSV` para obtener los datos",
+				"Un `ErrorDeDato` que es un tipo de `Exception`"
+			],
+			"answer": 2,
+			"explain": "Un informe **tiene** un lector, no **es** un lector. Heredar de `LectorCSV` arrastraría métodos que no tienen sentido para el informe y acoplaría ambos para siempre. La relación correcta es composición: guardar el lector como atributo e invocarlo."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "Clases y herencia",
+					"url": "https://docs.python.org/es/3/tutorial/classes.html",
+					"note": "tutorial oficial con herencia múltiple y super()"
+				},
+				{
+					"label": "abc: clases base abstractas",
+					"url": "https://docs.python.org/es/3/library/abc.html",
+					"note": "ABC y abstractmethod"
+				},
+				{
+					"label": "Modelo de datos: resolución de métodos",
+					"url": "https://docs.python.org/es/3/reference/datamodel.html",
+					"note": "cómo se busca un atributo y qué es el MRO"
+				}
+			]
+		}
+	]
+}

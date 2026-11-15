@@ -1,0 +1,709 @@
+{
+	"id": "cpp-27-proyecto-inferencia",
+	"track": "cpp",
+	"order": 27,
+	"title": "Proyecto: servidor de inferencia",
+	"subtitle": "Cargar pesos, servir predicciones por HTTP, medir la concurrencia y desplegar en Docker",
+	"level": "avanzado",
+	"minutes": 62,
+	"tags": [
+		"proyecto",
+		"http",
+		"inferencia",
+		"docker"
+	],
+	"keywords": [
+		"servidor de inferencia c++",
+		"api http c++",
+		"cpp-httplib ejemplo",
+		"nlohmann json c++",
+		"cargar pesos json",
+		"regresión logística c++",
+		"concurrencia servidor c++",
+		"thread pool httplib",
+		"docker c++ multistage",
+		"benchmark http ab",
+		"desplegar modelo c++",
+		"límites de un servidor propio"
+	],
+	"summary": "Un modelo entrenado en Python no sirve de nada si nadie puede llamarlo. Construirás un servicio en C++ que carga los pesos desde JSON, valida la entrada, responde por HTTP en milisegundos, atiende peticiones concurrentes y se despliega en una imagen Docker mínima, con mediciones y límites explicados.",
+	"objectives": [
+		"Cargar pesos y metadatos de un modelo desde JSON con validación explícita",
+		"Implementar la inferencia de una regresión logística sin dependencias externas",
+		"Exponer endpoints /health y /predict con códigos de estado correctos",
+		"Analizar la concurrencia de un servidor con pool de hilos y medir latencia y throughput",
+		"Construir y ejecutar una imagen Docker de dos etapas"
+	],
+	"prerequisites": [
+		"Proyecto: motor matricial",
+		"Excepciones y std::thread",
+		"Archivos, JSON y CSV"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Entrenaste el modelo en Python, guardaste los coeficientes y ahora la aplicación necesita una respuesta en pocos milisegundos por petición. Arrancar un intérprete en cada llamada cuesta cientos de milisegundos; dejar un notebook abierto no es un servicio. La pieza que falta es un proceso que permanezca vivo, tenga el modelo en memoria y hable HTTP."
+		},
+		{
+			"type": "p",
+			"md": "Ese proceso es un servidor de inferencia, y aquí lo construyes completo: carga de pesos, validación, concurrencia, imagen Docker y una medición honesta de lo que aguanta."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un servidor de inferencia?"
+		},
+		{
+			"type": "p",
+			"md": "Es un programa de larga vida que expone un modelo por la red: recibe datos, aplica el modelo entrenado y devuelve una predicción. No entrena, no guarda historial por petición y no sabe quién llama. Es una función pura con interfaz de red, y esa pureza permite atender a muchos clientes a la vez."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en un mostrador de comida: toma el pedido, la cocina lo prepara y el plato vuelve. Si la cocina se bloquea, la cola crece y el cliente percibe esperas de minutos aunque cada plato tarde lo mismo. Un servidor se juzga por esa cola, no por la operación aislada."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Inferencia no es entrenamiento",
+			"md": "En inferencia solo hay *forward*: multiplicar pesos por entrada y aplicar una función. No hay gradientes, ni épocas, ni estado que evolucione. Por eso un modelo pequeño cabe en unos kilobytes y responde en microsegundos; lo que cuesta tiempo es la red, el parseo y la cola."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Servir una predicción a una aplicación**: el frontend envía features, recibe probabilidad y decide qué mostrar.",
+				"**Descargar trabajo de un servicio Python**: mover solo el cálculo pesado a C++ y dejar la orquestación donde ya está.",
+				"**Evaluar A/B de versiones**: dos contenedores con modelos distintos y un proxy que reparte tráfico.",
+				"**Aprender los límites reales**: latencia, concurrencia y memoria dejan de ser teoría cuando ves la cola crecer."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En un sistema de Machine Learning esto ocupa el último tramo: el *training pipeline* produce pesos, el registro los versiona y el servidor los carga. El contrato entre ambos es el archivo JSON con su versión, no el código. Si el modelo cambia, la interfaz HTTP puede seguir igual."
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro"
+		},
+		{
+			"type": "p",
+			"md": "Cada petición recorre la misma cadena: aceptar la conexión, parsear HTTP, parsear el JSON, validar el campo esperado, convertir a `std::vector<double>`, multiplicar por los pesos, aplicar la sigmoide, serializar y escribir en el socket. Con cuatro features el cálculo es ruido: el coste está en el resto."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Etapa",
+				"Orden de magnitud",
+				"Qué la domina"
+			],
+			"rows": [
+				[
+					"Conexión TCP y HTTP",
+					"decenas de µs",
+					"Syscalls, latencia de red local"
+				],
+				[
+					"Parseo del JSON",
+					"1–5 µs",
+					"Tamaño del cuerpo, asignaciones"
+				],
+				[
+					"Validación y conversión",
+					"< 1 µs",
+					"Comprobaciones y copia a `vector`"
+				],
+				[
+					"Producto escalar y sigmoide",
+					"decenas de ns",
+					"Caché L1, una exponencial"
+				],
+				[
+					"Serialización de salida",
+					"< 1 µs",
+					"Formateo de un `double`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "La concurrencia decide cuántas cadenas avanzan a la vez. `cpp-httplib` usa un **pool de hilos**: cada conexión se atiende en un hilo del pool, que por defecto mide `max(8, núcleos - 1)`. Un manejador que duerme bloquea su hilo, y con keep-alive una conexión inactiva también lo ocupa. Por eso el tamaño del pool y la concurrencia del cliente deben conversar."
+		},
+		{
+			"type": "p",
+			"md": "El modelo cargado nunca cambia: es de solo lectura y varios hilos pueden llamarlo sin candados. Lo único mutable es el contador de peticiones, que basta con un `std::atomic`. La recarga en caliente rompe esa inmutabilidad y exige sincronización explícita."
+		},
+		{
+			"type": "h",
+			"text": "Estructura y dependencias"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "árbol del proyecto",
+			"code": "servidor/\n├── CMakeLists.txt\n├── Dockerfile\n├── include/\n│   ├── httplib.h          # biblioteca HTTP (una sola cabecera)\n│   ├── nlohmann/\n│   │   └── json.hpp       # JSON (una sola cabecera)\n│   └── model.hpp\n├── models/\n│   └── logistic.json      # pesos y metadatos del modelo\n├── src/\n│   ├── model.cpp          # carga y prediccion\n│   ├── predecir.cpp       # cliente de consola, sin red\n│   └── main.cpp           # servidor HTTP\n└── payload.json           # cuerpo de prueba para ab"
+		},
+		{
+			"type": "p",
+			"md": "Ambas dependencias son de cabecera: `cpp-httplib` para el servidor y `nlohmann/json` para el parseo. Puedes dejarlas dentro del repositorio, de modo que compilar no necesite red y la versión quede fijada. `FetchContent` en CMake las descarga al configurar: cómodo, pero cada build depende de la red."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "instalación de las cabeceras (versiones fijadas)",
+			"code": "mkdir -p include/nlohmann\n\ncurl -L -o include/httplib.h \\\n  https://raw.githubusercontent.com/yhirose/cpp-httplib/v0.16.3/httplib.h\n\ncurl -L -o include/nlohmann/json.hpp \\\n  https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp"
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: el modelo como contrato de datos"
+		},
+		{
+			"type": "code",
+			"lang": "json",
+			"caption": "models/logistic.json",
+			"code": "{\n  \"version\": \"1.0.0\",\n  \"features\": [\"edad\", \"ingreso_mensual\", \"visitas\", \"deuda\"],\n  \"bias\": -1.2,\n  \"weights\": [0.03, 0.00012, 0.4, -0.002]\n}"
+		},
+		{
+			"type": "p",
+			"md": "El archivo dice todo lo necesario: versión, orden exacto de las features, sesgo y pesos. Ese orden es parte del contrato; si el cliente envía los valores en otro, la predicción es silenciosamente incorrecta. De ahí que cada respuesta incluya la versión del modelo y que convenga validar el esquema al arrancar."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "include/model.hpp",
+			"code": "#pragma once\n\n#include <cstddef>\n#include <string>\n#include <vector>\n\nstruct Prediccion {\n    double probabilidad;\n    int etiqueta;\n};\n\n// Regresion logistica con pesos cargados desde JSON.\n// Es inmutable tras cargar: se puede usar desde varios hilos sin sincronizar.\nclass ModeloLogistico {\npublic:\n    static ModeloLogistico cargar(const std::string& ruta);\n\n    std::size_t num_features() const noexcept { return pesos_.size(); }\n    const std::string& version() const noexcept { return version_; }\n    const std::vector<std::string>& features() const noexcept { return features_; }\n\n    Prediccion predecir(const std::vector<double>& x) const;\n\nprivate:\n    std::string version_;\n    std::vector<std::string> features_;\n    std::vector<double> pesos_;\n    double sesgo_ = 0.0;\n};"
+		},
+		{
+			"type": "p",
+			"md": "La clase no expone setters: se construye con `cargar` y solo se consulta. Esa inmutabilidad hace segura la concurrencia. `cargar` es estática porque un objeto a medio construir no debería existir: o el archivo es válido y devuelve un modelo completo, o lanza una excepción."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: cargar pesos y predecir sin red"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "src/model.cpp",
+			"code": "#include \"model.hpp\"\n\n#include <cmath>\n#include <fstream>\n#include <nlohmann/json.hpp>\n#include <stdexcept>\n\nModeloLogistico ModeloLogistico::cargar(const std::string& ruta) {\n    std::ifstream entrada(ruta);\n    if (!entrada) {\n        throw std::runtime_error(\"no se pudo abrir el modelo: \" + ruta);\n    }\n\n    nlohmann::json documento;\n    try {\n        documento = nlohmann::json::parse(entrada);\n    } catch (const nlohmann::json::parse_error& error) {\n        throw std::runtime_error(std::string(\"JSON invalido en el modelo: \") + error.what());\n    }\n\n    ModeloLogistico modelo;\n    try {\n        modelo.version_ = documento.at(\"version\").get<std::string>();\n        modelo.features_ = documento.at(\"features\").get<std::vector<std::string>>();\n        modelo.pesos_ = documento.at(\"weights\").get<std::vector<double>>();\n        modelo.sesgo_ = documento.at(\"bias\").get<double>();\n    } catch (const nlohmann::json::exception& error) {\n        throw std::runtime_error(std::string(\"modelo incompleto: \") + error.what());\n    }\n\n    if (modelo.pesos_.size() != modelo.features_.size()) {\n        throw std::runtime_error(\"el modelo tiene \" + std::to_string(modelo.pesos_.size()) +\n                                 \" pesos y \" + std::to_string(modelo.features_.size()) + \" features\");\n    }\n    return modelo;\n}\n\nPrediccion ModeloLogistico::predecir(const std::vector<double>& x) const {\n    if (x.size() != pesos_.size()) {\n        throw std::invalid_argument(\"se esperaban \" + std::to_string(pesos_.size()) +\n                                    \" features y llegaron \" + std::to_string(x.size()));\n    }\n\n    double z = sesgo_;\n    for (std::size_t i = 0; i < pesos_.size(); ++i) {\n        z += pesos_[i] * x[i];\n    }\n\n    const double probabilidad = 1.0 / (1.0 + std::exp(-z));\n    return {probabilidad, probabilidad >= 0.5 ? 1 : 0};\n}"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "src/predecir.cpp",
+			"code": "#include <exception>\n#include <iostream>\n#include <vector>\n\n#include \"model.hpp\"\n\nint main() {\n    try {\n        const ModeloLogistico modelo = ModeloLogistico::cargar(\"models/logistic.json\");\n        const std::vector<double> x{34.0, 2500.0, 4.0, 1200.0};\n        const Prediccion p = modelo.predecir(x);\n\n        std::cout << \"modelo \" << modelo.version() << \" con \" << modelo.num_features() << \" features\\n\";\n        std::cout << \"probabilidad = \" << p.probabilidad << \"\\n\";\n        std::cout << \"etiqueta = \" << p.etiqueta << \"\\n\";\n    } catch (const std::exception& error) {\n        std::cerr << \"error: \" << error.what() << \"\\n\";\n        return 1;\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "compilar y ejecutar",
+			"code": "g++ -O2 -std=c++20 -Wall -Wextra -Iinclude \\\n    src/model.cpp src/predecir.cpp -o predecir\n\n./predecir\n\n# modelo 1.0.0 con 4 features\n# probabilidad = 0.336261\n# etiqueta = 0"
+		},
+		{
+			"type": "p",
+			"md": "Comprueba la cuenta: `z = -1.2 + 0.03·34 + 0.00012·2500 + 0.4·4 − 0.002·1200 = −0.68`, y `1 / (1 + e^0.68) = 0.336`. Si no coincide, el problema está en el orden de los pesos o en una feature mal escalada. Cambia la edad a 52 y la probabilidad salta por encima de 0.99: los pesos están pensados para esas magnitudes."
+		},
+		{
+			"type": "p",
+			"md": "Separar la inferencia de la red tiene una ventaja práctica: este programa se depura sin clientes y sirve de prueba de humo del modelo. Cuando algo falla en producción, ejecutarlo con el mismo `logistic.json` descarta medio problema."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: el servidor HTTP"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "src/main.cpp",
+			"code": "#include <atomic>\n#include <cstdlib>\n#include <exception>\n#include <iostream>\n#include <string>\n#include <vector>\n\n#include <nlohmann/json.hpp>\n\n#include \"httplib.h\"\n#include \"model.hpp\"\n\nnamespace {\n\nusing nlohmann::json;\n\nstd::string variable_entorno(const char* nombre, const std::string& por_defecto) {\n    const char* valor = std::getenv(nombre);\n    return valor != nullptr ? std::string(valor) : por_defecto;\n}\n\nvoid responder_error(httplib::Response& res, int codigo, const std::string& mensaje) {\n    res.status = codigo;\n    res.set_content(json{{\"error\", mensaje}}.dump(), \"application/json\");\n}\n\n}  // namespace\n\nint main() {\n    const std::string ruta_modelo = variable_entorno(\"MODELO_PATH\", \"models/logistic.json\");\n    const int puerto = std::stoi(variable_entorno(\"PORT\", \"8080\"));\n\n    ModeloLogistico modelo;\n    try {\n        modelo = ModeloLogistico::cargar(ruta_modelo);\n    } catch (const std::exception& error) {\n        std::cerr << \"no se pudo cargar el modelo: \" << error.what() << \"\\n\";\n        return 1;\n    }\n\n    std::atomic<long> peticiones{0};\n    httplib::Server servidor;\n\n    servidor.set_payload_max_length(64 * 1024);\n    servidor.set_read_timeout(5, 0);\n    servidor.set_write_timeout(5, 0);\n\n    servidor.Get(\"/health\", [&modelo](const httplib::Request&, httplib::Response& res) {\n        res.set_content(json{{\"estado\", \"ok\"},\n                             {\"modelo\", modelo.version()},\n                             {\"features\", modelo.num_features()}}\n                            .dump(),\n                        \"application/json\");\n    });\n\n    servidor.Get(\"/stats\", [&peticiones](const httplib::Request&, httplib::Response& res) {\n        res.set_content(json{{\"peticiones\", peticiones.load()}}.dump(), \"application/json\");\n    });\n\n    servidor.Post(\"/predict\",\n                  [&modelo, &peticiones](const httplib::Request& req, httplib::Response& res) {\n                      ++peticiones;\n\n                      json cuerpo;\n                      try {\n                          cuerpo = json::parse(req.body);\n                      } catch (const json::parse_error&) {\n                          responder_error(res, 400, \"el cuerpo no es JSON valido\");\n                          return;\n                      }\n\n                      if (!cuerpo.contains(\"features\") || !cuerpo[\"features\"].is_array()) {\n                          responder_error(res, 400, \"falta el array 'features'\");\n                          return;\n                      }\n\n                      std::vector<double> x;\n                      try {\n                          x = cuerpo[\"features\"].get<std::vector<double>>();\n                      } catch (const json::type_error&) {\n                          responder_error(res, 400, \"'features' debe contener solo numeros\");\n                          return;\n                      }\n\n                      try {\n                          const Prediccion p = modelo.predecir(x);\n                          res.set_content(json{{\"probabilidad\", p.probabilidad},\n                                               {\"etiqueta\", p.etiqueta},\n                                               {\"modelo\", modelo.version()}}\n                                              .dump(),\n                                          \"application/json\");\n                      } catch (const std::exception& error) {\n                          responder_error(res, 400, error.what());\n                      }\n                  });\n\n    std::cout << \"escuchando en 0.0.0.0:\" << puerto << \" con modelo \" << modelo.version() << \"\\n\";\n    if (!servidor.listen(\"0.0.0.0\", puerto)) {\n        std::cerr << \"no se pudo abrir el puerto \" << puerto << \"\\n\";\n        return 1;\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "compilar, arrancar y probar",
+			"code": "g++ -O2 -std=c++20 -Wall -Wextra -Iinclude -pthread \\\n    -DCPPHTTPLIB_THREAD_POOL_COUNT=64 \\\n    -DCPPHTTPLIB_LISTEN_BACKLOG=128 \\\n    src/model.cpp src/main.cpp -o servidor\n\n./servidor &\n# escuchando en 0.0.0.0:8080 con modelo 1.0.0\n\ncurl -s localhost:8080/health\n# {\"estado\":\"ok\",\"features\":4,\"modelo\":\"1.0.0\"}\n\ncurl -s -X POST localhost:8080/predict \\\n     -H 'Content-Type: application/json' \\\n     -d '{\"features\":[34,2500,4,1200]}'\n# {\"etiqueta\":0,\"modelo\":\"1.0.0\",\"probabilidad\":0.33626130259564735}\n\ncurl -s -X POST localhost:8080/predict -d '{\"x\":1}'\n# {\"error\":\"falta el array 'features'\"}\n\ncurl -s -X POST localhost:8080/predict -d '{\"features\":[1,2,3]}'\n# {\"error\":\"se esperaban 4 features y llegaron 3\"}"
+		},
+		{
+			"type": "p",
+			"md": "Cada rechazo devuelve 400 con un mensaje que dice qué falta, y ningún error se convierte en un 200 con un campo `error` dentro: el código de estado es el contrato que entienden clientes y balanceadores. El 500 se reserva para fallos del servidor; aquí casi todos los fallos posibles son del cliente, porque el modelo ya se validó al arrancar."
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en las dos definiciones de compilación. `CPPHTTPLIB_LISTEN_BACKLOG` fija cuántas conexiones esperan en la cola del sistema; su valor por defecto es 5, y con 50 clientes eso produce rechazos. `CPPHTTPLIB_THREAD_POOL_COUNT` fija el pool, por defecto `max(8, núcleos - 1)`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: de features a probabilidad"
+		},
+		{
+			"type": "p",
+			"md": "La predicción es una suma ponderada. Recorre las celdas: cada una es el peso multiplicado por su feature, y el sesgo se suma aparte. Si un peso tiene el signo cambiado, la contribución cambia de lado y la probabilidad se mueve en la dirección contraria."
+		},
+		{
+			"type": "matrix",
+			"title": "Contribución de cada feature a z (pesos · entrada)",
+			"data": [
+				[
+					1.02,
+					0.3,
+					1.6,
+					-2.4
+				]
+			],
+			"rowLabels": [
+				"w · x"
+			],
+			"colLabels": [
+				"edad",
+				"ingreso",
+				"visitas",
+				"deuda"
+			],
+			"steps": [
+				{
+					"note": "edad: 0.03 · 34 = 1.02. Es la única feature que sube con la edad en este modelo.",
+					"highlight": [
+						[
+							0,
+							0
+						]
+					],
+					"data": [
+						[
+							1.02,
+							0.3,
+							1.6,
+							-2.4
+						]
+					]
+				},
+				{
+					"note": "ingreso_mensual: 0.00012 · 2500 = 0.30. El peso es diminuto porque la feature se mide en miles.",
+					"highlight": [
+						[
+							0,
+							1
+						]
+					],
+					"data": [
+						[
+							1.02,
+							0.3,
+							1.6,
+							-2.4
+						]
+					]
+				},
+				{
+					"note": "visitas: 0.4 · 4 = 1.60. Peso grande y valor pequeño: la feature más influyente en este ejemplo.",
+					"highlight": [
+						[
+							0,
+							2
+						]
+					],
+					"data": [
+						[
+							1.02,
+							0.3,
+							1.6,
+							-2.4
+						]
+					]
+				},
+				{
+					"note": "deuda: −0.002 · 1200 = −2.40. El signo negativo resta y es la que más empuja hacia la clase 0.",
+					"highlight": [
+						[
+							0,
+							3
+						]
+					],
+					"data": [
+						[
+							1.02,
+							0.3,
+							1.6,
+							-2.4
+						]
+					]
+				},
+				{
+					"note": "Suma de contribuciones = 0.52; con el sesgo −1.2 queda z = −0.68. La sigmoide lo convierte en 0.336.",
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							0,
+							1
+						],
+						[
+							0,
+							2
+						],
+						[
+							0,
+							3
+						]
+					],
+					"data": [
+						[
+							1.02,
+							0.3,
+							1.6,
+							-2.4
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Visualización: una petición paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "Ahora el mismo cálculo dentro del manejador. Observa que el cuerpo llega como texto, se convierte en un objeto JSON, después en un vector de `double` y solo entonces entra en el modelo. Cada conversión puede fallar, y cada fallo tiene su respuesta."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Recorrido de POST /predict",
+			"code": "servidor.Post(\"/predict\", [&](const httplib::Request& req, httplib::Response& res) {\n    json cuerpo = json::parse(req.body);\n    std::vector<double> x = cuerpo[\"features\"].get<std::vector<double>>();\n    Prediccion p = modelo.predecir(x);\n    res.set_content(json{{\"probabilidad\", p.probabilidad}}.dump(), \"application/json\");\n});",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Llega la petición con `Content-Type: application/json` y 40 bytes de cuerpo. httplib ya parseó la línea de petición y las cabeceras.",
+					"vars": {
+						"req.body": "{\"features\":[34,2500,4,1200]}",
+						"cuerpo": "—",
+						"x": "—",
+						"p": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`json::parse` construye el árbol. Si el texto estuviera truncado, aquí se lanzaría `parse_error` y responderíamos 400.",
+					"vars": {
+						"req.body": "{\"features\":[34,2500,4,1200]}",
+						"cuerpo": "{features: [34, 2500, 4, 1200]}",
+						"x": "—",
+						"p": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`get<vector<double>>` recorre el array, comprueba que cada elemento sea numérico y copia cuatro doubles.",
+					"vars": {
+						"req.body": "{\"features\":[34,2500,4,1200]}",
+						"cuerpo": "{features: [34, 2500, 4, 1200]}",
+						"x": "[34.0, 2500.0, 4.0, 1200.0]",
+						"p": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`predecir` comprueba que llegaron 4 features, acumula los productos y aplica la sigmoide.",
+					"vars": {
+						"req.body": "{\"features\":[34,2500,4,1200]}",
+						"cuerpo": "{features: [34, 2500, 4, 1200]}",
+						"x": "[34.0, 2500.0, 4.0, 1200.0]",
+						"p": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Con z = −0.68 la probabilidad es 0.336 y la etiqueta 0. No hay ningún estado que se guarde entre peticiones.",
+					"vars": {
+						"req.body": "{\"features\":[34,2500,4,1200]}",
+						"cuerpo": "{features: [34, 2500, 4, 1200]}",
+						"x": "[34.0, 2500.0, 4.0, 1200.0]",
+						"p": "{probabilidad: 0.336261, etiqueta: 0}"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`dump()` serializa y `set_content` fija el tipo MIME. El cuerpo queda en 61 bytes.",
+					"vars": {
+						"req.body": "{\"features\":[34,2500,4,1200]}",
+						"cuerpo": "{features: [34, 2500, 4, 1200]}",
+						"x": "[34.0, 2500.0, 4.0, 1200.0]",
+						"p": "{probabilidad: 0.336261, etiqueta: 0}"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "El servidor escribe el estado 200, las cabeceras y el cuerpo. El hilo vuelve al pool; la conexión puede reutilizarse.",
+					"vars": {
+						"req.body": "{\"features\":[34,2500,4,1200]}",
+						"cuerpo": "{features: [34, 2500, 4, 1200]}",
+						"x": "[34.0, 2500.0, 4.0, 1200.0]",
+						"p": "{probabilidad: 0.336261, etiqueta: 0}"
+					},
+					"output": "HTTP/1.1 200 OK\n{\"etiqueta\":0,\"modelo\":\"1.0.0\",\"probabilidad\":0.33626130259564735}\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: concurrencia, carga y Docker"
+		},
+		{
+			"type": "p",
+			"md": "La pregunta correcta no es «¿cuántas peticiones por segundo hace?» sino «¿qué pasa con el percentil 99 cuando hay 50 clientes?». Con el pool por defecto y keep-alive, las conexiones inactivas ocupan hilos y las peticiones esperan hasta agotar el tiempo de lectura. Es un efecto medible que se arregla con una línea."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Configuración del servidor",
+				"Peticiones/s",
+				"p99"
+			],
+			"rows": [
+				[
+					"Pool por defecto `max(8, núcleos-1)`, backlog 128",
+					"199",
+					"5012 ms"
+				],
+				[
+					"`THREAD_POOL_COUNT=64`, backlog 128",
+					"41424",
+					"7 ms"
+				]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "medir con ApacheBench (cuerpo en payload.json)",
+			"code": "printf '{\"features\":[34,2500,4,1200]}' > payload.json\n\nab -n 3000 -c 50 -k -p payload.json -T application/json \\\n   http://127.0.0.1:8080/predict\n\n# Complete requests:      3000\n# Failed requests:        0\n# Requests per second:    41424.45 [#/sec] (mean)\n# Time per request:       1.207 [ms] (mean)\n#  50%      1\n#  99%      7"
+		},
+		{
+			"type": "p",
+			"md": "La tabla se midió en un Apple Silicon con `ab -n 3000 -c 50 -k`; tus cifras cambiarán, pero el salto se repite siempre que el pool sea menor que la concurrencia y el keep-alive esté activo. La lección: el *throughput* de un servidor bloqueante lo acota el número de hilos, no la velocidad del modelo. `ab` es monohilo y puede convertirse en el cuello; para cifras serias usa `wrk` o `hey` y vigila la CPU del cliente."
+		},
+		{
+			"type": "p",
+			"md": "Docker cierra el círculo con dos etapas: la primera instala compilador y CMake y produce el binario; la segunda copia solo el ejecutable y sus librerías. El compilador no viaja a producción y la imagen final baja de cientos a decenas de megabytes."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Dockerfile",
+			"code": "# ---- etapa 1: compilacion ----\nFROM debian:bookworm-slim AS build\nRUN apt-get update \\\n    && apt-get install -y --no-install-recommends g++ cmake make \\\n    && rm -rf /var/lib/apt/lists/*\nWORKDIR /app\nCOPY include/ include/\nCOPY src/ src/\nCOPY models/ models/\nCOPY CMakeLists.txt .\nRUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \\\n    && cmake --build build -j\"$(nproc)\"\n\n# ---- etapa 2: imagen final, sin compilador ----\nFROM debian:bookworm-slim\nRUN apt-get update \\\n    && apt-get install -y --no-install-recommends libstdc++6 curl \\\n    && rm -rf /var/lib/apt/lists/*\nWORKDIR /app\nCOPY --from=build /app/build/servidor /usr/local/bin/servidor\nCOPY models/ models/\nENV MODELO_PATH=/app/models/logistic.json\nENV PORT=8080\nEXPOSE 8080\nUSER nobody\nENTRYPOINT [\"/usr/local/bin/servidor\"]"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "construir, ejecutar y comprobar",
+			"code": "docker build -t inferencia:0.1 .\n\ndocker run --rm -d --name inferencia -p 8080:8080 inferencia:0.1\n\ncurl -s localhost:8080/health\n# {\"estado\":\"ok\",\"features\":4,\"modelo\":\"1.0.0\"}\n\ndocker logs inferencia\n# escuchando en 0.0.0.0:8080 con modelo 1.0.0\n\ndocker stop inferencia"
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Lo que este servidor no resuelve",
+			"md": "No tiene TLS, ni autenticación, ni límite de peticiones, ni registro estructurado, ni métricas. En producción va detrás de un proxy inverso que termina TLS y aplica cuotas. Y si el modelo necesita GPU o un runtime de redes neuronales, este código deja de ser suficiente: ahí se usa ONNX Runtime, TorchScript o Triton, con la misma idea de fondo."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "diff",
+			"title": "El código de estado es parte del contrato",
+			"wrong": {
+				"caption": "Incorrecto: todo responde 200",
+				"code": "res.set_content(json{{\"error\", \"faltan features\"}}.dump(), \"application/json\");\n// el cliente recibe 200 y tiene que adivinar si hubo exito"
+			},
+			"right": {
+				"caption": "Correcto: 400 para el cliente, 500 para el servidor",
+				"code": "res.status = 400;\nres.set_content(json{{\"error\", \"falta el array 'features'\"}}.dump(), \"application/json\");"
+			},
+			"explain": "Un cliente que solo mira el cuerpo no puede distinguir éxito de error, y un balanceador tampoco puede contar fallos. Los códigos 4xx indican que la petición está mal; los 5xx, que el servidor falló. Mezclarlos rompe reintentos, alertas y paneles de disponibilidad."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Deserializar sin comprobar el campo**: `cuerpo[\"features\"]` sobre un JSON sin esa clave lanza `type_error` dentro del manejador y produce un 500 en lugar de un 400 explicativo.",
+				"**Cambiar el orden de las features**: el modelo no lo detecta. Fija el orden en el JSON, expón los nombres en `/health` y valida la longitud; un desajuste de semántica es el error más caro de diagnosticar.",
+				"**Suponer que el modelo cabe en cualquier formato**: `pickle` ata el archivo a una versión de Python. JSON o un binario con cabecera son portables; elige uno y documenta el esquema.",
+				"**Recargar el modelo sin candado**: asignar `modelo_ = nuevo` mientras otro hilo predice es una carrera. Carga fuera del candado y sustituye dentro de un `unique_lock`.",
+				"**Ignorar el pool y el backlog**: con los valores por defecto, 50 clientes concurrentes producen conexiones rechazadas y esperas de segundos. Ajusta ambos o limita la concurrencia en el proxy.",
+				"**Registrar el cuerpo completo**: las features suelen ser datos personales. Registra estado, latencia y versión, no los valores."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Valida el modelo al arrancar y falla rápido: un servicio que arranca sin modelo es peor que uno que no arranca.",
+				"Devuelve la versión del modelo en cada respuesta; sin ella no puedes correlacionar un cambio de comportamiento con un despliegue.",
+				"Mantén el modelo inmutable después de cargarlo y protege cualquier recarga con un candado de lectura/escritura.",
+				"Fija las versiones de las dependencias y guárdalas en el repositorio; una cabecera que cambia sola es un incidente esperando.",
+				"Mide latencia por percentiles, no por media: la media esconde exactamente la cola que sufren los usuarios.",
+				"Usa una imagen de dos etapas y ejecuta como usuario sin privilegios; el compilador no tiene nada que hacer en producción.",
+				"Documenta el contrato con un ejemplo de petición y otro de error; los clientes se escriben a partir de ejemplos."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "La misma predicción antes y después de servirla",
+			"python": {
+				"caption": "predecir.py",
+				"code": "import json\nimport math\n\nwith open(\"models/logistic.json\", encoding=\"utf-8\") as f:\n    modelo = json.load(f)\n\nx = [34, 2500, 4, 1200]\nz = modelo[\"bias\"] + sum(w * v for w, v in zip(modelo[\"weights\"], x))\nprint(1 / (1 + math.exp(-z)))   # 0.33626130259564735"
+			},
+			"cpp": {
+				"caption": "predecir.cpp",
+				"code": "double z = sesgo_;\nfor (std::size_t i = 0; i < pesos_.size(); ++i) z += pesos_[i] * x[i];\nconst double p = 1.0 / (1.0 + std::exp(-z));\nreturn {p, p >= 0.5 ? 1 : 0};"
+			},
+			"note": "El resultado debe ser idéntico bit a bit o casi: ambos usan `double` de 64 bits y la misma exponencial de la libm. Si difieren en el séptimo decimal, suele ser por el orden de la suma. La diferencia real no está en la aritmética sino en el contexto: Python carga el JSON en cada ejecución, C++ lo hace una vez y sirve miles de peticiones."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Predicción por lotes",
+			"md": "Escribe `predecir_lote` para aplicar el modelo a cada fila de un lote, reservando el vector de salida. Pruébalo con `[[34, 2500, 4, 1200], [52, 7000, 15, 300]]` y comprueba que las etiquetas son 0 y 1. Después conecta un endpoint `/predict/batch` que reciba `{\"lote\": [[...], [...]]}`.",
+			"hint": "`reserve` evita reallocaciones. Para el endpoint, valida que `lote` sea un array de arrays y reutiliza el mismo manejo de errores que ya tienes.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "lote.cpp",
+				"code": "#include <cstddef>\n#include <iostream>\n#include <vector>\n\n#include \"model.hpp\"\n\n// Aplica el modelo a cada fila del lote.\nstd::vector<Prediccion> predecir_lote(const ModeloLogistico& modelo,\n                                      const std::vector<std::vector<double>>& lote) {\n    std::vector<Prediccion> salida;\n    salida.reserve(lote.size());\n    for (const std::vector<double>& x : lote) {\n        salida.push_back(modelo.predecir(x));\n    }\n    return salida;\n}\n\nint main() {\n    const ModeloLogistico modelo = ModeloLogistico::cargar(\"models/logistic.json\");\n    const std::vector<std::vector<double>> lote{{34, 2500, 4, 1200}, {52, 7000, 15, 300}};\n\n    for (const Prediccion& p : predecir_lote(modelo, lote)) {\n        std::cout << \"etiqueta=\" << p.etiqueta << \" p=\" << p.probabilidad << '\\n';\n    }\n}",
+				"explain": "Reservar `lote.size()` hace que el vector no se realloce mientras crece, lo que importa con lotes grandes. El lote mejora el throughput porque amortiza el coste de HTTP y de JSON entre muchas predicciones: una petición con 100 filas tarda mucho menos que cien peticiones de una fila. En el endpoint, un elemento inválido debería rechazar todo el lote con 400 antes de calcular, para no devolver resultados parciales."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Recarga en caliente sin carreras",
+			"md": "Envuelve el modelo en `ModeloServible` con un `std::shared_mutex`: `predecir` toma el candado compartido y `recargar` el exclusivo, cargando el archivo nuevo **fuera** del candado. Comprueba que recargar y predecir intercalados dan siempre el mismo valor.",
+			"hint": "`std::shared_lock` para lectores, `std::unique_lock` para el escritor. Cargar dentro del candado bloquearía todas las predicciones durante la lectura de disco.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "recarga.cpp",
+				"code": "#include <iostream>\n#include <mutex>\n#include <shared_mutex>\n#include <string>\n#include <utility>\n#include <vector>\n\n#include \"model.hpp\"\n\n// Envuelve el modelo con un candado de lectura/escritura.\nclass ModeloServible {\npublic:\n    explicit ModeloServible(const std::string& ruta)\n        : modelo_(ModeloLogistico::cargar(ruta)), ruta_(ruta) {}\n\n    Prediccion predecir(const std::vector<double>& x) const {\n        const std::shared_lock bloqueo(mutex_);   // muchos lectores a la vez\n        return modelo_.predecir(x);\n    }\n\n    void recargar() {\n        const ModeloLogistico nuevo = ModeloLogistico::cargar(ruta_);  // fuera del candado\n        const std::unique_lock bloqueo(mutex_);   // escritor exclusivo, muy breve\n        modelo_ = nuevo;\n    }\n\nprivate:\n    mutable std::shared_mutex mutex_;\n    ModeloLogistico modelo_;\n    std::string ruta_;\n};\n\nint main() {\n    ModeloServible servible(\"models/logistic.json\");\n    std::cout << servible.predecir({34, 2500, 4, 1200}).probabilidad << '\\n';\n    servible.recargar();\n    std::cout << servible.predecir({34, 2500, 4, 1200}).probabilidad << '\\n';\n}",
+				"explain": "La clave está en el orden: primero se construye el modelo nuevo —la parte lenta, con disco y parseo— y solo después se toma el candado exclusivo para sustituirlo. Así el bloqueo dura una asignación, no una lectura de archivo. Varios hilos pueden predecir a la vez porque `shared_lock` es compartido; solo la recarga espera a que terminen."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la sigmoide",
+			"lang": "cpp",
+			"code": "#include <cmath>\n\ndouble probabilidad(double z) {\n    return 1.0 / (1.0 + std::___(___));\n}",
+			"answers": [
+				"exp",
+				"-z"
+			],
+			"hint": "La sigmoide es 1 / (1 + e^(-z)). La función de C++ para e^x es std::exp.",
+			"explain": "Con `z = -0.68`, `std::exp(0.68) = 1.9739` y `1 / 2.9739 = 0.336`. Un error clásico es escribir `std::exp(z)` sin el signo: la probabilidad se invierte y el modelo predice lo contrario con total confianza."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "El lote y la petición individual son el mismo cálculo con distinto empaquetado. El coste fijo por petición —conexión, cabeceras, parseo— se paga una vez, y por eso los servicios reales aceptan lotes: un modelo pequeño servido de uno en uno gasta casi todo el tiempo en burocracia. La contrapartida es la latencia: agrupar introduce una espera artificial."
+		},
+		{
+			"type": "p",
+			"md": "La recarga en caliente es un problema de concurrencia clásico: dos hilos, un recurso compartido, un lector lento y un escritor. El candado funciona porque las lecturas son frecuentes y la escritura rara; si la recarga fuera constante, publicar un `std::shared_ptr<const ModeloLogistico>` con carga atómica sería mejor, porque cada petición copiaría el puntero sin bloquear a nadie."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un servidor de inferencia es una función pura expuesta por red: recibe features, devuelve predicción, no guarda estado.",
+				"Separa carga, validación e inferencia; cada etapa tiene su propio modo de fallo y su propio mensaje.",
+				"Carga el modelo al arrancar y falla rápido; expón su versión en cada respuesta.",
+				"Los códigos de estado son el contrato: 400 para entradas inválidas, 500 para fallos del servidor.",
+				"`cpp-httplib` usa un pool de hilos; su tamaño y el backlog del socket limitan el throughput real.",
+				"Un modelo inmutable se comparte sin candados; la recarga en caliente exige `shared_mutex` o punteros atómicos.",
+				"Mide p50 y p99 bajo carga; la media oculta la cola que sufre el usuario.",
+				"Docker en dos etapas deja el compilador fuera de producción y fija el entorno de ejecución."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "El cliente envía `{\"features\": [34, 2500]}` a un modelo de 4 features. ¿Qué debe responder el servidor?",
+			"options": [
+				"200 con la predicción calculada con dos features",
+				"400 con un mensaje que indique cuántas features se esperaban",
+				"500 porque el modelo falló",
+				"200 con `{\"error\": \"...\"}` dentro del cuerpo"
+			],
+			"answer": 1,
+			"explain": "La petición está mal formada para este modelo, así que es un error del cliente (400). `predecir` lanza `std::invalid_argument` con el conteo esperado y el manejador lo traduce a 400. Devolver 200 obliga al cliente a inspeccionar el cuerpo para saber si hubo éxito."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué el modelo se declara inmutable después de cargarlo?",
+			"options": [
+				"Porque así ocupa menos memoria",
+				"Porque permite que varios hilos lo usen a la vez sin sincronización",
+				"Porque JSON no admite modificaciones",
+				"Porque el compilador optimiza mejor los métodos privados"
+			],
+			"answer": 1,
+			"explain": "Si ningún hilo escribe, no hay carrera posible y no hacen falta candados en la ruta crítica. La única sincronización necesaria es la del contador de peticiones, que es atómico. Al añadir recarga en caliente esa garantía desaparece y hay que reintroducirla con un candado o con punteros atómicos."
+		},
+		{
+			"type": "quiz",
+			"question": "Con el pool por defecto, 50 clientes con keep-alive provocan esperas de segundos. ¿Cuál es la causa más probable?",
+			"options": [
+				"El modelo tarda demasiado en calcular la sigmoide",
+				"El pool tiene menos hilos que conexiones y las inactivas ocupan hilos",
+				"JSON no soporta más de diez peticiones por segundo",
+				"Docker limita la CPU del contenedor a un núcleo"
+			],
+			"answer": 1,
+			"explain": "El pool por defecto mide `max(8, núcleos - 1)`. Con 50 conexiones keep-alive, las que no tienen datos retienen su hilo hasta agotar el tiempo de lectura, así que las peticiones nuevas esperan. Ampliar el pool o desactivar keep-alive resuelve el síntoma; un servidor orientado a eventos resuelve la causa."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cpp-httplib",
+					"url": "https://github.com/yhirose/cpp-httplib",
+					"note": "servidor y cliente HTTP en una cabecera"
+				},
+				{
+					"label": "nlohmann/json",
+					"url": "https://json.nlohmann.me/",
+					"note": "parseo, validación y serialización"
+				},
+				{
+					"label": "Docker · Multi-stage builds",
+					"url": "https://docs.docker.com/build/building/multi-stage/",
+					"note": "imágenes pequeñas sin compilador"
+				},
+				{
+					"label": "Google SRE Book · SLOs",
+					"url": "https://sre.google/sre-book/service-level-objectives/",
+					"note": "por qué se mide el percentil 99"
+				}
+			]
+		}
+	]
+}

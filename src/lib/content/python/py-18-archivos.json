@@ -1,0 +1,544 @@
+{
+	"id": "py-18-archivos",
+	"track": "python",
+	"order": 18,
+	"title": "Archivos, JSON y CSV",
+	"subtitle": "Guardar y recuperar datos en disco sin corromperlos: open, with, encoding, JSON, CSV y pathlib",
+	"level": "intermedio",
+	"minutes": 42,
+	"tags": [
+		"archivos",
+		"json",
+		"csv",
+		"pathlib",
+		"encoding"
+	],
+	"keywords": [
+		"leer archivo python",
+		"escribir archivo python",
+		"open modos r w a",
+		"with open as",
+		"encoding utf-8",
+		"FileNotFoundError",
+		"json.dump json.load",
+		"csv DictReader",
+		"pathlib Path",
+		"leer csv python",
+		"guardar json python",
+		"archivo de texto"
+	],
+	"summary": "Los datos que no se guardan desaparecen al cerrar el programa. Aquí aprendes a leer y escribir archivos de texto con open y with, a elegir bien el modo y la codificación, y a convertir entre CSV, JSON y estructuras de Python usando pathlib para las rutas.",
+	"objectives": [
+		"Abrir archivos con with, distinguiendo los modos r, w, a y x",
+		"Elegir la codificación correcta y explicar por qué importa",
+		"Leer un archivo línea por línea sin cargarlo entero en memoria",
+		"Convertir un CSV en un informe JSON con json.dump y csv.DictReader",
+		"Reconocer y corregir los errores de archivo más frecuentes"
+	],
+	"prerequisites": [
+		"Errores y excepciones"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora todos los datos de tus programas han vivido dentro de una ejecución: si cierras la terminal, desaparecen. Un programa real casi siempre necesita lo contrario: guardar resultados para mañana, leer un dataset que preparó otra persona y entregar un informe que cualquiera pueda abrir sin instalar Python."
+		},
+		{
+			"type": "p",
+			"md": "Esta lección cubre las tres piezas que resuelven casi todos esos casos: el manejo de **archivos de texto** con `open` y `with`, el formato **JSON** para estructuras de datos y el formato **CSV** para tablas. Al final sabrás convertir un CSV de ventas en un informe JSON, que es exactamente lo que harás mil veces en un proyecto de datos."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un archivo?"
+		},
+		{
+			"type": "p",
+			"md": "Un archivo es una **secuencia de bytes** almacenada en un dispositivo, identificada por una ruta. Al abrirlo, el sistema operativo te entrega un *flujo*: un canal por el que lees o escribes desde una posición llamada **cursor**. Cuando escribes tres caracteres, el cursor avanza tres posiciones; cuando lees, avanza en el otro sentido. Piensa en un libro con un marcador: el libro existe sin ti, pero el marcador indica por dónde vas."
+		},
+		{
+			"type": "p",
+			"md": "La extensión no cambia el contenido. Un `.csv` es texto con comas y saltos de línea; un `.json` es texto con una sintaxis concreta de llaves y corchetes. Python no adivina el formato: el formato lo decide el programa que lee."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve guardar datos?"
+		},
+		{
+			"type": "p",
+			"md": "Estos son los usos que aparecerán una y otra vez en el resto del curso:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Persistencia**: guardar los resultados de un cálculo para no repetirlo cada vez que arrancas.",
+				"**Intercambio**: leer lo que produjo otro programa y devolver algo que otro pueda consumir.",
+				"**Datos de entrenamiento**: un `datos.csv` con una fila por ejemplo y una columna por característica es el punto de partida de la mayoría de modelos.",
+				"**Configuración y métricas**: parámetros y resultados en JSON, trazas en texto.",
+				"**Informes**: generar un archivo que un jefe o un cliente abra sin saber programar."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Todo proyecto de Machine Learning entra y sale por archivos",
+			"md": "Un flujo típico es `datos.csv` → limpieza → entrenamiento → `metricas.json` y `modelo.pt`. Si no sabes leer y escribir sin corromper los datos, el modelo nunca llega a producción. Esta lección es infraestructura, no decoración."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cuando llamas a `open(ruta, \"r\", encoding=\"utf-8\")`, Python pide al sistema operativo un **descriptor de archivo**: un número entero que representa el archivo abierto para tu proceso. Ese descriptor se envuelve en un objeto de Python que, en modo texto, decodifica bytes a `str` con la codificación indicada y mantiene un **búfer** para no pedir al disco un byte cada vez."
+		},
+		{
+			"type": "p",
+			"md": "Escribir tampoco toca el disco de inmediato: `f.write(...)` copia los datos al búfer, y el volcado real ocurre cuando el búfer se llena, cuando llamas a `flush()` o cuando cierras el archivo. Por eso un programa que termina sin cerrar puede dejar el archivo a medias. Los descriptores además son un recurso limitado: si abres miles de archivos en un bucle sin cerrarlos, el sistema responde `OSError: [Errno 24] Too many open files`."
+		},
+		{
+			"type": "p",
+			"md": "`with` resuelve ambos problemas usando el protocolo de contexto. Al entrar llama a `__enter__`, que devuelve el archivo; al salir llama a `__exit__`, que lo cierra **aunque haya una excepción** en medio. Es la diferencia entre «normalmente funciona» y «funciona también el día que algo falla»."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: open, modos y encoding"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Las tres formas que usarás el 90 % del tiempo",
+			"code": "with open(\"datos.csv\", \"w\", encoding=\"utf-8\") as f:\n    f.write(\"producto,unidades\\nteclado,3\\n\")\n\nwith open(\"datos.csv\", \"r\", encoding=\"utf-8\") as f:\n    texto = f.read()        # todo el contenido en un solo str\n\nwith open(\"salida.txt\", \"w\", encoding=\"utf-8\") as f:\n    f.write(\"primera línea\\n\")\n\nwith open(\"log.txt\", \"a\", encoding=\"utf-8\") as f:\n    f.write(\"nueva entrada\\n\")\n\nprint(repr(texto))",
+			"highlight": [
+				5,
+				8,
+				11
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Modo",
+				"Qué hace",
+				"Qué pasa si el archivo existe"
+			],
+			"rows": [
+				[
+					"`\"r\"`",
+					"Solo lectura (predeterminado)",
+					"Lo abre desde el principio"
+				],
+				[
+					"`\"w\"`",
+					"Solo escritura",
+					"**Lo vacía** y escribe desde cero"
+				],
+				[
+					"`\"a\"`",
+					"Escritura al final (*append*)",
+					"Escribe después de lo que ya había"
+				],
+				[
+					"`\"x\"`",
+					"Escritura exclusiva",
+					"Lanza `FileExistsError`"
+				],
+				[
+					"`\"b\"`",
+					"Modo binario (se combina: `\"rb\"`)",
+					"Devuelve `bytes`, no `str`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Si omites `encoding`, Python usa la codificación regional del sistema: UTF-8 en macOS y Linux, `cp1252` en muchas instalaciones de Windows. El mismo archivo con acentos se lee bien en una máquina y con caracteres extraños (`Ã±`) en otra. Escribe siempre `encoding=\"utf-8\"` y el problema desaparece antes de existir."
+		},
+		{
+			"type": "p",
+			"md": "Para datos estructurados hay dos módulos de la biblioteca estándar. `json` trabaja en dos niveles: `json.dump(objeto, archivo)` y `json.load(archivo)` con archivos, o `json.dumps(objeto)` y `json.loads(texto)` con cadenas. `csv` ofrece `reader`/`writer` para listas y `DictReader`/`DictWriter` para diccionarios, que usan la primera fila como cabecera."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: escribir y volver a leer"
+		},
+		{
+			"type": "p",
+			"md": "Empecemos por lo mínimo: crear un archivo con dos líneas, cerrarlo y leerlo de nuevo desde el principio."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "notas.py",
+			"code": "# Escribir: \"w\" crea el archivo o lo vacía si ya existía\nwith open(\"notas.txt\", \"w\", encoding=\"utf-8\") as f:\n    f.write(\"Ana: 18\\n\")\n    f.write(\"Luis: 15\\n\")\n\n# Leer: sin modo, open usa \"r\"\nwith open(\"notas.txt\", encoding=\"utf-8\") as f:\n    contenido = f.read()\n\nprint(contenido, end=\"\")\nprint(\"Caracteres:\", len(contenido))",
+			"highlight": [
+				2,
+				3,
+				7,
+				8
+			]
+		},
+		{
+			"type": "p",
+			"md": "Cuatro detalles que conviene fijar. `write` **no añade saltos de línea**: si no pones `\\n`, todo queda en una sola línea. El segundo `with` abre el archivo en modo lectura y `read()` devuelve el texto completo. `len(contenido)` cuenta 17 caracteres, no 2 líneas, porque los saltos también son caracteres. Y `print(contenido, end=\"\")` evita que `print` añada un salto extra, ya que el texto ya trae el suyo."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: leer línea por línea"
+		},
+		{
+			"type": "p",
+			"md": "Un archivo puede ocupar más memoria que la disponible, así que muchas veces no quieres `read()`. Recorrer el archivo con `for` pide una línea cada vez y la descarta al avanzar: el consumo es constante aunque el archivo tenga millones de líneas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "procesar_notas.py",
+			"code": "with open(\"notas.txt\", encoding=\"utf-8\") as f:\n    for linea in f:\n        # Cada linea termina en \\n: hay que limpiarlo antes de separar\n        nombre, nota = linea.strip().split(\":\")\n        print(f\"{nombre:6} -> {int(nota) + 1} puntos\")",
+			"highlight": [
+				3,
+				4,
+				5
+			]
+		},
+		{
+			"type": "p",
+			"md": "`strip()` quita espacios, tabuladores y saltos de línea de los extremos; sin él, el último campo sería `\" 18\\n\"`. `split(\":\")` parte la línea en dos trozos y el *desempaquetado* los asigna a `nombre` y `nota` de una vez. Los valores del archivo son texto: `int(nota)` es obligatorio para sumar. Y `{nombre:6}` alinea a la izquierda en seis caracteres para que la salida se lea como una tabla."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "El modo \"w\" no pregunta",
+			"md": "Si abres con `\"w\"` un archivo que ya tenía datos, se borra en ese instante, antes de que escribas nada. Para añadir sin perder lo anterior usa `\"a\"`; para no sobrescribir nunca, usa `\"x\"` y maneja el `FileExistsError`."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: de un CSV de ventas a un informe JSON"
+		},
+		{
+			"type": "p",
+			"md": "Una tienda exporta sus ventas como CSV: una fila por operación, con producto, sede, unidades y precio unitario. El objetivo es agrupar el importe por sede y entregar un JSON que otra área pueda consumir."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "informe_ventas.py",
+			"code": "import csv\nimport json\n\nfilas = \"\"\"producto,sede,unidades,precio\nteclado,Lima,3,120.0\nmonitor,Lima,1,900.0\nteclado,Arequipa,2,120.0\nmouse,Lima,5,45.5\n\"\"\"\n# En un caso real el CSV ya existe: aquí lo creamos para poder probarlo\nwith open(\"ventas.csv\", \"w\", encoding=\"utf-8\", newline=\"\") as f:\n    f.write(filas)\n\ntotales = {}\nwith open(\"ventas.csv\", encoding=\"utf-8\", newline=\"\") as f:\n    for fila in csv.DictReader(f):\n        importe = int(fila[\"unidades\"]) * float(fila[\"precio\"])\n        sede = fila[\"sede\"]\n        totales[sede] = totales.get(sede, 0) + importe\n\nwith open(\"informe.json\", \"w\", encoding=\"utf-8\") as f:\n    json.dump(totales, f, ensure_ascii=False, indent=2)\n\nprint(totales)",
+			"highlight": [
+				14,
+				15,
+				16,
+				17,
+				18,
+				20
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `{'Lima': 1487.5, 'Arequipa': 240.0}` y `informe.json` contiene lo mismo con dos espacios de sangría. Fíjate en tres decisiones. Primero, `newline=\"\"` al abrir con el módulo `csv`: sin él, Windows convierte los saltos y aparecen líneas vacías entre filas. Segundo, `DictReader` usa la primera fila como cabecera y devuelve un diccionario por fila, pero **todos los valores son `str`**: de ahí `int()` y `float()`. Tercero, `totales.get(sede, 0)` porque la primera vez esa sede todavía no existe en el diccionario."
+		},
+		{
+			"type": "p",
+			"md": "`ensure_ascii=False` conserva los acentos tal cual en lugar de escaparlos como `\\u00f1`, e `indent=2` hace el archivo legible para personas. JSON admite objetos, arrays, cadenas, números, booleanos y `null`; una tupla se guarda como array y un `set` lanza `TypeError: Object of type set is not JSON serializable`. Convierte antes a lista."
+		},
+		{
+			"type": "p",
+			"md": "Para las rutas, no concatenes cadenas con `/`: usa `pathlib`, que funciona igual en los tres sistemas y trae operaciones útiles."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "rutas.py",
+			"code": "from pathlib import Path\nimport json\n\ncarpeta = Path(\"salidas\")\ncarpeta.mkdir(exist_ok=True)\n\nruta = carpeta / \"informe.json\"\nruta.write_text(json.dumps({\"ok\": True}), encoding=\"utf-8\")\n\nprint(ruta.name)\nprint(ruta.suffix)\nprint(ruta.exists())\nprint(ruta.with_suffix(\".csv\"))",
+			"highlight": [
+				5,
+				7,
+				8
+			]
+		},
+		{
+			"type": "p",
+			"md": "El operador `/` une rutas sin preocuparse por el separador. `read_text` y `write_text` son atajos para archivos pequeños; para archivos grandes sigue usando `with open(...)`. `with_suffix` cambia la extensión sin tocar el resto de la ruta."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué ocurre al abrir y cerrar"
+		},
+		{
+			"type": "p",
+			"md": "Observa el ciclo completo: abrir en escritura, escribir, cerrar (al salir del `with`), reabrir en lectura y recorrer las líneas hasta el final del archivo."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Del búfer al disco y de vuelta",
+			"code": "with open(\"datos.txt\", \"w\", encoding=\"utf-8\") as f:\n    f.write(\"Ana,18\\nLuis,15\\n\")\n\nwith open(\"datos.txt\", encoding=\"utf-8\") as f:\n    for linea in f:\n        print(linea.strip())",
+			"steps": [
+				{
+					"line": 1,
+					"note": "`with` llama a `open`: se crea `datos.txt` (o se vacía si existía) y el objeto de archivo se asigna a `f`. Todavía no hay nada escrito en disco.",
+					"vars": {
+						"f": "<archivo 'datos.txt' modo 'w'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`write` copia los 15 caracteres al búfer y mueve el cursor al final. El disco aún no se ha tocado.",
+					"vars": {
+						"f": "<archivo 'datos.txt' modo 'w', cursor 15>"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Al salir del bloque, `__exit__` cierra el archivo: el búfer se vuelca a disco. El segundo `with` lo reabre en modo lectura y el cursor vuelve a la posición 0.",
+					"vars": {
+						"f": "<archivo 'datos.txt' modo 'r', cursor 0>"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`for` pide la primera línea al archivo. El iterador devuelve el texto hasta el salto incluido.",
+					"vars": {
+						"f": "<archivo 'datos.txt' modo 'r', cursor 7>",
+						"linea": "\"Ana,18\\n\""
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`strip()` quita el `\\n` y `print` escribe el resultado.",
+					"vars": {
+						"f": "<archivo 'datos.txt' modo 'r', cursor 7>",
+						"linea": "\"Ana,18\\n\""
+					},
+					"output": "Ana,18\n"
+				},
+				{
+					"line": 5,
+					"note": "El bucle pide la línea siguiente; el cursor avanza al final del archivo.",
+					"vars": {
+						"f": "<archivo 'datos.txt' modo 'r', cursor 15>",
+						"linea": "\"Luis,15\\n\""
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Se imprime la segunda línea. En la siguiente vuelta el archivo devuelve la cadena vacía y el `for` termina sin imprimir nada más.",
+					"vars": {
+						"f": "<archivo 'datos.txt' modo 'r', cursor 15>",
+						"linea": "\"Luis,15\\n\""
+					},
+					"output": "Luis,15\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje",
+				"Causa habitual",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`FileNotFoundError: [Errno 2] No such file or directory: 'ventas.csv'`",
+					"La ruta no existe o el programa se ejecuta en otra carpeta",
+					"Comprueba `Path(ruta).exists()` o usa una ruta absoluta"
+				],
+				[
+					"`UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf1 in position 2`",
+					"El archivo se guardó en otra codificación (por ejemplo `latin-1`)",
+					"Abre con `encoding=\"latin-1\"` o convierte el archivo a UTF-8"
+				],
+				[
+					"`JSONDecodeError: Expecting value: line 1 column 1 (char 0)`",
+					"El archivo está vacío o no es JSON válido",
+					"Revisa el contenido; un JSON vacío no es `{}`"
+				],
+				[
+					"`KeyError: 'unidades'`",
+					"La cabecera del CSV no coincide con la clave que pides",
+					"Imprime `fila` la primera vez y compara los nombres"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Abrir con \"w\" dentro del bucle borra lo anterior",
+			"wrong": {
+				"caption": "Solo queda el último día",
+				"code": "dias = [\"lunes\", \"martes\", \"miércoles\"]\nfor dia in dias:\n    with open(\"diario.txt\", \"w\", encoding=\"utf-8\") as f:\n        f.write(dia + \"\\n\")"
+			},
+			"right": {
+				"caption": "Una apertura, todas las líneas",
+				"code": "dias = [\"lunes\", \"martes\", \"miércoles\"]\nwith open(\"diario.txt\", \"w\", encoding=\"utf-8\") as f:\n    for dia in dias:\n        f.write(dia + \"\\n\")"
+			},
+			"explain": "Cada `open(..., \"w\")` trunca el archivo. En el código incorrecto el archivo se vacía tres veces y solo sobrevive `miércoles`. Abre una vez y escribe dentro del `with`; si querías conservar lo anterior, el modo correcto sería `\"a\"`."
+		},
+		{
+			"type": "p",
+			"md": "Un error silencioso muy común es envolver la lectura en `try/except: pass`. Si el archivo no está, el programa sigue con datos vacíos y falla cien líneas después con un mensaje que no explica nada. Mejor decide explícitamente: crear un valor por defecto, o dejar que el `FileNotFoundError` suba con una ruta clara en el mensaje."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa siempre `with open(...)`: cierra incluso cuando hay excepciones.",
+				"Declara `encoding=\"utf-8\"` en todo archivo de texto; no dependas del sistema.",
+				"Abre con `newline=\"\"` cuando el archivo lo lea o escriba el módulo `csv`.",
+				"Construye rutas con `pathlib.Path`, nunca concatenando cadenas con `/`.",
+				"Recorre con `for linea in f` los archivos que puedan ser grandes; reserva `read()` para archivos pequeños.",
+				"Valida los datos al entrar: convierte tipos, comprueba columnas y rechaza filas incompletas antes de calcular."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Diario con resumen en JSON",
+			"md": "Crea `diario.txt` con cuatro líneas, una por día, y vuelve a leerlo **línea por línea**. Cuenta cuántas líneas tiene, guarda la más larga y escribe ambas cifras en `resumen.json` con `json.dump` e `indent=2`. Muestra el resumen por pantalla.",
+			"hint": "Para comparar longitudes usa `len(texto)` después de quitar el `\\n` con `rstrip(\"\\n\")`. El diccionario que guardas puede tener las claves `lineas` y `mas_larga`.",
+			"solution": {
+				"lang": "python",
+				"caption": "diario.py",
+				"code": "import json\n\ndias = [\n    \"Lunes: repaso de listas\",\n    \"Martes: diccionarios\",\n    \"Miércoles: archivos\",\n    \"Jueves: JSON\",\n]\n\nwith open(\"diario.txt\", \"w\", encoding=\"utf-8\") as f:\n    for dia in dias:\n        f.write(dia + \"\\n\")\n\ntotal = 0\nmas_larga = \"\"\nwith open(\"diario.txt\", encoding=\"utf-8\") as f:\n    for linea in f:\n        texto = linea.rstrip(\"\\n\")\n        total += 1\n        if len(texto) > len(mas_larga):\n            mas_larga = texto\n\nresumen = {\"lineas\": total, \"mas_larga\": mas_larga}\nwith open(\"resumen.json\", \"w\", encoding=\"utf-8\") as f:\n    json.dump(resumen, f, ensure_ascii=False, indent=2)\n\nprint(total, mas_larga)",
+				"explain": "Se escribe primero y se lee después en dos bloques `with` separados: el archivo debe estar cerrado para que los datos estén completos. El acumulador `total` y la variable `mas_larga` se actualizan dentro del recorrido, sin guardar las líneas en una lista: el programa funciona igual con un diario de un millón de líneas."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Informe por producto desde un CSV",
+			"md": "Parte de un `ventas.csv` con columnas `producto,unidades,precio`. Calcula el importe total por producto, guárdalo en `informe.json` ordenado por clave e imprime el resultado. Si una fila trae `unidades` vacío, ignórala sin detener el programa.",
+			"hint": "`csv.DictReader` te da cada fila como diccionario. Para ignorar filas usa `if not fila[\"unidades\"]: continue`. `sort_keys=True` en `json.dump` ordena las claves del archivo.",
+			"solution": {
+				"lang": "python",
+				"caption": "informe_productos.py",
+				"code": "import csv\nimport json\n\nfilas = \"\"\"producto,unidades,precio\nteclado,3,120.0\nmouse,5,45.5\nteclado,2,120.0\nmonitor,,900.0\n\"\"\"\nwith open(\"ventas.csv\", \"w\", encoding=\"utf-8\", newline=\"\") as f:\n    f.write(filas)\n\nimportes = {}\nwith open(\"ventas.csv\", encoding=\"utf-8\", newline=\"\") as f:\n    for fila in csv.DictReader(f):\n        if not fila[\"unidades\"]:\n            continue\n        producto = fila[\"producto\"]\n        importe = int(fila[\"unidades\"]) * float(fila[\"precio\"])\n        importes[producto] = importes.get(producto, 0) + importe\n\nwith open(\"informe.json\", \"w\", encoding=\"utf-8\") as f:\n    json.dump(importes, f, ensure_ascii=False, indent=2, sort_keys=True)\n\nprint(json.dumps(importes, ensure_ascii=False, sort_keys=True))",
+				"explain": "El `continue` descarta la fila del monitor antes de convertir `\"\"` a entero, que lanzaría `ValueError`. El patrón `importes[producto] = importes.get(producto, 0) + importe` acumula varias ventas del mismo producto. `json.dumps` imprime el mismo contenido que el archivo, útil para comprobar que ambos coinciden."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el guardado y la lectura",
+			"lang": "python",
+			"code": "import json\n\nwith ___(\"datos.json\", \"w\", encoding=\"utf-8\") as f:\n    json.___(datos, f, ensure_ascii=False, indent=2)\n\nwith open(\"datos.json\", encoding=\"utf-8\") as f:\n    recuperado = json.___(f)\n\nprint(recuperado == datos)",
+			"answers": [
+				"open",
+				"dump",
+				"load"
+			],
+			"hint": "`dump` escribe hacia un archivo, `load` lee desde un archivo. Las versiones con `s` trabajan con cadenas.",
+			"explain": "`open` devuelve el objeto de archivo, `json.dump` serializa el objeto hacia él y `json.load` lo reconstruye. La última línea imprime `True`: lo que sale y entra de JSON conserva los tipos básicos."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la decisión importante es **separar escritura y lectura**. Si intentas leer el archivo dentro del mismo `with` que lo estás escribiendo, el cursor está al final y `read()` devuelve una cadena vacía. Cerrar y reabrir no es un rodeo: es la garantía de que el búfer se volcó y de que ves lo que realmente quedó en disco."
+		},
+		{
+			"type": "p",
+			"md": "El segundo ejercicio introduce una idea que reaparecerá al hablar de limpieza de datos: **validar en la frontera**. El CSV viene de fuera y no puedes confiar en él; convertir `unidades` a entero sin comprobar antes si está vacío convierte un dato sucio en una excepción que tumba todo el informe. Filtrar la fila mala y seguir suele ser mejor que abortar."
+		},
+		{
+			"type": "p",
+			"md": "Una alternativa al diccionario acumulador sería `collections.defaultdict(float)`, que evita el `get(..., 0)`. Y si el CSV fuera enorme, podrías escribir el informe con `csv.DictWriter` en lugar de `json.dump` para no cargar todos los totales. Ambas variantes son correctas; elige según el tamaño y el consumidor."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`open(ruta, modo, encoding=...)` devuelve un objeto de archivo; `with` lo cierra incluso si hay errores.",
+				"`\"r\"` lee, `\"w\"` trunca y escribe, `\"a\"` añade al final, `\"x\"` falla si ya existe, `\"b\"` trabaja con bytes.",
+				"Declara siempre `encoding=\"utf-8\"`: la codificación por defecto cambia según el sistema.",
+				"`for linea in f` recorre sin cargar todo el archivo; cada línea conserva su `\\n`.",
+				"`json.dump`/`json.load` trabajan con archivos; `dumps`/`loads` con cadenas. `ensure_ascii=False` conserva acentos.",
+				"`csv.DictReader` usa la primera fila como cabecera y devuelve valores de tipo `str`: conviértelos.",
+				"`pathlib.Path` construye rutas portables y ofrece `read_text`, `write_text`, `exists` y `with_suffix`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Abres un archivo existente con `open(\"datos.txt\", \"w\")`. ¿Qué ocurre en ese instante?",
+			"options": [
+				"Se añade contenido al final sin borrar nada",
+				"El archivo se vacía y queda listo para escribirse desde cero",
+				"Se lanza `FileExistsError` y el archivo queda intacto",
+				"Se abre en modo lectura hasta que escribas algo"
+			],
+			"answer": 1,
+			"explain": "El modo `\"w\"` trunca el archivo al abrirlo, antes de cualquier `write`. Para añadir se usa `\"a\"`; para no sobrescribir nunca, `\"x\"`, que lanza `FileExistsError` si la ruta ya existe."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `with open(...) as f` es preferible a `f = open(...)` seguido de `f.close()`?",
+			"options": [
+				"Porque `with` lee el archivo más rápido",
+				"Porque cierra el archivo incluso si se lanza una excepción en el bloque",
+				"Porque `open` sin `with` devuelve `bytes` en lugar de texto",
+				"Porque `with` convierte automáticamente el contenido a JSON"
+			],
+			"answer": 1,
+			"explain": "El bloque `with` llama a `__exit__` al salir, con o sin excepción. Si una excepción salta antes de `f.close()`, el archivo queda abierto y el búfer puede no volcarse."
+		},
+		{
+			"type": "quiz",
+			"question": "Lees un CSV con `csv.DictReader` y ejecutas `int(fila[\"unidades\"]) * 120`. La columna contiene `\"3\"`. ¿Por qué hace falta `int()`?",
+			"options": [
+				"Porque `DictReader` devuelve todos los valores como cadenas",
+				"Porque `DictReader` devuelve tuplas en lugar de diccionarios",
+				"Porque el CSV almacena los números en binario",
+				"Porque `int()` es obligatorio para imprimir con `print`"
+			],
+			"answer": 0,
+			"explain": "Un CSV es texto: `DictReader` no adivina tipos y entrega `\"3\"`, no `3`. Sin la conversión, `\"3\" * 120` repetiría la cadena 120 veces en lugar de multiplicar."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "open() y modos de archivo",
+					"url": "https://docs.python.org/es/3/library/functions.html#open",
+					"note": "referencia de modos, encoding y newline"
+				},
+				{
+					"label": "json: codificador y decodificador",
+					"url": "https://docs.python.org/es/3/library/json.html",
+					"note": "dump, load y opciones de formato"
+				},
+				{
+					"label": "csv: archivos CSV",
+					"url": "https://docs.python.org/es/3/library/csv.html",
+					"note": "DictReader y DictWriter"
+				},
+				{
+					"label": "pathlib: rutas como objetos",
+					"url": "https://docs.python.org/es/3/library/pathlib.html",
+					"note": "operaciones con rutas portables"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,438 @@
+{
+	"id": "py-07-listas-tuplas",
+	"track": "python",
+	"order": 7,
+	"title": "Listas y tuplas",
+	"subtitle": "Guardar colecciones ordenadas, modificarlas sin sorpresas y distinguir cuándo conviene que no cambien",
+	"level": "principiante",
+	"minutes": 40,
+	"tags": ["listas", "tuplas", "mutabilidad", "colecciones"],
+	"keywords": [
+		"lista python",
+		"tupla python",
+		"append insert pop remove",
+		"ordenar lista",
+		"sort vs sorted",
+		"copiar lista",
+		"alias de lista",
+		"desempaquetar tupla",
+		"lista anidada",
+		"complejidad lista",
+		"diferencia lista tupla",
+		"index out of range"
+	],
+	"summary": "Las listas agrupan elementos que pueden cambiar; las tuplas agrupan elementos que no. Aprenderás a añadir, quitar y ordenar sin caer en el alias involuntario, a copiar de verdad y a elegir la estructura adecuada según el problema.",
+	"objectives": [
+		"Crear listas y tuplas y distinguir cuándo usar cada una",
+		"Añadir, insertar, eliminar y ordenar elementos con el coste adecuado",
+		"Explicar la diferencia entre copiar una lista y crear un alias",
+		"Desempaquetar tuplas y acceder a listas anidadas",
+		"Elegir operaciones eficientes según el tamaño de los datos"
+	],
+	"prerequisites": ["Strings, índices y slicing", "Variables y tipos de datos"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Una variable guarda un valor. ¿Qué haces cuando necesitas guardar veinte? Podrías crear `nota1`, `nota2`, `nota3`… y el programa se volvería imposible de mantener. Las **colecciones** resuelven ese problema: un solo nombre contiene muchos valores y puedes recorrerlos, contarlos o modificarlos con las mismas operaciones."
+		},
+		{
+			"type": "p",
+			"md": "Las dos colecciones ordenadas básicas de Python son la **lista** y la **tupla**. Se parecen en la sintaxis y en la forma de indexarlas, pero se diferencian en algo decisivo: la lista se puede modificar y la tupla no. Elegir bien entre ambas evita errores y comunica intención a quien lee tu código."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una lista y qué es una tupla?"
+		},
+		{
+			"type": "p",
+			"md": "Una **lista** es una secuencia ordenada y **mutable** de elementos. Se escribe entre corchetes: `notas = [15, 8, 20]`. Puede contener cualquier tipo, incluso tipos mezclados, y su longitud cambia cuando añades o quitas elementos. El orden importa: la posición 0 es la primera y la última se puede alcanzar con `-1`."
+		},
+		{
+			"type": "p",
+			"md": "Una **tupla** es una secuencia ordenada e **inmutable**. Se escribe con paréntesis: `punto = (3, 5)`. Una vez creada, no puedes añadir, quitar ni reasignar posiciones. Esa rigidez es una ventaja cuando representas un registro fijo, como una coordenada, una fecha o una fila que no debe alterarse. Una tupla de un solo elemento necesita una coma final: `(5,)`."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Inmutabilidad superficial",
+			"md": "Una tupla no se puede modificar, pero si contiene una lista, esa lista interior sí puede cambiar. La inmutabilidad protege la estructura de la tupla, no el contenido de los objetos mutables que guarda."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Guardar series de datos**: las notas de un curso, los precios de una compra o las temperaturas de la semana.",
+				"**Mantener orden**: cuando la posición significa algo, como el orden de llegada de los pedidos.",
+				"**Representar registros**: una tupla `(nombre, edad, ciudad)` describe una fila sin riesgo de modificar sus campos por accidente.",
+				"**Recorrer y acumular**: sumar ventas, filtrar productos con stock bajo o buscar el máximo de una lista.",
+				"**Preparar datos para ML**: un vector de características suele ser una lista de números antes de convertirse en un array de NumPy."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Una lista no guarda los objetos dentro de sí misma: guarda **referencias** a ellos. Cuando escribes `a = [1, 2, 3]` y luego `b = a`, no se copia nada. `a` y `b` apuntan al mismo objeto en memoria. Si modificas la lista desde `b`, el cambio se ve desde `a`, porque solo hay una lista. A esto se le llama **alias**, y es la fuente número uno de errores con colecciones."
+		},
+		{
+			"type": "p",
+			"md": "Detrás de una lista hay un bloque contiguo de referencias con una **capacidad** mayor o igual que su longitud. Cuando haces `append` y aún queda capacidad, el elemento se coloca al final sin mover nada; si se agota, Python reserva un bloque más grande y copia las referencias. Por eso `append` es O(1) **amortizado**: casi siempre barato, ocasionalmente una copia."
+		},
+		{
+			"type": "p",
+			"md": "Las demás operaciones no son igual de baratas. Insertar al principio obliga a desplazar todos los elementos una posición; eliminar por valor exige buscar primero; comprobar si un elemento existe recorre la lista hasta encontrarlo. En cambio, acceder por índice es inmediato. Esta tabla te sirve para decidir antes de escribir el bucle:"
+		},
+		{
+			"type": "table",
+			"head": ["Operación", "Ejemplo", "Coste", "Motivo"],
+			"rows": [
+				["Acceso por índice", "`lista[5]`", "O(1)", "Salto directo a la posición"],
+				["Añadir al final", "`lista.append(x)`", "O(1)*", "Amortizado; a veces se realoca"],
+				["Insertar al inicio", "`lista.insert(0, x)`", "O(n)", "Desplaza todos los elementos"],
+				["Quitar el último", "`lista.pop()`", "O(1)", "No hay que desplazar nada"],
+				["Quitar el primero", "`lista.pop(0)`", "O(n)", "Desplaza el resto una posición"],
+				["Quitar por valor", "`lista.remove(x)`", "O(n)", "Busca y luego desplaza"],
+				["Buscar pertenencia", "`x in lista`", "O(n)", "Recorre hasta encontrar"],
+				["Ordenar", "`lista.sort()`", "O(n log n)", "Comparaciones y movimientos"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis y operaciones básicas"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "crear y modificar",
+			"code": "# Listas: corchetes y elementos separados por comas\nnotas = [15, 8, 20]\nmixta = [\"Ada\", 36, True]\n\n# Tuplas: paréntesis; la coma es obligatoria en las de un elemento\npunto = (3, 5)\nsola = (7,)\n\n# Operaciones que cambian la lista en su sitio\nnotas.append(12)        # añade al final\nnotas.insert(1, 18)     # inserta en la posición 1\nnotas.remove(8)         # elimina el primer 8\nultimo = notas.pop()    # saca y devuelve el último\n\nprint(notas)\nprint(punto[0], punto[1])",
+			"highlight": [2, 6, 10, 11, 12, 13, 15]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`append(x)` añade **un** elemento al final; si le pasas una lista, la añade como un elemento anidado.",
+				"`extend(otra)` añade todos los elementos de otra colección, uno por uno.",
+				"`insert(i, x)` coloca `x` en la posición `i` y desplaza lo que estaba a la derecha.",
+				"`pop()` devuelve y elimina el último; `pop(i)` hace lo mismo con la posición `i`.",
+				"`remove(x)` elimina la primera aparición del valor; si no existe, lanza `ValueError`.",
+				"`sort()` ordena en su sitio y devuelve `None`; `sorted()` devuelve una lista nueva."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: una lista que crece y decrece"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "frutas.py",
+			"code": "frutas = [\"manzana\", \"pera\"]\nfrutas.append(\"uva\")\nfrutas.insert(0, \"kiwi\")\nultima = frutas.pop()\nprint(frutas)\nprint(f\"Quité {ultima} y quedan {len(frutas)}\")",
+			"highlight": [2, 3, 4, 5, 6]
+		},
+		{
+			"type": "p",
+			"md": "La lista empieza con dos elementos. `append(\"uva\")` la deja en `[\"manzana\", \"pera\", \"uva\"]`. `insert(0, \"kiwi\")` coloca el kiwi al principio y desplaza los otros tres, así que el orden pasa a ser kiwi, manzana, pera, uva. `pop()` extrae el último elemento, `\"uva\"`, y lo guarda en `ultima`; la lista queda con tres elementos."
+		},
+		{
+			"type": "p",
+			"md": "La quinta línea imprime la lista completa, con corchetes y comillas porque `print` muestra la representación interna. La sexta usa una f-string: `ultima` vale `\"uva\"` y `len(frutas)` vale `3`. Observa que `append` e `insert` no devuelven nada útil; actúan sobre la lista y su efecto se ve al consultarla después."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: ordenar sin destruir el original"
+		},
+		{
+			"type": "p",
+			"md": "Ordenar es una de las operaciones más frecuentes, y también una de las que más confusión genera por la diferencia entre `sort()` y `sorted()`. El primero modifica la lista y devuelve `None`; el segundo deja intacta la original y entrega una lista nueva."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "precios.py",
+			"code": "precios = [120, 80, 45, 200]\nascendente = sorted(precios)\nprecios.sort(reverse=True)\ncopia = precios[:]\ncopia.append(30)\n\nprint(ascendente)\nprint(precios)\nprint(copia)\nprint(precios is copia)",
+			"highlight": [2, 3, 4, 5, 10]
+		},
+		{
+			"type": "p",
+			"md": "`sorted(precios)` devuelve `[45, 80, 120, 200]` sin tocar el original. `precios.sort(reverse=True)` sí lo reordena, de mayor a menor: `[200, 120, 80, 45]`. La línea `copia = precios[:]` crea una lista nueva con los mismos elementos; el slice completo es la forma clásica de copiar, aunque `precios.copy()` o `list(precios)` hacen lo mismo."
+		},
+		{
+			"type": "p",
+			"md": "Al añadir `30` a la copia, la original no cambia. La última línea comprueba identidad con `is`: devuelve `False` porque son dos objetos distintos. Si hubieras escrito `copia = precios`, el `append` habría afectado también a `precios` y `is` habría dado `True`. Esa diferencia entre **igualdad** (`==`, mismos valores) e **identidad** (`is`, mismo objeto) se vuelve crítica al pasar listas a funciones."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: inventario de una tienda"
+		},
+		{
+			"type": "p",
+			"md": "Un inventario sencillo puede ser una lista de listas: cada producto es `[nombre, stock]`. La lista exterior guarda los productos y la interior guarda los dos campos. Para actualizar el stock se encadenan dos índices: el primero elige el producto, el segundo el campo."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "inventario.py",
+			"code": "inventario = [[\"teclado\", 12], [\"mouse\", 30], [\"monitor\", 1]]\ninventario[2][1] -= 1          # se vendió el único monitor\ninventario.append([\"webcam\", 0])\n\nreponer = []\nfor nombre, stock in inventario:\n    if stock <= 2:\n        reponer.append(nombre)\n\nprint(inventario[2])\nprint(f\"Productos: {len(inventario)}\")\nprint(\"Reponer:\", reponer)",
+			"highlight": [2, 3, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "`inventario[2]` es `[\"monitor\", 1]`; `[1]` accede al stock y `-= 1` lo deja en cero. Después se añade una webcam sin unidades. El bucle recorre la lista y **desempaqueta** cada sublista en `nombre` y `stock`: es más legible que usar `producto[0]` y `producto[1]`. La condición detecta el monitor y la webcam, y `append` construye la lista de reposición. El resultado es `[\"monitor\", 0]`, cuatro productos y `[\"monitor\", \"webcam\"]`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: alias, copia y orden"
+		},
+		{
+			"type": "p",
+			"md": "El siguiente programa reúne los tres conceptos que más se confunden. Antes de avanzar, predice qué se imprimirá: ¿la copia comparte los cambios? ¿`sorted` modifica la lista? ¿Qué pasa cuando se ordena después de añadir?"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Una lista, dos nombres",
+			"code": "notas = [15, 8, 20]\ncopia = notas\nordenadas = sorted(notas)\ncopia.append(12)\nnotas.sort(reverse=True)\nprint(notas, ordenadas)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se crea una lista con tres enteros y `notas` apunta a ella.",
+					"vars": { "notas": "[15, 8, 20]" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`copia` **no** es una copia: es otro nombre para la misma lista. Ambas variables guardan la misma referencia.",
+					"vars": { "notas": "[15, 8, 20]", "copia": "[15, 8, 20]" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`sorted` devuelve una lista nueva y ordenada. `notas` conserva su orden original.",
+					"vars": {
+						"notas": "[15, 8, 20]",
+						"copia": "[15, 8, 20]",
+						"ordenadas": "[8, 15, 20]"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El `append` se hace a través del alias, pero afecta a la única lista existente: por eso también cambia `notas`.",
+					"vars": {
+						"notas": "[15, 8, 20, 12]",
+						"copia": "[15, 8, 20, 12]",
+						"ordenadas": "[8, 15, 20]"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`sort` ordena esa misma lista en su sitio, de mayor a menor. `ordenadas` sigue siendo otra lista independiente.",
+					"vars": {
+						"notas": "[20, 15, 12, 8]",
+						"copia": "[20, 15, 12, 8]",
+						"ordenadas": "[8, 15, 20]"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Se imprimen las dos listas. La primera incluye el 12 añadido; la segunda quedó congelada en el momento del `sorted`.",
+					"vars": {
+						"notas": "[20, 15, 12, 8]",
+						"copia": "[20, 15, 12, 8]",
+						"ordenadas": "[8, 15, 20]"
+					},
+					"output": "[20, 15, 12, 8] [8, 15, 20]\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje o síntoma", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`IndexError: list index out of range`", "La posición no existe", "Comprueba `len(lista)` antes de acceder"],
+				["`ValueError: list.remove(x): x not in list`", "El valor no está en la lista", "Verifica con `if x in lista` o usa `pop(i)`"],
+				["`AttributeError: 'tuple' object has no attribute 'append'`", "Intentaste modificar una tupla", "Usa una lista o crea una tupla nueva"],
+				["`TypeError: 'tuple' object does not support item assignment`", "Asignaste una posición de una tupla", "Convierte con `list(t)` si necesitas cambios"],
+				["La lista original cambia sin querer", "Hay un alias, no una copia", "`nueva = original[:]` o `original.copy()`"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Alias involuntario",
+			"wrong": {
+				"caption": "Las dos variables cambian",
+				"code": "original = [1, 2, 3]\ncopia = original\ncopia.append(4)\nprint(original)   # [1, 2, 3, 4]"
+			},
+			"right": {
+				"caption": "Solo cambia la copia",
+				"code": "original = [1, 2, 3]\ncopia = original[:]\ncopia.append(4)\nprint(original)   # [1, 2, 3]"
+			},
+			"explain": "`copia = original` solo duplica la referencia. El slice `[:]` crea una lista nueva con los mismos elementos. Ojo: es una copia **superficial**; si los elementos fueran listas, las interiores seguirían compartidas."
+		},
+		{
+			"type": "p",
+			"md": "Otro error silencioso es escribir `notas = notas.sort()`. Como `sort()` devuelve `None`, la variable deja de apuntar a la lista y pasa a valer `None`; el siguiente `print(notas)` o `len(notas)` fallará. La forma correcta es `notas.sort()` sin asignación, o `notas = sorted(notas)` si quieres una lista nueva."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa listas cuando el número de elementos cambia; usa tuplas para registros fijos que no deben alterarse.",
+				"No modifiques una lista mientras la recorres: itera sobre una copia o construye una lista nueva.",
+				"Prefiere `append` al final; si necesitas insertar mucho al principio, considera otra estructura.",
+				"Comprueba con `in` antes de `remove` si el valor puede no existir.",
+				"Usa nombres en plural para colecciones (`precios`, `nombres`) y en singular para un elemento.",
+				"No encadenes más de dos niveles de listas anidadas sin una buena razón; suele ser señal de que necesitas un diccionario."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Copiar no siempre es profundo",
+			"md": "`copia = original[:]` copia la lista exterior, pero no las listas que contiene. Si `original = [[1, 2], [3, 4]]`, modificar `copia[0][0]` también cambia `original[0][0]`. Para una copia profunda necesitas `copy.deepcopy`."
+		},
+		{
+			"type": "compare",
+			"title": "Lista frente a std::vector",
+			"python": {
+				"caption": "lista.py",
+				"code": "ventas = [120, 90, 150]\nventas.append(200)\nventas.sort()\nprint(ventas[0], len(ventas))"
+			},
+			"cpp": {
+				"caption": "vector.cpp",
+				"code": "#include <algorithm>\n#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> ventas{120, 90, 150};\n    ventas.push_back(200);\n    std::sort(ventas.begin(), ventas.end());\n    std::cout << ventas[0] << \" \" << ventas.size() << std::endl;\n    return 0;\n}"
+			},
+			"note": "La lista de Python y el `std::vector` crecen al final con coste amortizado. Python ordena con un método del objeto; C++ usa un algoritmo de la STL sobre un rango. En C++ el tipo del elemento es fijo; en Python cabe cualquier objeto."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Lista de compras",
+			"md": "Crea una lista vacía llamada `compra`. Añade `\"pan\"` y `\"leche\"` con `append`, inserta `\"huevos\"` al principio y elimina `\"pan\"` con `remove`. Muestra la lista final y cuántos productos contiene.",
+			"hint": "Una lista vacía se escribe `[]`. El orden de las operaciones cambia el resultado; ejecuta y comprueba.",
+			"solution": {
+				"lang": "python",
+				"caption": "compra.py",
+				"code": "compra = []\ncompra.append(\"pan\")\ncompra.append(\"leche\")\ncompra.insert(0, \"huevos\")\ncompra.remove(\"pan\")\n\nprint(compra)\nprint(f\"Productos: {len(compra)}\")",
+				"explain": "La lista termina como `['huevos', 'leche']`. `insert(0, ...)` desplaza el resto, y `remove` busca por valor, no por índice. El contador se obtiene con `len` en lugar de mantener una variable aparte."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa las operaciones",
+			"lang": "python",
+			"code": "notas = [12, 18, 7]\nnotas.___(15)          # añadir al final\nprimera = notas.___(0) # sacar la primera\nnotas.___()            # ordenar de menor a mayor\nprint(primera, notas)",
+			"answers": ["append", "pop", "sort"],
+			"hint": "Los tres son métodos de lista; el último no recibe argumentos si ordena de forma natural.",
+			"explain": "`append(15)` deja `[12, 18, 7, 15]`. `pop(0)` devuelve `12` y deja `[18, 7, 15]`. `sort()` ordena en su sitio: `[7, 15, 18]`. La salida es `12 [7, 15, 18]`."
+		},
+		{
+			"type": "exercise",
+			"title": "Promedio sin extremos",
+			"md": "Dada `notas = [14, 6, 18, 20, 9]`, calcula el promedio descartando la nota más baja y la más alta. Ordena una copia para no alterar la lista original, elimina los extremos con slicing y divide la suma entre la cantidad de notas que quedan.",
+			"hint": "Con la lista ordenada, `[1:-1]` excluye el primero y el último. La suma se puede hacer con un bucle o con `sum`.",
+			"solution": {
+				"lang": "python",
+				"caption": "promedio.py",
+				"code": "notas = [14, 6, 18, 20, 9]\nordenadas = sorted(notas)\ncentrales = ordenadas[1:-1]\npromedio = sum(centrales) / len(centrales)\n\nprint(ordenadas)\nprint(centrales)\nprint(f\"Promedio: {promedio:.2f}\")",
+				"explain": "`sorted` no modifica `notas`. Tras ordenar, `[1:-1]` quita el 6 y el 20, y deja `[9, 14, 18]`. La media es 41/3 = 13.67. Dividir entre `len(centrales)` y no entre `len(notas)` es lo que hace que el cálculo sea correcto."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En la lista de compras, lo importante no es el resultado sino el efecto de cada método. `append` siempre añade al final, `insert` elige posición y `remove` busca el valor desde el principio. Si el orden de las llamadas cambia, el resultado cambia: insertar huevos después de quitar el pan daría otra lista. Leer el estado tras cada operación es la mejor forma de comprobarlo."
+		},
+		{
+			"type": "p",
+			"md": "En el promedio, el detalle clave es trabajar sobre `sorted(notas)` y no sobre `notas.sort()`. Si hubieras ordenado la original, el ejercicio seguiría dando el mismo número, pero habrías destruido el orden de entrada sin necesidad. El slice `[1:-1]` es válido incluso con pocos elementos, aunque con menos de tres notas devolvería una lista vacía y la división fallaría."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Las listas son ordenadas y mutables; las tuplas son ordenadas e inmutables.",
+				"`append` añade al final, `insert` en una posición y `pop` extrae; `remove` elimina por valor.",
+				"`sort()` ordena en su sitio y devuelve `None`; `sorted()` devuelve una lista nueva.",
+				"`b = a` crea un alias; `b = a[:]` crea una copia superficial.",
+				"Las listas anidadas se acceden con índices encadenados, como `matriz[fila][columna]`.",
+				"Las tuplas se desempaquetan con `x, y = punto` y sirven para registros fijos.",
+				"El acceso por índice y el `append` son baratos; insertar al inicio y buscar son O(n)."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Después de `a = [1, 2]`, `b = a` y `b.append(3)`, ¿qué vale `a`?",
+			"options": ["`[1, 2]`", "`[1, 2, 3]`", "`None`", "Provoca un `TypeError`"],
+			"answer": 1,
+			"explain": "`b = a` no copia: ambas variables apuntan a la misma lista. El `append` se hace sobre ese único objeto, así que el cambio se ve desde las dos. Para evitarlo habría que escribir `b = a[:]`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `sorted([3, 1, 2])` y qué deja en la lista original?",
+			"options": [
+				"Devuelve `[1, 2, 3]` y ordena la original",
+				"Devuelve `[1, 2, 3]` y deja la original igual",
+				"Devuelve `None` y ordena la original",
+				"Devuelve `None` y deja la original igual"
+			],
+			"answer": 1,
+			"explain": "`sorted` construye y devuelve una lista nueva ordenada; no toca el argumento. Es `sort()` quien ordena en su sitio y devuelve `None`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál de estas operaciones sobre una lista de 10 000 elementos es más cara?",
+			"options": [
+				"`lista[5000]`",
+				"`lista.append(x)`",
+				"`lista.insert(0, x)`",
+				"`lista.pop()`"
+			],
+			"answer": 2,
+			"explain": "Insertar al principio desplaza los 10 000 elementos una posición, así que es O(n). El acceso por índice y `pop()` del último son O(1), y `append` es O(1) amortizado."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Estructuras de datos en Python",
+					"url": "https://docs.python.org/es/3/tutorial/datastructures.html",
+					"note": "listas, tuplas y métodos"
+				},
+				{
+					"label": "Complejidad de operaciones",
+					"url": "https://wiki.python.org/moin/TimeComplexity",
+					"note": "tabla de costes de listas y diccionarios"
+				}
+			]
+		}
+	]
+}

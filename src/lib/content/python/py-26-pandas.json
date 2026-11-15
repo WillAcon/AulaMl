@@ -1,0 +1,478 @@
+{
+	"id": "py-26-pandas",
+	"track": "python",
+	"order": 26,
+	"title": "Pandas: Series y DataFrames",
+	"subtitle": "La tabla que sí recuerda qué significa cada columna, cada fila y cada celda",
+	"level": "intermedio",
+	"minutes": 50,
+	"tags": ["pandas", "dataframes", "csv", "groupby"],
+	"keywords": [
+		"qué es pandas",
+		"instalar pandas",
+		"Series y DataFrame",
+		"leer csv",
+		"loc e iloc",
+		"filtrar filas",
+		"columna calculada",
+		"groupby",
+		"merge",
+		"valores nulos",
+		"índice",
+		"SettingWithCopyWarning"
+	],
+	"summary": "Pandas convierte archivos y consultas en tablas con etiquetas: cada fila tiene un índice y cada columna un nombre. Aprenderás a crear Series y DataFrames, leer un CSV, seleccionar con loc e iloc, filtrar, calcular columnas, agrupar y unir tablas sin perder de vista qué significa cada número.",
+	"objectives": [
+		"Crear una Series y un DataFrame y explicar qué papel cumple el índice",
+		"Leer un CSV y revisar su forma, sus tipos y sus valores ausentes",
+		"Seleccionar datos por etiqueta con loc y por posición con iloc",
+		"Filtrar filas con máscaras booleanas y añadir columnas calculadas",
+		"Resumir datos con groupby y combinar tablas con merge"
+	],
+	"prerequisites": ["NumPy: vectores, matrices y vectorización", "Diccionarios y sets"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Has guardado datos en listas, diccionarios y arreglos de NumPy. Todos funcionan, pero ninguno responde a la pregunta que aparece en cuanto abres un archivo real: **¿qué columna es esta y qué significa cada fila?** Un arreglo guarda los números, pero no sus nombres: si la tercera columna era de soles o de unidades lo recuerdas tú, no el programa."
+		},
+		{
+			"type": "p",
+			"md": "Una hoja de cálculo resuelve esa duda a medias, pero no es reproducible: las fórmulas viven en celdas que nadie versiona. Pandas traslada esa comodidad a Python, con nombres, tipos y operaciones que puedes guardar y repetir."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es Pandas?"
+		},
+		{
+			"type": "p",
+			"md": "**Pandas** es una biblioteca de Python para datos tabulares y series temporales. Su nombre viene de *panel data*, el término econométrico para observaciones repetidas en el tiempo. Se construye sobre NumPy: los valores viajan en arreglos contiguos, pero cada fila y cada columna llevan una etiqueta."
+		},
+		{
+			"type": "p",
+			"md": "Ofrece dos estructuras. Una **Series** es una columna con índice: valores del mismo tipo, cada uno con su etiqueta. Un **DataFrame** es una tabla de columnas que comparten un índice de filas. Si una Series es una lista de precios con nombre, un DataFrame es la hoja entera."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Cómo se instala",
+			"md": "Ejecuta `pip install pandas` en la terminal. Pandas arrastra NumPy como dependencia, así que no hace falta pedirlo aparte. Comprueba la versión con `pd.__version__`: el curso usa la serie 2.x. El botón «Probar» del navegador no incluye pandas; ejecuta estos ejemplos en tu equipo o en Colab."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Pandas es la puerta de entrada a casi cualquier proyecto de datos: leer, unir y resumir tablas ocupa más tiempo que entrenar el modelo. Estos son los usos que verás en el curso:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Leer archivos**: CSV, Excel, Parquet o el resultado de una consulta SQL, con tipos y fechas interpretados.",
+				"**Limpiar**: detectar nulos, duplicados y textos inconsistentes antes de calcular nada.",
+				"**Resumir**: sumar ventas por sede, contar pedidos por mes, calcular el ticket medio por producto.",
+				"**Combinar**: cruzar una tabla de pedidos con un catálogo de precios usando una columna en común.",
+				"**Preparar Machine Learning**: construir la matriz de características y la columna objetivo que recibirá scikit-learn."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Una Series guarda dos cosas: un arreglo de valores y otro de etiquetas llamado **índice**. El índice es la dirección de cada dato: `serie[\"té\"]` busca esa etiqueta y devuelve el valor; si no la encuentra, lanza `KeyError`."
+		},
+		{
+			"type": "p",
+			"md": "Un DataFrame se organiza como una colección de Series que comparten el índice, agrupadas en bloques por tipo de dato. Esa agrupación explica dos sorpresas iniciales: añadir una columna no modifica el original si trabajas sobre una selección, y las operaciones se alinean por etiqueta, no por posición."
+		},
+		{
+			"type": "p",
+			"md": "La alineación es la diferencia clave frente a NumPy. Si sumas dos Series con índices distintos, pandas empareja las etiquetas y rellena con `NaN` las que faltan. Es cómodo con datos completos y peligroso cuando no lo están: un `NaN` inesperado suele venir de un índice mal construido."
+		},
+		{
+			"type": "table",
+			"head": ["Estructura", "Dimensiones", "Etiquetas", "Uso típico"],
+			"rows": [
+				["`list`", "1", "Posiciones 0..n-1", "Secuencia heterogénea pequeña"],
+				["`ndarray`", "n", "Posiciones y ejes", "Cálculo numérico y álgebra"],
+				["`Series`", "1", "Índice propio", "Una columna con nombre"],
+				["`DataFrame`", "2", "Índice de filas y nombres de columna", "Tabla completa con tipos por columna"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: crear, leer y mirar"
+		},
+		{
+			"type": "p",
+			"md": "La convención universal es `import pandas as pd`. Una Series se crea con una lista de valores y, si quieres, un índice explícito; un DataFrame, con un diccionario donde cada clave es una columna y cada valor, la lista de sus datos."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "crear.py",
+			"code": "import pandas as pd\n\n# Una columna con etiquetas propias\nserie = pd.Series([120, 80, 45], index=[\"café\", \"té\", \"jugo\"], name=\"unidades\")\n\n# Una tabla: cada clave del diccionario es una columna\ndf = pd.DataFrame({\n    \"producto\": [\"café\", \"té\", \"jugo\"],\n    \"unidades\": [120, 80, 45],\n    \"precio\": [7.5, 6.0, 8.0],\n})\n\nprint(serie)\nprint(df)",
+			"highlight": [4, 7, 8, 9, 10]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`df.head()` muestra las cinco primeras filas; `df.tail(3)` las tres últimas.",
+				"`df.shape` devuelve una tupla `(filas, columnas)`; `df.columns` lista los nombres.",
+				"`df.info()` resume tipos y cuántos valores no nulos tiene cada columna.",
+				"`df.describe()` calcula media, desviación y cuartiles de las columnas numéricas.",
+				"`df.dtypes` muestra el tipo de cada columna: `int64`, `float64`, `object` o `category`."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los datos reales no se escriben a mano: se leen con `pd.read_csv`. Si el archivo usa punto y coma, indícalo con `sep=\";\"`; si los decimales van con coma, añade `decimal=\",\"`; y si hay una columna de fechas, pásala en `parse_dates` para que se convierta en tipo fecha."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalación y comprobación",
+			"code": "pip install pandas\npython -c \"import pandas as pd; print(pd.__version__)\""
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: una columna con nombre"
+		},
+		{
+			"type": "p",
+			"md": "Empieza por lo más pequeño: una Series con unidades vendidas y el nombre del producto como índice, para pedir cada valor por su etiqueta y no por su posición."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "serie.py",
+			"code": "import pandas as pd\n\nserie = pd.Series([120, 80, 45], index=[\"café\", \"té\", \"jugo\"], name=\"unidades\")\n\nprint(serie[\"té\"])\nprint(round(serie.mean(), 2))\nprint(serie.sum())\nprint(serie.idxmax())",
+			"highlight": [5, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "La línea 5 devuelve `80`, cuya etiqueta es `\"té\"`. La 6 calcula la media de 120, 80 y 45, esto es 245 entre 3, y la redondea a `81.67`. La 7 suma: `245`. La 8 devuelve `\"café\"`, la etiqueta del valor máximo: `idxmax` da el índice, no el valor, y esa distinción importa cuando quieres saber **cuál** fue el mejor, no **cuánto** vendió."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: filtrar, calcular y agrupar"
+		},
+		{
+			"type": "p",
+			"md": "Con un DataFrame ya puedes hacer el trabajo de un analista en cuatro líneas: añadir una columna calculada, filtrar filas y resumir por categoría."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ventas.py",
+			"code": "import pandas as pd\n\ndf = pd.DataFrame({\n    \"producto\": [\"café\", \"té\", \"jugo\", \"café\", \"té\"],\n    \"sede\": [\"Lima\", \"Lima\", \"Arequipa\", \"Arequipa\", \"Lima\"],\n    \"unidades\": [120, 80, 45, 60, 95],\n    \"precio\": [7.5, 6.0, 8.0, 7.5, 6.0],\n})\n\ndf[\"ingreso\"] = df[\"unidades\"] * df[\"precio\"]\ncaros = df[df[\"ingreso\"] > 500]\npor_sede = df.groupby(\"sede\")[\"ingreso\"].sum()\n\nprint(df.shape)\nprint(caros[[\"producto\", \"ingreso\"]])\nprint(por_sede)",
+			"highlight": [10, 11, 12]
+		},
+		{
+			"type": "p",
+			"md": "La línea 10 multiplica dos columnas: pandas alinea las Series por el índice y produce los ingresos `900, 480, 360, 450 y 570`. Al asignar esa Series con corchetes se convierte en la quinta columna, y `df.shape` pasa a `(5, 5)`."
+		},
+		{
+			"type": "p",
+			"md": "La línea 11 construye una máscara booleana del mismo largo que la tabla: `True` donde el ingreso supera 500. Al indexar el DataFrame con esa máscara, obtienes solo las filas 0 y 4, con 900 y 570. La línea 12 agrupa por sede y suma: Lima aporta 900 + 480 + 570 = 1950 y Arequipa 360 + 450 = 810, que juntas dan los 2760 soles del total."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: informe de ventas por región"
+		},
+		{
+			"type": "p",
+			"md": "En el trabajo real los datos llegan en dos archivos: los pedidos y un catálogo de sedes con su región. El siguiente programa los une con `merge`, calcula el ingreso y produce una tabla ordenada lista para enviar."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "informe.py",
+			"code": "import pandas as pd\n\nventas = pd.read_csv(\"ventas_2026.csv\", parse_dates=[\"fecha\"])\nsedes = pd.DataFrame({\"sede\": [\"Lima\", \"Arequipa\"], \"region\": [\"Costa\", \"Sierra\"]})\n\ndetalle = ventas.merge(sedes, on=\"sede\", how=\"left\")\nresumen = (\n    detalle.groupby([\"region\", \"producto\"])\n    .agg(unidades=(\"unidades\", \"sum\"), ingreso=(\"ingreso\", \"sum\"))\n    .reset_index()\n    .sort_values(\"ingreso\", ascending=False)\n)\n\nprint(detalle[\"region\"].isna().sum())\nprint(resumen.head())",
+			"highlight": [6, 8, 9, 10]
+		},
+		{
+			"type": "p",
+			"md": "`merge` busca la columna `sede` en ambas tablas y copia la región en cada fila. Con `how=\"left\"` conservas todos los pedidos, incluso los de una sede que no esté en el catálogo; en esas filas la región queda como `NaN`. Por eso la penúltima línea cuenta los nulos: si el número no es cero, el catálogo está incompleto. Un `how=\"inner\"` habría eliminado esos pedidos en silencio, que es peor."
+		},
+		{
+			"type": "p",
+			"md": "El encadenado final se lee de arriba abajo: agrupar por región y producto, agregar dos métricas con nombre, convertir el índice en columnas con `reset_index` y ordenar de mayor a menor ingreso. Cada método devuelve un DataFrame nuevo, así que los paréntesis mantienen la expresión legible."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la tabla por dentro"
+		},
+		{
+			"type": "p",
+			"md": "La siguiente matriz representa unidades vendidas por producto y mes. Las filas son el índice del DataFrame y las columnas, sus nombres. Antes de escribir código, comprueba que sabes leer la rejilla: fila 0, columna 2 es 150, y significa que el café vendió 150 unidades en marzo."
+		},
+		{
+			"type": "matrix",
+			"title": "Unidades por producto y mes",
+			"data": [[120, 130, 150], [80, 75, 90], [45, 60, 55]],
+			"rowLabels": ["café", "té", "jugo"],
+			"colLabels": ["Ene", "Feb", "Mar"],
+			"steps": [
+				{
+					"note": "La tabla tiene 3 filas y 3 columnas: `df.shape` devuelve `(3, 3)`."
+				},
+				{
+					"note": "`df.loc[\"té\", \"Mar\"]` busca por etiqueta y devuelve 90.",
+					"highlight": [[1, 2]]
+				},
+				{
+					"note": "`df.iloc[1, 2]` busca por posición y devuelve el mismo 90: fila 1, columna 2.",
+					"highlight": [[1, 2]]
+				},
+				{
+					"note": "El filtro `df[\"Mar\"] > 60` deja las celdas de café (150) y té (90).",
+					"highlight": [[0, 2], [1, 2]]
+				},
+				{
+					"note": "Sumar por columna da 245, 265 y 295; el total de la tabla es 805 unidades.",
+					"highlight": [[0, 0], [1, 0], [2, 0]]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "`loc` recibe etiquetas, `iloc` recibe posiciones. Con el índice por defecto de 0 a 2 ambos coinciden, y ahí nace la confusión: al ordenar o filtrar, las etiquetas dejan de seguir el orden de las filas. Si dudas, pregunta qué quieres decir: «la fila donde el producto es té» es `loc`; «la segunda fila» es `iloc`."
+		},
+		{
+			"type": "p",
+			"md": "El recorrido siguiente construye una columna y la resume. Cada paso conserva el índice: las tres filas siguen identificadas por 0, 1 y 2."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "De tres filas a un total",
+			"code": "import pandas as pd\n\ndf = pd.DataFrame({\"sede\": [\"Lima\", \"Lima\", \"Arequipa\"], \"unidades\": [120, 180, 45]})\ndf[\"precio\"] = [7.5, 7.5, 8.0]\ndf[\"ingreso\"] = df[\"unidades\"] * df[\"precio\"]\ntotal = df[\"ingreso\"].sum()\nprint(total)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "`import pandas as pd` carga la biblioteca y la deja disponible con el alias `pd`.",
+					"vars": { "pd": "módulo pandas" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "El diccionario se convierte en tabla: dos columnas y un índice automático de 0 a 2.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "sede: [Lima, Lima, Arequipa]; unidades: [120, 180, 45]"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "La lista de tres precios se asigna a una columna nueva. La longitud debe coincidir con el número de filas.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "sede, unidades, precio (3 filas)"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Pandas multiplica elemento a elemento, alineando por índice: 120×7.5, 180×7.5 y 45×8.0.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "ingreso: [900.0, 1350.0, 360.0]"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`sum` recorre la columna y acumula: 900 + 1350 + 360 = 2610. El resultado es un escalar de tipo float.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "ingreso: [900.0, 1350.0, 360.0]",
+						"total": "2610.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`print` escribe el total con un decimal, porque la columna es de tipo `float64`.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "ingreso: [900.0, 1350.0, 360.0]",
+						"total": "2610.0"
+					},
+					"output": "2610.0\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`KeyError: 'Ingreso'`", "La columna se llama `ingreso`, en minúsculas", "Revisa `df.columns` y respeta el nombre exacto"],
+				["`SettingWithCopyWarning`", "Asignaste sobre una selección, no sobre el original", "Usa `df.loc[mascara, \"columna\"] = valor`"],
+				["`ValueError: could not convert string to float`", "El CSV usa coma decimal o tiene texto en la columna", "Lee con `decimal=\",\"` o convierte con `pd.to_numeric(..., errors=\"coerce\")`"],
+				["Una media devuelve `nan`", "La columna contiene valores ausentes o texto", "Cuenta nulos con `isna().sum()` y revisa `dtypes`"],
+				["`AttributeError: Can only use .str accessor...`", "Aplicaste `.str` a una columna que no es de texto", "Convierte antes con `astype(\"string\")`"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El aviso más traicionero es el de asignación encadenada, porque el programa no falla: no cambia lo que esperabas. `df[df[\"sede\"] == \"Lima\"]` devuelve una tabla nueva, y escribir sobre ella no toca `df`. Con *copy-on-write* la escritura se descarta y el error aparece tres pasos después, con los valores viejos en el informe."
+		},
+		{
+			"type": "diff",
+			"title": "Modificar una columna filtrada",
+			"wrong": {
+				"caption": "No modifica df",
+				"code": "df[df[\"sede\"] == \"Lima\"][\"ingreso\"] = 0"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "df.loc[df[\"sede\"] == \"Lima\", \"ingreso\"] = 0"
+			},
+			"explain": "La primera forma selecciona filas, obtiene una copia y escribe en la copia. `loc` recibe la máscara y la columna en una sola operación, así que escribe sobre el DataFrame original y además es más rápido."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Inspecciona antes de transformar: `head()`, `info()` y `isna().sum()` cuestan segundos y evitan horas.",
+				"Usa `loc` e `iloc` de forma explícita; evita el indexado con corchetes para escribir.",
+				"Cuando modifiques una selección, añade `.copy()` para dejar claro que es una tabla independiente.",
+				"Nombra las columnas en `snake_case` y sin espacios: `ingreso_total`, no `Ingreso Total (S/)`.",
+				"Encadena operaciones en varias líneas con paréntesis; seis métodos en una línea no se revisan.",
+				"Guarda los pasos en funciones con nombre (`cargar`, `limpiar`, `resumir`) para repetir el informe completo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Resumen de una Series",
+			"md": "Crea una Series llamada `unidades` con los valores 120, 80, 45 y 95, usando como índice los productos `café`, `té`, `jugo` y `agua`. Muestra el total, la media redondeada a dos decimales, el producto que más vendió y el que menos.",
+			"hint": "`idxmax` e `idxmin` devuelven la etiqueta del máximo y del mínimo. Redondea con `round(valor, 2)` o con una f-string con formato.",
+			"solution": {
+				"lang": "python",
+				"caption": "resumen_serie.py",
+				"code": "import pandas as pd\n\nunidades = pd.Series([120, 80, 45, 95], index=[\"café\", \"té\", \"jugo\", \"agua\"])\n\nprint(unidades.sum())\nprint(round(unidades.mean(), 2))\nprint(unidades.idxmax())\nprint(unidades.idxmin())",
+				"explain": "La suma es 340 y la media 85.0, porque 340 entre 4 es exacto. `idxmax` devuelve `agua` (95) e `idxmin` devuelve `jugo` (45). Con el índice por defecto habrías obtenido posiciones, no nombres: por eso conviene construir la Series con etiquetas desde el principio."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el filtro y el resumen",
+			"lang": "python",
+			"code": "import pandas as pd\n\ndf = pd.read_csv(\"ventas.csv\")\nlima = df[df[\"___\"] == \"Lima\"]\npromedio = lima[\"ingreso\"].___()\nresumen = df.groupby(\"sede\")[\"ingreso\"].___()\nprint(promedio, resumen)",
+			"answers": ["sede", "mean", "sum"],
+			"hint": "La columna que contiene `\"Lima\"` es la sede. Para el promedio y el total, pandas usa los mismos nombres que NumPy.",
+			"explain": "`df[\"sede\"] == \"Lima\"` produce la máscara booleana y el corchete exterior filtra las filas. `mean()` calcula el promedio de la columna filtrada y `sum()` acumula el ingreso de cada grupo al aplicar `groupby`."
+		},
+		{
+			"type": "exercise",
+			"title": "Nulos y total por sede",
+			"md": "Parte de una tabla de pedidos con columnas `cliente`, `sede` y `monto`, donde un monto es `None`. Rellena ese hueco con la mediana, calcula el total por sede y muestra cuántos pedidos hay en cada una. Los montos son 120, 95, `None`, 210 y 130, con sedes Lima, Lima, Arequipa, Arequipa y Lima.",
+			"hint": "`fillna` acepta un escalar; calcula la mediana después de convertir la columna a numérica. `groupby` con `agg([\"sum\", \"count\"])` devuelve las dos métricas a la vez.",
+			"solution": {
+				"lang": "python",
+				"caption": "pedidos.py",
+				"code": "import pandas as pd\n\npedidos = pd.DataFrame({\n    \"cliente\": [\"A\", \"B\", \"C\", \"A\", \"B\"],\n    \"sede\": [\"Lima\", \"Lima\", \"Arequipa\", \"Arequipa\", \"Lima\"],\n    \"monto\": [120.0, 95.0, None, 210.0, 130.0],\n})\n\nmediana = pedidos[\"monto\"].median()\npedidos[\"monto\"] = pedidos[\"monto\"].fillna(mediana)\nresumen = pedidos.groupby(\"sede\")[\"monto\"].agg([\"sum\", \"count\"])\n\nprint(f\"Mediana imputada: {mediana}\")\nprint(resumen)",
+				"explain": "La mediana de 120, 95, 210 y 130 es 125, el promedio de los dos valores centrales. Al rellenar el nulo, Lima suma 120 + 95 + 130 = 345 con tres pedidos, y Arequipa suma 125 + 210 = 335 con dos. El total, 680, es mayor que la suma de los montos originales porque añadiste un valor estimado: imputar no es gratis y conviene anotarlo."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "El primer ejercicio no necesita bucles: cada operación recorre la columna internamente. La decisión importante está en el índice: sin `index`, `idxmax` devolvería `0`, que no dice nada. Construir la etiqueta correcta desde el inicio es más barato que arreglarla después."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el orden importa: calculas la mediana antes de rellenar, porque después de imputar incluirías el valor inventado en la estadística. Imputar cambia la distribución y reduce la varianza artificialmente; en la próxima lección verás cómo documentar esa decisión."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una Series es una columna con índice; un DataFrame es una tabla de Series que comparten índice.",
+				"El índice identifica filas y permite alinear operaciones entre tablas distintas.",
+				"`read_csv` convierte un archivo en DataFrame; revisa `shape`, `dtypes` e `isna().sum()` al cargar.",
+				"`loc` selecciona por etiqueta y `iloc` por posición; con índices ordenados pueden coincidir.",
+				"Una máscara booleana filtra filas: `df[df[\"ingreso\"] > 500]`.",
+				"`groupby` separa, aplica y combina; `merge` cruza tablas por una clave común.",
+				"Asignar sobre una selección no modifica el original: usa `.loc` o `.copy()`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué diferencia hay entre `df.loc[2]` y `df.iloc[2]`?",
+			"options": [
+				"Son idénticos en todos los casos",
+				"`loc` busca la etiqueta `2`; `iloc` devuelve la tercera fila por posición",
+				"`loc` devuelve la tercera fila; `iloc` busca la etiqueta `2`",
+				"`iloc` solo funciona con columnas numéricas"
+			],
+			"answer": 1,
+			"explain": "`loc` trabaja con etiquetas del índice e `iloc` con posiciones enteras. Con el índice por defecto de 0 a n-1 ambas coinciden, pero tras ordenar o filtrar las etiquetas dejan de seguir el orden físico y el resultado puede ser distinto."
+		},
+		{
+			"type": "quiz",
+			"question": "Después de `df[\"ingreso\"] = df[\"unidades\"] * df[\"precio\"]`, ¿qué se guarda en la nueva columna?",
+			"options": [
+				"El producto de la primera y la última fila, repetido",
+				"Una Series con el producto elemento a elemento, alineada por el índice",
+				"Un número: la suma de todos los productos",
+				"Una lista de Python, porque las columnas siempre son listas"
+			],
+			"answer": 1,
+			"explain": "La multiplicación de dos Series se resuelve celda a celda y el resultado es otra Series con el mismo índice. Al asignarla con corchetes, pandas la incorpora como columna. Si los índices no coincidieran, la alineación introduciría `NaN`."
+		},
+		{
+			"type": "quiz",
+			"question": "Tienes pedidos de una sede que no aparece en el catálogo y usas `merge(..., how=\"left\")`. ¿Qué ocurre?",
+			"options": [
+				"Esos pedidos desaparecen del resultado",
+				"El merge lanza un `KeyError`",
+				"Los pedidos se conservan y la columna del catálogo queda como `NaN`",
+				"Pandas inventa el valor que falta con la media de la columna"
+			],
+			"answer": 2,
+			"explain": "`how=\"left\"` conserva todas las filas de la tabla izquierda. Cuando no hay coincidencia, las columnas traídas del catálogo quedan vacías. Contar esos nulos es la forma de detectar un catálogo incompleto; con `how=\"inner\"` las filas se perderían sin aviso."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Pandas: documentación oficial",
+					"url": "https://pandas.pydata.org/docs/",
+					"note": "guía de usuario y referencia de la API"
+				},
+				{
+					"label": "10 minutes to pandas",
+					"url": "https://pandas.pydata.org/docs/user_guide/10min.html",
+					"note": "recorrido rápido con ejemplos ejecutables"
+				}
+			]
+		}
+	]
+}

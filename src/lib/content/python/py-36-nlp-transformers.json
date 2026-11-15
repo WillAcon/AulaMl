@@ -1,0 +1,695 @@
+{
+	"id": "py-36-nlp-transformers",
+	"track": "python",
+	"order": 36,
+	"title": "NLP, embeddings y Transformers",
+	"subtitle": "Cómo un texto se convierte en vectores, cómo la atención los mezcla y cómo se ajusta un modelo preentrenado",
+	"level": "avanzado",
+	"minutes": 50,
+	"tags": [
+		"nlp",
+		"transformers",
+		"embeddings",
+		"hugging face"
+	],
+	"keywords": [
+		"procesamiento de lenguaje natural",
+		"tokenización",
+		"embeddings",
+		"similitud coseno",
+		"mecanismo de atención",
+		"arquitectura transformer",
+		"bert gpt diferencia",
+		"fine-tuning",
+		"hugging face transformers",
+		"pipeline sentiment analysis",
+		"attention matrix",
+		"clasificar texto python"
+	],
+	"summary": "Un modelo de lenguaje no lee palabras: recibe números. Aprenderás a tokenizar texto, a representarlo con embeddings, a medir similitud con coseno, a entender qué hace la atención dentro de un Transformer y a ajustar un modelo preentrenado con Hugging Face.",
+	"objectives": [
+		"Explicar el recorrido de un texto hasta los ids y los vectores que consume el modelo",
+		"Tokenizar con `AutoTokenizer`, gestionar truncado, padding y máscara de atención",
+		"Calcular e interpretar similitud coseno entre embeddings",
+		"Describir el mecanismo de atención con queries, keys y values, y leer una matriz de atención",
+		"Distinguir preentrenamiento de fine-tuning y ejecutar un ajuste con `Trainer`"
+	],
+	"prerequisites": [
+		"Redes neuronales con PyTorch"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un modelo no lee: recibe números de tamaño fijo, y el lenguaje no es ni numérico ni de tamaño fijo. Una frase tiene ocho palabras y otra cuarenta, y «banco» significa cosas distintas según la oración."
+		},
+		{
+			"type": "p",
+			"md": "La solución actual se apoya en dos ideas: partir el texto en unidades con vectores densos (**embeddings**) y dejar que cada unidad mire a las demás para decidir qué significa en contexto (**atención**). Esa combinación es el Transformer."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es el procesamiento de lenguaje natural?"
+		},
+		{
+			"type": "p",
+			"md": "El **NLP** (*Natural Language Processing*) es la rama que estudia cómo hacer tareas útiles con texto: clasificar, extraer, traducir, resumir, responder preguntas. La dificultad no es solo la ambigüedad; también lo es la variabilidad: dos frases con el mismo sentido pueden compartir muy pocas palabras, y una sola palabra puede invertir el significado."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Clasificación**: detectar spam, medir el tono de un comentario o etiquetar tickets de soporte.",
+				"**Búsqueda semántica**: encontrar documentos por significado y no por coincidencia exacta de palabras.",
+				"**Extracción**: sacar nombres, fechas e importes de contratos y facturas.",
+				"**Generación**: resumir, redactar y responder preguntas con modelos tipo GPT.",
+				"**Traducción y transcripción**: convertir voz en texto y texto en otro idioma.",
+				"**Deduplicación y agrupamiento**: detectar noticias repetidas o agrupar reseñas por tema."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El recorrido tiene cuatro etapas. El **tokenizador** parte el texto en subpalabras y devuelve enteros de un vocabulario fijo. La **capa de embeddings** convierte cada entero en un vector de 768 dimensiones. Las **capas del Transformer** mezclan esos vectores con atención, y la **cabeza** final produce la salida de la tarea."
+		},
+		{
+			"type": "p",
+			"md": "La tokenización no trabaja con palabras completas sino con **subpalabras** (WordPiece en BERT, BPE en GPT). Así el vocabulario se mantiene en decenas de miles de entradas y las palabras raras se descomponen: `tokenization` puede partirse en `token` + `##ization`. Cada secuencia se envuelve con tokens especiales: `[CLS]` al inicio y `[SEP]` al final en los modelos BERT."
+		},
+		{
+			"type": "p",
+			"md": "Un **embedding** es un vector aprendido. Dos palabras con usos parecidos acaban con vectores parecidos, y la similitud se mide con el coseno del ángulo entre ellos, no con la distancia euclídea. En un modelo contextual como BERT el vector no es fijo por palabra: se calcula en cada frase, después de que la atención mezcle el contexto."
+		},
+		{
+			"type": "p",
+			"md": "La **atención** proyecta cada token en *query* (qué busco), *key* (qué ofrezco) y *value* (qué aporto). El producto entre una query y todas las keys mide compatibilidad; se divide por la raíz de la dimensión, se aplica softmax y el resultado pesa los values."
+		},
+		{
+			"type": "p",
+			"md": "Un Transformer apila esas capas con conexiones residuales, normalización y una red densa por token. Los modelos **encoder** como BERT ven la frase completa en ambas direcciones y sirven para clasificar o extraer. Los **decoder** como GPT solo miran hacia atrás, porque su tarea es predecir el siguiente token."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Token no es palabra",
+			"md": "Una palabra corriente suele ser un token; una palabra rara o un emoji pueden ser cinco. Los límites se cuentan en tokens: un modelo con 512 tokens de contexto admite menos texto del que parece, y en español menos que en inglés porque el vocabulario está más fragmentado."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: instalar y cargar un tokenizador"
+		},
+		{
+			"type": "p",
+			"md": "Necesitas `transformers` y, para tensores y modelos, `torch`. La primera ejecución descarga el vocabulario y los pesos desde Hugging Face, así que requiere conexión; después quedan en la caché local."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalación",
+			"code": "pip install transformers torch\npip install datasets sentence-transformers   # opcionales, para las secciones siguientes"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "tokenizar.py",
+			"code": "from transformers import AutoTokenizer\n\ntok = AutoTokenizer.from_pretrained(\"distilbert-base-uncased\")\nlote = tok(\"Machine learning is fun\", return_tensors=\"pt\")\n\nprint(lote[\"input_ids\"])                          # tensor([[101, 3698, 4083, 2003, 4569, 102]])\nprint(tok.convert_ids_to_tokens(lote[\"input_ids\"][0]))\nprint(lote[\"attention_mask\"].shape)",
+			"highlight": [
+				3,
+				4,
+				6,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "`AutoTokenizer` elige la clase correcta a partir del nombre del modelo. La salida es un diccionario con `input_ids` (los enteros), `attention_mask` (1 donde hay token real, 0 donde hay relleno) y, si el modelo lo usa, `token_type_ids`. La forma es `(1, 6)`: un lote de una secuencia de seis tokens."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: de texto a ids"
+		},
+		{
+			"type": "p",
+			"md": "Al procesar muchos textos, las secuencias tienen longitudes distintas y un tensor no admite filas de tamaños diferentes. Se recortan con `truncation=True` y se rellenan con `padding=True` hasta la longitud máxima del lote."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "lote.py",
+			"code": "from transformers import AutoTokenizer\n\ntok = AutoTokenizer.from_pretrained(\"distilbert-base-uncased\")\nfrases = [\"the cat sat\", \"machine learning is fun and useful\"]\n\nlote = tok(frases, padding=True, truncation=True, max_length=512, return_tensors=\"pt\")\nprint(lote[\"input_ids\"].shape)       # torch.Size([2, 8])\nprint(lote[\"attention_mask\"])\nprint(tok.decode(lote[\"input_ids\"][0], skip_special_tokens=True))",
+			"highlight": [
+				6,
+				7,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "La primera frase tiene cinco tokens y la segunda ocho, así que la primera se rellena con tres ceros y su máscara termina en `0, 0, 0`. Sin máscara, el modelo trataría esos ceros como contenido. `decode` hace el camino inverso y devuelve el texto, útil para depurar tokenizaciones raras."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: similitud coseno"
+		},
+		{
+			"type": "p",
+			"md": "La similitud coseno compara direcciones e ignora la longitud: `cos(a, b) = (a·b) / (‖a‖·‖b‖)`. Vale 1 para vectores paralelos, 0 para perpendiculares y −1 para opuestos. Los vectores siguientes son de cuatro dimensiones para que puedas comprobar las cuentas; un embedding real tiene 384 o 768."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "coseno.py",
+			"code": "import math\n\ndef coseno(a, b):\n    producto = sum(x * y for x, y in zip(a, b))\n    norma_a = math.sqrt(sum(x * x for x in a))\n    norma_b = math.sqrt(sum(y * y for y in b))\n    return producto / (norma_a * norma_b)\n\nrey = [0.8, 0.6, 0.0, 0.1]\nreina = [0.75, 0.55, 0.2, 0.12]\nmanzana = [-0.2, 0.1, 0.9, -0.3]\n\nprint(round(coseno(rey, reina), 3))     # 0.978\nprint(round(coseno(rey, manzana), 3))   # -0.133",
+			"highlight": [
+				4,
+				5,
+				6,
+				12,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "«Rey» y «reina» comparten dirección (`0.978`); «rey» y «manzana» apuntan a lados opuestos (`−0.133`). El coseno ya divide por las normas, así que no hace falta normalizar; el producto escalar y la distancia euclídea sí crecen con la magnitud, y por eso conviene normalizar si usas esos dos. Con `sentence-transformers`, `normalize_embeddings=True` deja los vectores listos para comparar."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "frases.py",
+			"code": "from sentence_transformers import SentenceTransformer, util\n\nmodelo = SentenceTransformer(\"sentence-transformers/all-MiniLM-L6-v2\")\nfrases = [\"Un gato duerme en el sofá\", \"El perro descansa en el sillón\"]\nvectores = modelo.encode(frases, normalize_embeddings=True)\n\nprint(vectores.shape)                              # (2, 384)\nprint(util.cos_sim(vectores[0], vectores[1]).item())  # cercano a 1: mismo tema",
+			"highlight": [
+				5,
+				7,
+				8
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: clasificar y ajustar un Transformer"
+		},
+		{
+			"type": "p",
+			"md": "Primero, la vía rápida: un `pipeline` descarga un modelo ya ajustado y hace todo el recorrido por ti. Es la forma más eficiente de comprobar si un modelo sirve antes de invertir en entrenamiento."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pipeline.py",
+			"code": "from transformers import pipeline\n\nclasificador = pipeline(\"sentiment-analysis\")   # distilbert afinado en SST-2\nprint(clasificador(\"I loved every chapter of this course\"))\nprint(clasificador(\"The ending was a mess\"))",
+			"highlight": [
+				3,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es una lista con `label` y `score`. Ese modelo está entrenado en inglés: con texto en español las etiquetas no son fiables. Para español existen alternativas como `pysentimiento/robertuito-sentiment-analysis`; cambiar el modelo es cambiar un argumento, porque la interfaz es la misma."
+		},
+		{
+			"type": "p",
+			"md": "`num_labels=2` sustituye la cabeza de preentrenamiento por una de dos clases; el resto de los pesos se conserva. `DataCollatorWithPadding` rellena cada lote a la longitud de su secuencia más larga, y `load_best_model_at_end` devuelve los pesos de la mejor época."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "fine_tuning.py",
+			"code": "import numpy as np\nfrom datasets import load_dataset\nfrom sklearn.metrics import accuracy_score, f1_score\nfrom transformers import (AutoModelForSequenceClassification, AutoTokenizer,\n                          DataCollatorWithPadding, Trainer, TrainingArguments)\n\nnombre = \"distilbert-base-uncased\"\ntok = AutoTokenizer.from_pretrained(nombre)\ndatos = load_dataset(\"imdb\", split={\"train\": \"train[:2000]\", \"test\": \"test[:500]\"})\ndatos = datos.map(lambda l: tok(l[\"text\"], truncation=True, max_length=256), batched=True)\ndatos = datos.rename_column(\"label\", \"labels\")\n\nmodelo = AutoModelForSequenceClassification.from_pretrained(nombre, num_labels=2)\n\ndef metricas(eval_pred):\n    logits, etiquetas = eval_pred\n    pred = np.argmax(logits, axis=-1)\n    return {\"accuracy\": accuracy_score(etiquetas, pred),\n            \"f1\": f1_score(etiquetas, pred, average=\"binary\")}\n\nargs = TrainingArguments(\n    output_dir=\"./resultados\",\n    learning_rate=2e-5,\n    per_device_train_batch_size=16,\n    num_train_epochs=2,\n    eval_strategy=\"epoch\",\n    save_strategy=\"epoch\",\n    load_best_model_at_end=True,\n    report_to=\"none\",\n)\n\nentrenador = Trainer(\n    model=modelo,\n    args=args,\n    train_dataset=datos[\"train\"],\n    eval_dataset=datos[\"test\"],\n    data_collator=DataCollatorWithPadding(tok),\n    compute_metrics=metricas,\n    processing_class=tok,          # transformers >= 4.46\n)\nentrenador.train()\nprint(entrenador.evaluate())",
+			"highlight": [
+				10,
+				13,
+				24,
+				33
+			]
+		},
+		{
+			"type": "h",
+			"text": "Visualización: una matriz de atención"
+		},
+		{
+			"type": "p",
+			"md": "Esta matriz es una cabeza de atención de juguete sobre seis tokens, con valores redondeados. Cada fila es un token que consulta y cada columna, un token consultado; la diagonal es la atención hacia sí mismo. En un modelo real las cifras salen de `softmax(Q·Kᵀ/√d_k)`."
+		},
+		{
+			"type": "matrix",
+			"title": "Atención de una cabeza (6 tokens × 6 tokens)",
+			"data": [
+				[
+					0.1,
+					0.55,
+					0.05,
+					0.1,
+					0.1,
+					0.1
+				],
+				[
+					0.3,
+					0.25,
+					0.05,
+					0.15,
+					0.1,
+					0.15
+				],
+				[
+					0.05,
+					0.2,
+					0.3,
+					0.25,
+					0.1,
+					0.1
+				],
+				[
+					0.05,
+					0.45,
+					0.25,
+					0.1,
+					0.05,
+					0.1
+				],
+				[
+					0.05,
+					0.1,
+					0.05,
+					0.2,
+					0.15,
+					0.45
+				],
+				[
+					0.05,
+					0.1,
+					0.05,
+					0.4,
+					0.1,
+					0.3
+				]
+			],
+			"rowLabels": [
+				"El",
+				"gato",
+				"no",
+				"cruzó",
+				"la",
+				"calle"
+			],
+			"colLabels": [
+				"El",
+				"gato",
+				"no",
+				"cruzó",
+				"la",
+				"calle"
+			],
+			"steps": [
+				{
+					"note": "**Fila `cruzó`**: dedica 0.45 a `gato` (quién cruza), 0.25 a `no` (la negación) y 0.10 a sí mismo. La suma de la fila es 1.",
+					"highlight": [
+						[
+							3,
+							0
+						],
+						[
+							3,
+							1
+						],
+						[
+							3,
+							2
+						],
+						[
+							3,
+							3
+						],
+						[
+							3,
+							4
+						],
+						[
+							3,
+							5
+						]
+					]
+				},
+				{
+					"note": "**Fila `calle`**: 0.40 a `cruzó` y 0.30 a sí misma. El objeto directo se conecta con el verbo que lo rige.",
+					"highlight": [
+						[
+							5,
+							0
+						],
+						[
+							5,
+							1
+						],
+						[
+							5,
+							2
+						],
+						[
+							5,
+							3
+						],
+						[
+							5,
+							4
+						],
+						[
+							5,
+							5
+						]
+					]
+				},
+				{
+					"note": "**Fila `gato`**: reparte 0.30 en `El` y 0.25 en sí misma. Cada fila es una distribución de probabilidad, no una tabla de distancias.",
+					"highlight": [
+						[
+							1,
+							0
+						],
+						[
+							1,
+							1
+						],
+						[
+							1,
+							2
+						],
+						[
+							1,
+							3
+						],
+						[
+							1,
+							4
+						],
+						[
+							1,
+							5
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Comprueba una fila con una calculadora: `0.05 + 0.45 + 0.25 + 0.10 + 0.05 + 0.10 = 1.00`. Esa es la firma del softmax. En un decoder como GPT la mitad superior se enmascara con `−∞` antes del softmax, de modo que un token no puede mirar al futuro; en un encoder como BERT no hay máscara y la matriz es completa."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: cómo se tokeniza una frase"
+		},
+		{
+			"type": "p",
+			"md": "El programa siguiente ejecuta el primer paso del recorrido y muestra los tres objetos que acompañan a cualquier texto: la forma del tensor, la máscara y la lista de tokens."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "De la frase al lote",
+			"code": "from transformers import AutoTokenizer\n\ntok = AutoTokenizer.from_pretrained(\"distilbert-base-uncased\")\nlote = tok(\"the cat sat\", return_tensors=\"pt\")\nprint(lote[\"input_ids\"].shape)\nprint(lote[\"attention_mask\"])\nprint(tok.convert_ids_to_tokens(lote[\"input_ids\"][0]))\nprint(tok.model_max_length)",
+			"steps": [
+				{
+					"line": 3,
+					"note": "Se descarga el vocabulario de DistilBERT (30 522 entradas) y se construye el tokenizador WordPiece en minúsculas.",
+					"vars": {
+						"tok": "DistilBertTokenizerFast (vocab 30522)"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "La frase se parte en tokens, se añaden `[CLS]` y `[SEP]`, y los ids se convierten en un tensor con una dimensión de lote.",
+					"vars": {
+						"tok": "DistilBertTokenizerFast (vocab 30522)",
+						"lote": "{'input_ids': tensor([[101, 1996, 4937, 2938, 102]]), 'attention_mask': tensor([[1, 1, 1, 1, 1]])}"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "La forma es `(1, 5)`: un lote con una secuencia de cinco tokens, contando los dos especiales.",
+					"vars": {
+						"tok": "DistilBertTokenizerFast (vocab 30522)",
+						"lote": "{'input_ids': tensor([[101, 1996, 4937, 2938, 102]]), 'attention_mask': tensor([[1, 1, 1, 1, 1]])}"
+					},
+					"output": "torch.Size([1, 5])\n"
+				},
+				{
+					"line": 6,
+					"note": "La máscara vale 1 en los cinco tokens reales. No hay relleno porque se procesó una sola frase sin `padding`.",
+					"vars": {
+						"tok": "DistilBertTokenizerFast (vocab 30522)",
+						"lote": "{'input_ids': tensor([[101, 1996, 4937, 2938, 102]]), 'attention_mask': tensor([[1, 1, 1, 1, 1]])}"
+					},
+					"output": "tensor([[1, 1, 1, 1, 1]])\n"
+				},
+				{
+					"line": 7,
+					"note": "Los ids vuelven a texto: 101 es `[CLS]`, 102 es `[SEP]` y las tres palabras quedan intactas porque están en el vocabulario.",
+					"vars": {
+						"tok": "DistilBertTokenizerFast (vocab 30522)",
+						"lote": "{'input_ids': tensor([[101, 1996, 4937, 2938, 102]]), 'attention_mask': tensor([[1, 1, 1, 1, 1]])}"
+					},
+					"output": "['[CLS]', 'the', 'cat', 'sat', '[SEP]']\n"
+				},
+				{
+					"line": 8,
+					"note": "El máximo del modelo son 512 tokens. Todo lo que exceda ese límite se descarta si activas `truncation=True`.",
+					"vars": {
+						"tok": "DistilBertTokenizerFast (vocab 30522)",
+						"lote": "{'input_ids': tensor([[101, 1996, 4937, 2938, 102]]), 'attention_mask': tensor([[1, 1, 1, 1, 1]])}"
+					},
+					"output": "512\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los ids dependen del vocabulario: `1996` es `the`, `4937` es `cat` y `2938` es `sat`. En otro modelo cambian por completo, y por eso nunca se reutiliza un tokenizador con los pesos de otro modelo. Si vieras `[UNK]`, la palabra no estaba en el vocabulario y el modelo pierde esa información."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`Token indices sequence length is longer than...`",
+					"La secuencia supera los 512 tokens",
+					"Activa `truncation=True` con `max_length`"
+				],
+				[
+					"`RuntimeError: The size of tensor a (7) must match...`",
+					"Filas de longitudes distintas sin padding",
+					"Usa `padding=True` o un collator"
+				],
+				[
+					"El modelo predice basura en español",
+					"Se usó un modelo entrenado en inglés",
+					"Elige un modelo en español o ajusta el tuyo"
+				],
+				[
+					"`OSError: ... is not a local folder`",
+					"Nombre de modelo mal escrito o sin conexión",
+					"Revisa el id exacto en huggingface.co"
+				],
+				[
+					"Las probabilidades no suman 1",
+					"Se aplicó softmax dos veces o a la columna equivocada",
+					"Aplica softmax sobre la última dimensión, una vez"
+				]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Preentrenamiento y ajuste"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Aspecto",
+				"Preentrenamiento",
+				"Fine-tuning"
+			],
+			"rows": [
+				[
+					"Objetivo",
+					"Predecir tokens ocultos o el siguiente token",
+					"Optimizar la tarea concreta"
+				],
+				[
+					"Datos",
+					"Miles de millones de tokens sin etiquetar",
+					"Cientos o miles de ejemplos etiquetados"
+				],
+				[
+					"Coste",
+					"Días de muchas GPU",
+					"Minutos u horas en una sola GPU"
+				],
+				[
+					"Qué cambia",
+					"Todos los pesos desde cero",
+					"Todos los pesos, con learning rate bajo"
+				]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa siempre el tokenizador que corresponde al modelo; no los mezcles.",
+				"Empieza con un `pipeline` o un modelo preentrenado antes de entrenar desde cero.",
+				"Con pocos datos, congela el encoder y entrena solo la cabeza (`requires_grad=False`).",
+				"Evalúa con F1 si las clases están desbalanceadas; la accuracy sola engaña.",
+				"Fija `seed` y guarda la versión del modelo base: los resultados cambian entre versiones."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "El contexto no es infinito",
+			"md": "Un BERT clásico admite 512 tokens; los modelos largos llegan a 32 000 o más, pero el coste de la atención crece con el cuadrado de la longitud. Si necesitas resumir un contrato largo, trocéalo con solapamiento en lugar de truncar por la mitad."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Tokenizar y medir el desperdicio",
+			"md": "Tokeniza estas tres frases con `distilbert-base-uncased`: «the cat sat», «machine learning is fun and useful» y «unbelievably». Imprime el número de ids de cada una (sin relleno) y explica por qué la tercera no produce un solo token.",
+			"hint": "Usa `tok(frases)[\"input_ids\"]` sin `padding`, y cuenta con `len`. Recuerda que cada secuencia lleva `[CLS]` y `[SEP]`.",
+			"solution": {
+				"lang": "python",
+				"caption": "contar_tokens.py",
+				"code": "from transformers import AutoTokenizer\n\ntok = AutoTokenizer.from_pretrained(\"distilbert-base-uncased\")\nfrases = [\"the cat sat\", \"machine learning is fun and useful\", \"unbelievably\"]\n\nfor frase, ids in zip(frases, tok(frases)[\"input_ids\"]):\n    print(f\"{len(ids):2d} ids · {frase}\")",
+				"explain": "Los resultados son 5, 8 y 7 ids: 3, 6 y 5 subpalabras más los dos especiales. «unbelievably» se parte en `un` + `##bel` + `##ie` + `##va` + `##bly`, porque la palabra completa no está en el vocabulario de 30 522 entradas. Ese troceo permite representar cualquier texto sin quedarse sin vocabulario, a costa de alargar la secuencia."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Prepara un lote heterogéneo",
+			"lang": "python",
+			"code": "lote = tok(frases, padding=___, truncation=___, max_length=512, return_tensors=\"pt\")\nprint(lote[\"input_ids\"].shape)",
+			"answers": [
+				"True",
+				"True"
+			],
+			"hint": "Ambos parámetros aceptan un booleano; son los que igualan longitudes y evitan el error de tamaño.",
+			"explain": "`padding=True` rellena las secuencias cortas y `truncation=True` recorta las largas. Sin ellos, el tensor no se puede construir con frases de distinta longitud. La forma resultante es `(n_frases, longitud_máxima_del_lote)`."
+		},
+		{
+			"type": "exercise",
+			"title": "Similitud entre tres frases",
+			"md": "Con `sentence-transformers/all-MiniLM-L6-v2`, codifica tres frases: dos sobre el mismo tema y una sobre otro. Normaliza los vectores y calcula la matriz de similitud coseno 3×3. Identifica el par más parecido y explica por qué la diagonal vale 1.",
+			"hint": "`modelo.encode(frases, normalize_embeddings=True)` y luego `util.cos_sim(v, v)`. La matriz será simétrica.",
+			"solution": {
+				"lang": "python",
+				"caption": "similitud_frases.py",
+				"code": "from sentence_transformers import SentenceTransformer, util\n\nmodelo = SentenceTransformer(\"sentence-transformers/all-MiniLM-L6-v2\")\nfrases = [\n    \"Un gato duerme en el sofá\",\n    \"El gato descansa sobre el sillón\",\n    \"Suben los tipos de interés\",\n]\nv = modelo.encode(frases, normalize_embeddings=True)\nsim = util.cos_sim(v, v)\n\nprint(sim.round(decimals=2))",
+				"explain": "La matriz es 3×3 y simétrica. El par (0, 1) obtiene la similitud más alta porque comparte tema y estructura; las filas 0 y 1 frente a la 2 quedan cerca de 0. La diagonal vale 1 porque el coseno de un vector consigo mismo es 1: misma dirección y misma norma. Con vectores normalizados, el coseno coincide con el producto escalar."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, contar tokens y no palabras revela el coste real: la frase de seis palabras ocupa ocho ids. Ese dato decide si tu `max_length` pierde información; si el percentil 95 del corpus está en 300, truncar a 128 elimina la mitad del contenido."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, normalizar antes de comparar evita que los vectores largos dominen. La similitud alta entre las dos primeras frases no depende de compartir palabras exactas —«duerme» frente a «descansa»—, sino de que el modelo las sitúa en direcciones parecidas."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"El texto se convierte en ids mediante un tokenizador de subpalabras y un vocabulario fijo.",
+				"`[CLS]` y `[SEP]` delimitan la secuencia; `attention_mask` distingue tokens reales de relleno.",
+				"`truncation` y `padding` igualan longitudes; el límite de BERT es 512 tokens.",
+				"Un embedding es un vector denso; la similitud se mide con coseno, que ignora la magnitud.",
+				"La atención calcula pesos con `softmax(Q·Kᵀ/√d_k)` y cada fila suma 1.",
+				"El fine-tuning parte de pesos preentrenados; el encoder (BERT) ve toda la frase y el decoder (GPT) solo el pasado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué un tokenizador parte «transformers» en varios tokens?",
+			"options": [
+				"Porque el modelo necesita exactamente seis tokens por palabra",
+				"Porque el vocabulario es finito y las subpalabras permiten representar palabras no vistas",
+				"Porque así aumenta la longitud del contexto disponible",
+				"Porque cada token corresponde a una sílaba del español"
+			],
+			"answer": 1,
+			"explain": "Un vocabulario de 30 000 entradas no puede contener todas las palabras y variantes. Con subpalabras, una palabra desconocida se descompone en fragmentos conocidos y el modelo conserva parte del significado en lugar de emitir `[UNK]`."
+		},
+		{
+			"type": "quiz",
+			"question": "En una matriz de atención, ¿qué significa que una fila sume 1?",
+			"options": [
+				"Que el token tiene exactamente un vecino relevante",
+				"Que los pesos salen de un softmax y reparten el 100 % de la atención entre las posiciones",
+				"Que la matriz es simétrica",
+				"Que todos los tokens pesan lo mismo"
+			],
+			"answer": 1,
+			"explain": "Cada fila es una distribución de probabilidad sobre las posiciones consultadas. Puede repartirse entre muchas o concentrarse en una; lo que nunca ocurre es que sume más o menos de 1, salvo errores de redondeo."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la diferencia central entre preentrenamiento y fine-tuning?",
+			"options": [
+				"El preentrenamiento usa GPU y el fine-tuning solo CPU",
+				"El preentrenamiento aprende lenguaje general sin etiquetas; el fine-tuning especializa esos pesos en una tarea etiquetada",
+				"El fine-tuning cambia la arquitectura y el preentrenamiento no",
+				"Son sinónimos: ambos requieren datos etiquetados"
+			],
+			"answer": 1,
+			"explain": "El preentrenamiento es autosupervisado: aprende a predecir tokens ocultos o el siguiente a partir de texto sin etiquetas. El fine-tuning reutiliza esos pesos y los ajusta con ejemplos etiquetados de la tarea, con un learning rate pequeño para no destruir lo aprendido."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Hugging Face: curso de NLP",
+					"url": "https://huggingface.co/learn/nlp-course",
+					"note": "tokenización, modelos y fine-tuning"
+				},
+				{
+					"label": "Hugging Face: tokenizadores",
+					"url": "https://huggingface.co/docs/transformers/main_classes/tokenizer",
+					"note": "referencia de la API"
+				},
+				{
+					"label": "Attention Is All You Need",
+					"url": "https://arxiv.org/abs/1706.03762",
+					"note": "el artículo original del Transformer"
+				}
+			]
+		}
+	]
+}

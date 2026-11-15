@@ -1,0 +1,499 @@
+{
+	"id": "py-12-lambda-recursividad",
+	"track": "python",
+	"order": 12,
+	"title": "Lambda, map/filter/reduce y recursividad",
+	"subtitle": "Tratar funciones como datos, transformar colecciones sin bucles y resolver problemas que se llaman a sí mismos",
+	"level": "intermedio",
+	"minutes": 42,
+	"tags": ["lambda", "funcional", "recursión", "memoización"],
+	"keywords": [
+		"lambda python",
+		"función anónima",
+		"funciones de orden superior",
+		"sorted key",
+		"map filter reduce",
+		"functools reduce",
+		"recursividad",
+		"caso base",
+		"pila de llamadas recursiva",
+		"memoización",
+		"lru_cache",
+		"RecursionError"
+	],
+	"summary": "En Python una función es un objeto: puedes pasarla, devolverla y guardarla. Con lambda y las funciones map, filter y reduce transformas colecciones sin escribir bucles; con recursión resuelves problemas definidos en términos de sí mismos, siempre con un caso base y cuidado con la pila.",
+	"objectives": [
+		"Explicar por qué una función puede pasarse como argumento",
+		"Escribir lambdas y usarlas como clave en sorted",
+		"Transformar y filtrar colecciones con map, filter y reduce",
+		"Identificar el caso base y el paso recursivo de un problema",
+		"Seguir la pila de llamadas de una función recursiva",
+		"Evitar el coste exponencial con memoización"
+	],
+	"prerequisites": ["Argumentos flexibles y alcance de variables"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora las funciones eran acciones con nombre: las defines y las llamas. Pero en Python son algo más: son **objetos** como un número o una lista. Puedes guardarlas en una variable, pasarlas a otra función y devolverlas. Esa idea es la base de `sorted(key=...)`, de `map` y de los decoradores."
+		},
+		{
+			"type": "p",
+			"md": "La misma idea permite que una función se llame a sí misma; la **recursión** resuelve problemas definidos en partes del mismo tipo: una carpeta contiene carpetas, un árbol tiene ramas. Aquí aprenderás a escribirla con un caso base claro y a leer su pila."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una función de orden superior?"
+		},
+		{
+			"type": "p",
+			"md": "Una **función de orden superior** es la que recibe otra función como argumento o devuelve una función como resultado. `sorted` lo es cuando le pasas `key`; `map` lo es siempre. La función que se pasa se llama **callback** o simplemente función aplicada, y puede ser una función normal o una **lambda**."
+		},
+		{
+			"type": "p",
+			"md": "Una **lambda** es una función anónima escrita en una sola expresión: `lambda x: x * 2` equivale a `def doble(x): return x * 2`, pero sin nombre y sin cuerpo multilínea. No es una versión «mejor» de `def`: es una forma cómoda de definir una operación pequeña justo donde se usa."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**`lambda`**: función de una sola expresión, útil como clave o callback desechable.",
+				"**`sorted(iterable, key=f)`**: ordena según el valor que devuelve `f` para cada elemento.",
+				"**`map(f, iterable)`**: aplica `f` a cada elemento y devuelve un iterador perezoso.",
+				"**`filter(f, iterable)`**: conserva los elementos para los que `f` devuelve verdadero.",
+				"**`reduce(f, iterable, inicial)`**: acumula de izquierda a derecha; vive en `functools`.",
+				"**Recursión**: una función que se llama a sí misma con un problema más pequeño."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Lambda no reemplaza a def",
+			"md": "Una lambda solo admite una expresión: no tiene `return` explícito, ni docstring, ni varias líneas. Si necesitas condiciones complejas, un bucle o un nombre para depurar, usa `def`. La guía de estilo de Python (PEP 8) recomienda no asignar lambdas a un nombre: `doble = lambda x: x * 2` debería ser `def doble(x): return x * 2`."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Ordenar por un criterio**: productos por precio, alumnos por nota, diccionarios por una clave concreta.",
+				"**Limpiar datos**: aplicar una conversión a cada celda de una columna o descartar registros inválidos.",
+				"**Pipelines de datos**: filtrar, transformar y agregar en cadena, igual que hace una consulta SQL.",
+				"**Recorrer estructuras**: sumar los nodos de un árbol, contar archivos dentro de carpetas o aplanar listas anidadas.",
+				"**Cálculo matemático**: factorial, potencia, búsqueda binaria y definiciones que naturalmente se expresan en términos de sí mismas.",
+				"**Machine Learning**: aplicar una métrica a cada pliegue de validación o una función de activación a un lote."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cuando escribes `lambda x: x * 2`, Python crea un objeto función sin nombre y lo deja en la expresión. Si lo pasas a `map`, `map` guarda la referencia y, cada vez que le pides un elemento, llama a esa función con el siguiente valor."
+		},
+		{
+			"type": "p",
+			"md": "En Python 3, `map` y `filter` devuelven **iteradores perezosos**, no listas. Esto significa que no calculan nada hasta que los recorres. Por eso `print(map(f, datos))` muestra algo como `<map object at 0x...>` y necesitas `list(...)` para ver los valores. La ventaja es que no reservan memoria para un millón de elementos si solo vas a consumir los primeros."
+		},
+		{
+			"type": "p",
+			"md": "Una llamada recursiva crea un marco nuevo encima del anterior, igual que cualquier llamada. La diferencia es que el mismo código se repite con un valor menor. Cada marco espera el resultado del siguiente hasta llegar al **caso base**, que devuelve un valor sin volver a llamar. Al volver, los resultados se combinan y los marcos se cierran en orden inverso."
+		},
+		{
+			"type": "table",
+			"head": ["Herramienta", "Qué hace", "Devuelve en Python 3"],
+			"rows": [
+				["`map(f, xs)`", "Aplica `f` a cada elemento", "Un iterador perezoso"],
+				["`filter(f, xs)`", "Deja los que cumplen `f`", "Un iterador perezoso"],
+				["`reduce(f, xs, init)`", "Acumula con `f` de izquierda a derecha", "Un único valor"],
+				["`sorted(xs, key=f)`", "Ordena según `f`", "Una lista nueva"],
+				["`[f(x) for x in xs]`", "Equivale a `map`", "Una lista nueva"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: lambda, key y desempaquetado"
+		},
+		{
+			"type": "p",
+			"md": "La forma general es `lambda parámetros: expresión`. La expresión se evalúa y su valor se devuelve sin escribir `return`. Una lambda puede recibir varios parámetros e incluso valores por defecto, pero no puede contener asignaciones ni bloques `if`/`for`; sí admite una expresión condicional."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "lambda.py",
+			"code": "doble = lambda x: x * 2\nsumar = lambda a, b=10: a + b\n\nprint(doble(5))\nprint(sumar(3))\nprint(sumar(3, 4))\n\npersonas = [(\"Ana\", 28), (\"Luis\", 22), (\"Eva\", 35)]\npor_edad = sorted(personas, key=lambda p: p[1])\nprint(por_edad)\n\nprecios = [120, 45, 300]\nprint(sorted(precios, key=lambda p: -p))",
+			"highlight": [1, 2, 9, 13]
+		},
+		{
+			"type": "list",
+			"items": [
+				"Los parámetros van antes de los dos puntos y la expresión después; no hay `return`.",
+				"`sorted` no modifica la lista original: devuelve una nueva.",
+				"La función `key` recibe **un elemento** y devuelve el valor por el que se ordena.",
+				"Para ordenar de mayor a menor puedes usar `reverse=True` o negar la clave cuando es numérica.",
+				"`map` acepta varios iterables a la vez; `filter` solo uno. Lo habitual es pasar uno."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: pasar funciones"
+		},
+		{
+			"type": "p",
+			"md": "Este ejemplo muestra lo esencial de una función de orden superior: `aplicar` no sabe qué operación va a ejecutar. Recibe una función y un valor, y la llama. Puedes pasarle `abs`, una lambda o cualquier función que acepte un argumento."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "aplicar.py",
+			"code": "def aplicar(funcion, valor):\n    \"\"\"Ejecuta funcion sobre valor y devuelve el resultado.\"\"\"\n    return funcion(valor)\n\n\nprint(aplicar(abs, -7))\nprint(aplicar(lambda x: x ** 2, 6))\nprint(aplicar(str.upper, \"hola\"))",
+			"highlight": [1, 3, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "La línea 1 declara dos parámetros: `funcion` y `valor`. En la línea 3, `funcion(valor)` usa el nombre del parámetro como si fuera el nombre de una función; Python busca el objeto al que apunta y lo llama. Con `abs` devuelve 7; con la lambda, 36; con `str.upper`, `\"HOLA\"`."
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en `str.upper`: es un método sin ejecutar, pasado como objeto. No escribes `str.upper()` porque eso lo llamaría sin argumento y fallaría."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: filtrar, transformar y sumar"
+		},
+		{
+			"type": "p",
+			"md": "Las tres operaciones clásicas encajan en un pipeline. Supón una lista de importes con valores negativos que representan devoluciones: quieres quedarte con las ventas positivas, aplicarles un descuento y obtener el total."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pipeline.py",
+			"code": "from functools import reduce\n\nimportes = [120, -30, 80, 45, 200]\n\nventas = filter(lambda x: x > 0, importes)\ncon_descuento = map(lambda x: x * 0.9, ventas)\ntotal = reduce(lambda acum, x: acum + x, con_descuento, 0)\n\nprint(total)",
+			"highlight": [3, 5, 6, 7, 9]
+		},
+		{
+			"type": "p",
+			"md": "`filter` descarta `-30`; `map` multiplica cada valor restante por 0.9; `reduce` empieza en 0 y va sumando. El resultado es `(120 + 80 + 45 + 200) * 0.9 = 400.5`. Observa que no hay ninguna lista intermedia: los iteradores se pasan el testigo y cada uno consume al anterior."
+		},
+		{
+			"type": "p",
+			"md": "Ese encadenamiento ahorra memoria, pero es difícil de depurar. En código cotidiano, una comprensión suele leerse mejor: `total = sum(x * 0.9 for x in importes if x > 0)`. `reduce` brilla cuando la operación no es una suma simple, como construir un diccionario o combinar objetos."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: aplanar un inventario anidado"
+		},
+		{
+			"type": "p",
+			"md": "Los datos reales llegan con estructura irregular: una categoría contiene productos, pero también subcategorías. Para obtener una lista plana de todo lo que hay dentro, una función recursiva recorre cada nivel. El caso base es un elemento que no es lista; el paso recursivo, una lista que se vuelve a procesar."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "aplanar.py",
+			"code": "def aplanar(lista):\n    \"\"\"Devuelve una lista plana con todos los elementos anidados.\"\"\"\n    resultado = []\n    for elemento in lista:\n        if isinstance(elemento, list):\n            resultado.extend(aplanar(elemento))\n        else:\n            resultado.append(elemento)\n    return resultado\n\n\ndatos = [1, [2, 3], [4, [5, 6]]]\nprint(aplanar(datos))",
+			"highlight": [4, 5, 6, 8, 14]
+		},
+		{
+			"type": "p",
+			"md": "Para `[1, [2, 3], [4, [5, 6]]]`, el bucle encuentra primero un número y lo añade; después una lista, y en lugar de añadirla llama a `aplanar` con ella. Esa llamada devuelve `[2, 3]` y `extend` los incorpora uno a uno. La sublista `[4, [5, 6]]` provoca otra llamada que, a su vez, se llama con `[5, 6]`."
+		},
+		{
+			"type": "p",
+			"md": "El caso base está implícito: una lista vacía no entra en el bucle y devuelve `[]`. Cada llamada trabaja con una lista más pequeña, así que la recursión termina. El resultado final es `[1, 2, 3, 4, 5, 6]`. `extend` es clave: `append(aplanar(...))` habría añadido listas dentro de listas."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la pila de factorial"
+		},
+		{
+			"type": "p",
+			"md": "El factorial es el ejemplo canónico: `factorial(3)` es `3 * factorial(2)`, que es `2 * factorial(1)`, y `factorial(1)` devuelve 1 sin llamar a nadie. La traza muestra los marcos apilados y su resolución."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Tres marcos antes de volver",
+			"code": "def factorial(n):\n    if n == 1:\n        return 1\n    return n * factorial(n - 1)\n\n\nprint(factorial(3))",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se define `factorial`. El cuerpo no se ejecuta todavía y no hay marcos de la función.",
+					"vars": { "factorial": "<function factorial>" },
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "Se llama a `factorial(3)`: se crea un marco con `n = 3`. La condición de la línea 2 es falsa, así que el flujo pasa al `return` de la línea 4.",
+					"vars": { "factorial": "<function factorial>" },
+					"frames": [
+						{ "name": "<module>", "vars": {} },
+						{ "name": "factorial", "vars": { "n": "3" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "La llamada `factorial(2)` crea un segundo marco encima. El marco de `n = 3` queda esperando el resultado de la multiplicación.",
+					"vars": { "factorial": "<function factorial>" },
+					"frames": [
+						{ "name": "<module>", "vars": {} },
+						{ "name": "factorial", "vars": { "n": "3" } },
+						{ "name": "factorial", "vars": { "n": "2" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`factorial(1)` crea el tercer marco. Ya hay tres llamadas activas y ninguna ha terminado.",
+					"vars": { "factorial": "<function factorial>" },
+					"frames": [
+						{ "name": "<module>", "vars": {} },
+						{ "name": "factorial", "vars": { "n": "3" } },
+						{ "name": "factorial", "vars": { "n": "2" } },
+						{ "name": "factorial", "vars": { "n": "1" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "En el marco superior `n == 1` es verdadero: el caso base prepara el retorno de 1. Al cerrarse este marco, el valor vuelve al de `n = 2`.",
+					"vars": { "factorial": "<function factorial>" },
+					"frames": [
+						{ "name": "<module>", "vars": {} },
+						{ "name": "factorial", "vars": { "n": "3" } },
+						{ "name": "factorial", "vars": { "n": "2" } },
+						{ "name": "factorial", "vars": { "n": "1" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El marco de `n = 2` calcula `2 * 1 = 2`; al cerrarse, el resultado sube al marco de `n = 3`.",
+					"vars": { "factorial": "<function factorial>" },
+					"frames": [
+						{ "name": "<module>", "vars": {} },
+						{ "name": "factorial", "vars": { "n": "3" } },
+						{ "name": "factorial", "vars": { "n": "2" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El marco de `n = 3` calcula `3 * 2 = 6`; al cerrarse, el valor vuelve al módulo.",
+					"vars": { "factorial": "<function factorial>" },
+					"frames": [
+						{ "name": "<module>", "vars": {} },
+						{ "name": "factorial", "vars": { "n": "3" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`print` recibe 6 y lo escribe. La pila vuelve a estar vacía de llamadas.",
+					"vars": { "factorial": "<function factorial>" },
+					"frames": [{ "name": "<module>", "vars": {} }],
+					"output": "6\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Cada marco ocupa memoria y Python limita la profundidad a unas mil llamadas por defecto. Si olvidas el caso base, la recursión intenta bajar para siempre hasta lanzar `RecursionError: maximum recursion depth exceeded`. Ese límite existe para proteger la memoria, no para castigar la recursión."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje o síntoma", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`RecursionError: maximum recursion depth exceeded`", "Falta el caso base o el argumento no se reduce", "Asegura una condición de corte y un paso hacia ella"],
+				["`NameError: name 'reduce' is not defined`", "No importaste la función", "Escribe `from functools import reduce`"],
+				["`<map object at 0x...>` en la salida", "`map` devuelve un iterador, no una lista", "Envuelve con `list(...)` o recórrelo con `for`"],
+				["`TypeError: <lambda>() missing 1 required positional argument`", "La lambda espera un parámetro y la llamaste sin él", "Revisa cómo la pasas: `key=f` no es `key=f()`"],
+				["`TypeError: unsupported operand type(s) for +: 'int' and 'NoneType'`", "Una rama de la función no devuelve nada", "Cubre todas las ramas con `return`"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Recursión sin freno",
+			"wrong": {
+				"caption": "RecursionError",
+				"code": "def cuenta(n):\n    return cuenta(n - 1)\n\nprint(cuenta(3))"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "def cuenta(n):\n    if n == 0:\n        return 0\n    return 1 + cuenta(n - 1)\n\nprint(cuenta(3))"
+			},
+			"explain": "La primera versión nunca deja de llamarse: no hay condición que devuelva un valor sin recursión. La segunda corta en `n == 0` y reduce el argumento en cada paso, así que la pila crece hasta cuatro marcos y luego se cierra. Sin caso base no hay recursión válida, solo un bucle disfrazado."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe el caso base primero y compruébalo con el valor más pequeño posible.",
+				"Garantiza que cada llamada se acerque al caso base: resta 1, divide entre 2, avanza al siguiente nodo.",
+				"Prefiere una comprensión a `map` y `filter` cuando la operación cabe en una línea legible.",
+				"Usa `key=` en `sorted` en lugar de comparadores manuales: es más claro y más rápido.",
+				"No asignes lambdas a un nombre; si necesita nombre y docstring, usa `def`.",
+				"Para recursión con muchos subproblemas repetidos, añade memoización con `functools.lru_cache`."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Memoización en una línea",
+			"md": "`functools.lru_cache` guarda los resultados ya calculados. En Fibonacci, sin caché `fib(30)` hace más de un millón de llamadas; con caché, treinta y una. Añade `@lru_cache(maxsize=None)` encima del `def` y no cambies nada más. Ese decorador se explica con detalle en la lección de decoradores."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "fibonacci.py",
+			"code": "from functools import lru_cache\n\n\n@lru_cache(maxsize=None)\ndef fib(n):\n    \"\"\"Devuelve el n-ésimo número de Fibonacci.\"\"\"\n    if n < 2:\n        return n\n    return fib(n - 1) + fib(n - 2)\n\n\nprint(fib(30))",
+			"highlight": [5, 7, 9]
+		},
+		{
+			"type": "compare",
+			"title": "Ordenar por un criterio en Python y C++",
+			"python": {
+				"caption": "ordenar.py",
+				"code": "productos = [(\"teclado\", 120), (\"mouse\", 45)]\npor_precio = sorted(productos, key=lambda p: p[1])\nprint(por_precio)"
+			},
+			"cpp": {
+				"caption": "ordenar.cpp",
+				"code": "#include <algorithm>\n#include <iostream>\n#include <string>\n#include <tuple>\n#include <vector>\n\nint main() {\n    std::vector<std::pair<std::string, int>> productos{{\"teclado\", 120}, {\"mouse\", 45}};\n    std::sort(productos.begin(), productos.end(), [](const auto& a, const auto& b) {\n        return a.second < b.second;\n    });\n    std::cout << productos.front().first << std::endl;\n    return 0;\n}"
+			},
+			"note": "En Python `key` recibe un elemento y devuelve el criterio; el orden lo decide `sorted`. En C++ el comparador recibe dos elementos y debe responder si el primero va antes que el segundo. La lambda de C++ usa `auto` para no repetir el tipo del par, pero sigue siendo una función con parámetros y cuerpo."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Catálogo ordenado",
+			"md": "Tienes una lista de diccionarios con `nombre` y `precio`. Ordénala de mayor a menor precio usando `sorted` y una lambda como `key`, y muestra solo los nombres en ese orden. Después obtén una lista con los precios con IGV incluido usando `map`.",
+			"hint": "La clave puede ser `lambda p: p[\"precio\"]` con `reverse=True`. Para el segundo paso, `map` devuelve un iterador: conviértelo con `list`.",
+			"solution": {
+				"lang": "python",
+				"caption": "catalogo.py",
+				"code": "productos = [\n    {\"nombre\": \"teclado\", \"precio\": 120},\n    {\"nombre\": \"mouse\", \"precio\": 45},\n    {\"nombre\": \"monitor\", \"precio\": 300},\n]\n\nordenados = sorted(productos, key=lambda p: p[\"precio\"], reverse=True)\nfor p in ordenados:\n    print(p[\"nombre\"])\n\ncon_igv = list(map(lambda p: round(p[\"precio\"] * 1.18, 2), ordenados))\nprint(con_igv)",
+				"explain": "`sorted` recibe la lista y la clave, y devuelve una lista nueva sin modificar `productos`. Con `reverse=True` el mayor queda primero: monitor, teclado, mouse. `map` transforma cada diccionario en un número y `list` materializa el iterador. Los precios con IGV son 354.0, 141.6 y 53.1."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la transformación",
+			"lang": "python",
+			"code": "doble = ___ x: x * 2\nprint(doble(4))\nprint(list(___ (doble, [1, 2, 3])))",
+			"answers": ["lambda", "map"],
+			"hint": "La primera palabra crea una función anónima; la segunda aplica una función a cada elemento de un iterable.",
+			"explain": "`lambda x: x * 2` crea la función sin nombre y `map(doble, [1, 2, 3])` aplica esa función a cada elemento. Como `map` devuelve un iterador, `list(...)` lo convierte en `[2, 4, 6]`."
+		},
+		{
+			"type": "exercise",
+			"title": "Suma de dígitos recursiva",
+			"md": "Escribe `suma_digitos(n)` que devuelva la suma de los dígitos de un entero positivo sin convertirlo a texto. Debe ser recursiva: el caso base es un número de una cifra y el paso recursivo usa `n // 10` y `n % 10`. Comprueba con 4729 y con 8.",
+			"hint": "`n % 10` da el último dígito y `n // 10` elimina ese dígito. Con `n < 10` ya no queda nada que sumar.",
+			"solution": {
+				"lang": "python",
+				"caption": "suma_digitos.py",
+				"code": "def suma_digitos(n):\n    \"\"\"Suma los dígitos de n usando división entera.\"\"\"\n    if n < 10:\n        return n\n    return n % 10 + suma_digitos(n // 10)\n\n\nprint(suma_digitos(4729))\nprint(suma_digitos(8))",
+				"explain": "Con 4729, el último dígito es 9 y el resto 472; la llamada devuelve `9 + suma_digitos(472)`, que suma 2, luego 7 y luego 4. Cuando llega a 4, el caso base devuelve 4 y la pila se cierra sumando 4 + 7 + 2 + 9 = 22. Con 8 se alcanza el caso base de inmediato y devuelve 8."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el catálogo, `sorted` y `map` no modifican la lista original: trabajan sobre ella y producen otra. Esa ausencia de efectos secundarios permite encadenar operaciones sin miedo. La lambda de `key` solo devuelve el dato que ordena; de comparar se encarga `sorted`."
+		},
+		{
+			"type": "p",
+			"md": "En la suma de dígitos, la división entera es lo que garantiza el avance hacia el caso base: cada llamada elimina un dígito, así que un número de k cifras produce k marcos. Si usarás números enormes, la versión iterativa con un `while` evita la pila. La recursión es valiosa cuando la estructura del problema es jerárquica, no cuando solo es un bucle."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Las funciones son objetos: se asignan, se pasan como argumento y se devuelven.",
+				"`lambda parámetros: expresión` crea una función anónima de una sola expresión.",
+				"`sorted(key=f)` ordena según el valor que `f` calcula para cada elemento.",
+				"`map` y `filter` devuelven iteradores perezosos; usa `list(...)` para verlos.",
+				"`reduce` está en `functools` y acumula un solo valor de izquierda a derecha.",
+				"Toda recursión necesita un caso base y un paso que reduzca el problema.",
+				"Cada llamada recursiva añade un marco; sin corte se produce `RecursionError`.",
+				"La memoización con `lru_cache` evita recalcular subproblemas repetidos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `sorted([\"bb\", \"a\", \"ccc\"], key=len)`?",
+			"options": [
+				"`['a', 'bb', 'ccc']`",
+				"`['ccc', 'bb', 'a']`",
+				"`[2, 1, 3]`",
+				"Lanza un `TypeError` porque `len` no es una lambda"
+			],
+			"answer": 0,
+			"explain": "`key=len` calcula la longitud de cada cadena y ordena de menor a mayor: 1, 2 y 3 caracteres. La función `key` no reemplaza los elementos por su clave; solo decide el orden. `len` es una función normal y puede pasarse igual que una lambda."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué muestra `print(map(str.upper, [\"a\", \"b\"]))` en Python 3?",
+			"options": [
+				"`['A', 'B']`",
+				"`['a', 'b']`",
+				"Algo como `<map object at 0x...>`",
+				"`A B`"
+			],
+			"answer": 2,
+			"explain": "`map` devuelve un iterador perezoso, no una lista. Para ver los valores hay que consumirlo: `list(map(str.upper, [\"a\", \"b\"]))` produce `['A', 'B']`. Esta pereza evita calcular elementos que quizá nunca uses."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la condición indispensable para que una función recursiva termine?",
+			"options": [
+				"Que tenga al menos dos parámetros",
+				"Que incluya un caso base que devuelva sin llamarse de nuevo",
+				"Que use `lru_cache`",
+				"Que se llame desde un bucle `for`"
+			],
+			"answer": 1,
+			"explain": "Sin un caso base, cada llamada genera otra y la pila crece hasta `RecursionError`. Además del caso base hace falta que cada llamada se acerque a él: restar 1, dividir entre 10 o pasar al hijo del árbol. Las otras opciones no tienen relación con la terminación."
+		},
+		{
+			"type": "links",
+			"title": "Documentación y práctica",
+			"items": [
+				{
+					"label": "Expresiones lambda (Python docs)",
+					"url": "https://docs.python.org/es/3/tutorial/controlflow.html#lambda-expressions",
+					"note": "definición y ejemplos oficiales"
+				},
+				{
+					"label": "functools.lru_cache",
+					"url": "https://docs.python.org/es/3/library/functools.html#functools.lru_cache",
+					"note": "memoización con decoradores"
+				}
+			]
+		}
+	]
+}

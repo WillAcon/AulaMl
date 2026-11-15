@@ -1,0 +1,540 @@
+{
+	"id": "py-04-condicionales",
+	"track": "python",
+	"order": 4,
+	"title": "Condicionales: if, elif y else",
+	"subtitle": "Enseñar a tu programa a elegir un camino según los datos, sin romper la indentación",
+	"level": "principiante",
+	"minutes": 35,
+	"tags": [
+		"control de flujo",
+		"if",
+		"elif",
+		"match"
+	],
+	"keywords": [
+		"if en python",
+		"elif",
+		"else",
+		"condicional anidado",
+		"operador ternario",
+		"match case",
+		"truthiness",
+		"valores falsos en python",
+		"indentación if",
+		"error expected an indented block",
+		"comparar con ==",
+		"tomar decisiones en python"
+	],
+	"summary": "Los condicionales permiten que un programa ejecute un bloque u otro según los datos. Aquí aprendes la sintaxis de if, elif y else, cómo se decide qué rama corre, cuándo anidar, cómo escribir un ternario legible y cómo usar match/case en Python 3.10+.",
+	"objectives": [
+		"Escribir cadenas if/elif/else con la indentación correcta",
+		"Explicar por qué solo se ejecuta una rama y por qué el orden de las condiciones importa",
+		"Evaluar qué valores son falsos y cuáles verdaderos en una condición",
+		"Decidir entre anidar condiciones o combinarlas con operadores lógicos",
+		"Usar el ternario y match/case cuando aportan claridad"
+	],
+	"prerequisites": [
+		"Operadores y expresiones"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora cada instrucción se ejecuta siempre, en el orden en que está escrita. Un programa así no reacciona a nada: aplicaría el mismo descuento a todos los clientes e intentaría dividir entre cero sin comprobar el divisor. Los **condicionales** permiten que el camino dependa de los datos."
+		},
+		{
+			"type": "p",
+			"md": "La idea es sencilla: evalúas una **condición**, que es cualquier expresión que produzca un valor verdadero o falso, y ejecutas un bloque solo si se cumple. El resto del programa continúa después, como si nada."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un condicional?"
+		},
+		{
+			"type": "p",
+			"md": "Es una bifurcación en el camino del programa. Imagina una receta: «si la masa está seca, añade dos cucharadas de leche; si no, continúa con el siguiente paso». La receta no se ejecuta dos veces, solo toma una de las dos opciones."
+		},
+		{
+			"type": "p",
+			"md": "En Python se escribe con `if` (si), `elif` (si no, si) y `else` (si no). Una cadena de condiciones puede tener muchos `elif`, pero **solo se ejecuta una rama**: la primera cuya condición resulte verdadera. Las demás se ignoran, aunque también fueran verdaderas."
+		},
+		{
+			"type": "p",
+			"md": "`if` no es una función ni devuelve un valor: es una **estructura de control** que cambia el orden de ejecución. Por eso no se escribe `resultado = if ...`, sino que se usa para decidir qué instrucciones se ejecutan."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Cada vez que un programa debe actuar distinto según la situación, hay un condicional detrás. Estos son casos que verás en cualquier proyecto:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Validar entradas**: rechazar una edad negativa o una nota fuera de 0 a 20.",
+				"**Aplicar tarifas por tramos**: envío gratis desde 200 soles, descuento desde 150.",
+				"**Clasificar**: aprobado, observado o desaprobado según nota y asistencia.",
+				"**Proteger cálculos**: dividir solo si el divisor no es cero.",
+				"**Machine Learning**: decidir una predicción con `probabilidad >= 0.5` y activar una alerta si el error supera un umbral."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El intérprete evalúa la condición del `if`. Si el resultado es verdadero, ejecuta su bloque y salta al final de toda la cadena; si es falso, prueba el siguiente `elif`. Si ninguno se cumple, ejecuta el `else` o pasa de largo. Internamente esto son saltos en el bytecode, pero el modelo útil es una escalera: subes peldaños hasta que uno se cumple y dejas de subir."
+		},
+		{
+			"type": "p",
+			"md": "Una condición no tiene que ser un `bool` explícito. Python aplica **truthiness**: convierte el valor a verdadero o falso con una regla fija. Esto permite escribir `if nombre:` en lugar de `if nombre != \"\":`, aunque a veces la segunda forma se lee mejor."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Valor",
+				"bool(valor)",
+				"Por qué"
+			],
+			"rows": [
+				[
+					"`0`, `0.0`",
+					"`False`",
+					"El cero numérico es falso"
+				],
+				[
+					"`\"\"`",
+					"`False`",
+					"Cadena vacía, sin caracteres"
+				],
+				[
+					"`[]`, `()`, `{}`",
+					"`False`",
+					"Contenedor sin elementos"
+				],
+				[
+					"`None`",
+					"`False`",
+					"Ausencia de valor"
+				],
+				[
+					"`-1`, `\"0\"`, `[0]`",
+					"`True`",
+					"No están vacíos; el contenido no se evalúa"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El último caso engaña: `\"0\"` es verdadero porque es un texto con un carácter, y `[0]` también porque la lista tiene un elemento. Si necesitas distinguir «cero» de «sin dato», compara explícitamente: `if nota is None` o `if nota == 0`."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: `if`, `elif` y `else`"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica lleva dos puntos al final de cada condición y un bloque indentado debajo. No hay llaves ni `end`: el bloque termina cuando la indentación vuelve al nivel anterior."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "stock.py",
+			"code": "stock = 5\n\nif stock > 0:\n    print(\"Disponible\")\nelse:\n    print(\"Agotado\")",
+			"highlight": [
+				3,
+				6
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"La condición va entre `if` y los dos puntos: `if stock > 0:`.",
+				"El bloque interior usa **4 espacios** más que el `if`. Mezclar tabulaciones y espacios produce `TabError`.",
+				"`elif` se escribe junto, no `else if` ni `elseif`.",
+				"`else` no lleva condición y va al final; es opcional.",
+				"Un bloque vacío necesita `pass`, porque Python no admite un `if` sin cuerpo."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Los dos puntos y la sangría no son decoración",
+			"md": "Olvidar los `:` produce `SyntaxError: expected ':'`. No indentar el bloque produce `IndentationError: expected an indented block`. Y si indentas de más o mezclas niveles, verás `IndentationError: unindent does not match any outer indentation level`. Configura tu editor para insertar 4 espacios."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: clasificar una nota"
+		},
+		{
+			"type": "p",
+			"md": "Una cadena de `elif` evalúa de arriba abajo y se detiene en la primera condición verdadera. Ese comportamiento permite escribir los casos más exigentes primero:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "notas.py",
+			"code": "nota = 16\n\nif nota >= 18:\n    nivel = \"excelente\"\nelif nota >= 14:\n    nivel = \"bueno\"\nelif nota >= 11:\n    nivel = \"regular\"\nelse:\n    nivel = \"insuficiente\"\n\nprint(nivel)",
+			"highlight": [
+				5,
+				6
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`nota = 16` guarda un `int`; no hay nada que decidir todavía.",
+				"`nota >= 18` es `False`, así que el primer bloque no se ejecuta.",
+				"`nota >= 14` es `True`: se ejecuta `nivel = \"bueno\"` y la cadena termina.",
+				"Los dos `elif` restantes y el `else` se saltan aunque sus condiciones también fueran verdaderas.",
+				"`print(nivel)` imprime `bueno`, el único valor asignado."
+			]
+		},
+		{
+			"type": "p",
+			"md": "El orden importa. Si hubieras puesto `nota >= 11` antes que `nota >= 14`, un 16 caería en `regular`, porque esa condición también es verdadera y la cadena se detiene ahí. Escribe siempre de la condición más restrictiva a la más amplia, o usa comparaciones que no se solapen."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: condiciones anidadas"
+		},
+		{
+			"type": "p",
+			"md": "A veces una decisión depende de otra. Un alumno con nota suficiente puede quedar observado si su asistencia es baja: la segunda condición solo tiene sentido si la primera se cumplió."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "asistencia.py",
+			"code": "nota = 14\nasistencia = 0.65\n\nif nota >= 13:\n    if asistencia >= 0.70:\n        estado = \"aprobado\"\n    else:\n        estado = \"observado\"\nelse:\n    estado = \"desaprobado\"\n\nprint(estado)",
+			"highlight": [
+				4,
+				5
+			]
+		},
+		{
+			"type": "p",
+			"md": "La condición externa es verdadera, así que entra al bloque y evalúa la interna: `0.65 >= 0.70` es falsa y el `else` interno asigna `observado`. El `else` externo ni se mira. La indentación muestra la jerarquía: el `else` de la línea 7 pertenece al `if` interno, y el de la línea 9 al externo."
+		},
+		{
+			"type": "p",
+			"md": "Este anidamiento se puede aplanar con `and`: `if nota >= 13 and asistencia >= 0.70:`. La versión plana es más corta, pero la anidada permite distinguir los dos motivos de rechazo con mensajes distintos. Elige según lo que necesites comunicar, no por moda."
+		},
+		{
+			"type": "h",
+			"text": "Condiciones compactas: ternario y `match/case`"
+		},
+		{
+			"type": "p",
+			"md": "Cuando solo necesitas elegir entre dos valores, el **operador ternario** lo expresa en una línea: `valor_si_cierto if condición else valor_si_falso`. Es una expresión, así que se puede asignar o pasar como argumento, pero no ejecuta bloques completos."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ternario.py",
+			"code": "nota = 12\n\nestado = \"aprobado\" if nota >= 13 else \"desaprobado\"\nprint(f\"Estado: {estado}\")",
+			"highlight": [
+				3
+			]
+		},
+		{
+			"type": "p",
+			"md": "Con `nota = 12` la condición es falsa y `estado` recibe `desaprobado`. La ventaja es la brevedad; el riesgo es anidar ternarios dentro de otros ternarios, que se vuelven ilegibles. Si necesitas tres o más casos, usa `if/elif/else`."
+		},
+		{
+			"type": "p",
+			"md": "Para comparar un valor contra muchos patrones existe `match/case`, disponible desde **Python 3.10**. Comprueba patrones de arriba abajo y ejecuta el primero que coincide; `case _` actúa como comodín. No hay *fallthrough*: al terminar un caso, la estructura acaba."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "comandos.py (requiere Python 3.10+)",
+			"code": "comando = \"guardar\"\n\nmatch comando:\n    case \"guardar\":\n        print(\"Guardando cambios...\")\n    case \"salir\":\n        print(\"Cerrando el programa\")\n    case _:\n        print(\"Comando no reconocido\")",
+			"highlight": [
+				4,
+				5
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Guardando cambios...`. `match` es más legible que una cadena larga de `elif` cuando comparas un mismo valor con literales o formas de datos. Si solo tienes dos o tres casos numéricos, un `if` sigue siendo la opción natural."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: envío y descuento de una compra"
+		},
+		{
+			"type": "p",
+			"md": "Una tienda cobra el envío según el monto: gratis desde 200 soles, 7.5 entre 100 y 199.99, y 15 por debajo de 100. Además, los clientes VIP con compra de 150 o más reciben 10 % de descuento. Con una compra de 240 soles:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "compra.py",
+			"code": "compra = 240.0\ncliente_vip = True\n\nif compra >= 200:\n    envio = 0.0\nelif compra >= 100:\n    envio = 7.5\nelse:\n    envio = 15.0\n\nif cliente_vip and compra >= 150:\n    descuento = compra * 0.10\nelse:\n    descuento = 0.0\n\ntotal = compra - descuento + envio\nprint(f\"Descuento: {descuento:.2f}\")\nprint(f\"Envío: {envio:.2f}\")\nprint(f\"Total: {total:.2f}\")",
+			"highlight": [
+				4,
+				6,
+				11,
+				16
+			]
+		},
+		{
+			"type": "p",
+			"md": "El primer `if` es verdadero porque 240 supera 200, así que el envío es 0 y los otros tramos no se evalúan. El segundo combina un `bool` del cliente con una comparación numérica: ambos son verdaderos, así que el descuento es 24.0. El total es `240 - 24 + 0 = 216.00`. Si el cliente no fuera VIP, pagaría 240.00 con envío gratis; esa es exactamente la decisión que expresa el código."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué rama se ejecuta"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Recorrido de una cadena if/elif/else",
+			"code": "nota = 16\n\nif nota >= 18:\n    nivel = \"excelente\"\nelif nota >= 14:\n    nivel = \"bueno\"\nelif nota >= 11:\n    nivel = \"regular\"\nelse:\n    nivel = \"insuficiente\"\n\nprint(nivel)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se guarda 16 en `nota`.",
+					"vars": {
+						"nota": "16"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "La primera condición se evalúa: 16 >= 18 es falso. Se pasa al `elif`.",
+					"vars": {
+						"nota": "16"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "16 >= 14 es verdadero: esta rama se ejecutará y las siguientes se saltan.",
+					"vars": {
+						"nota": "16"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Se asigna `bueno` a `nivel`. La cadena termina aquí.",
+					"vars": {
+						"nota": "16",
+						"nivel": "\"bueno\""
+					},
+					"output": ""
+				},
+				{
+					"line": 12,
+					"note": "`print` muestra el único valor asignado.",
+					"vars": {
+						"nota": "16",
+						"nivel": "\"bueno\""
+					},
+					"output": "bueno\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`IndentationError: expected an indented block`",
+					"No indentaste después de los dos puntos",
+					"Añade 4 espacios en el cuerpo del `if`"
+				],
+				[
+					"`IndentationError: unindent does not match any outer indentation level`",
+					"Mezclaste niveles de sangría",
+					"Alinea con múltiplos de 4 y no mezcles tabuladores"
+				],
+				[
+					"`SyntaxError: expected ':'`",
+					"Falta el signo de dos puntos",
+					"Escribe `if condicion:`"
+				],
+				[
+					"`SyntaxError: invalid syntax` en la condición",
+					"Usaste `=` en lugar de `==`",
+					"Cambia a `==` para comparar"
+				],
+				[
+					"Una condición siempre se cumple",
+					"Usaste `or` donde iba `and`",
+					"Revisa la lógica: `nota >= 13 and nota <= 20`"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Asignar no es comparar",
+			"wrong": {
+				"caption": "SyntaxError",
+				"code": "nota = 16\nif nota = 16:\n    print(\"Igual\")"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "nota = 16\nif nota == 16:\n    print(\"Igual\")"
+			},
+			"explain": "`=` guarda un valor y no puede aparecer dentro de una condición en Python. `==` compara y devuelve un booleano. El error apunta a la línea del `if`, y el mensaje habitual es `SyntaxError: invalid syntax`."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Ordena las condiciones de la más específica a la más general.",
+				"Evita anidar más de dos niveles: extrae funciones o combina con `and`.",
+				"Prefiere `if nota is None:` a `if not nota:` cuando el cero es válido.",
+				"No repitas la misma condición en varios `elif`: si se solapan, hay un error de diseño.",
+				"Usa el ternario solo para elegir entre dos valores simples.",
+				"Deja una línea en blanco antes y después de una cadena `if` larga para separarla del resto."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Clasificar el índice de masa corporal",
+			"md": "Con `peso = 72` y `altura = 1.75`, calcula el IMC con `peso / altura ** 2` y clasifícalo: menos de 18.5 es `bajo`, menos de 25 es `normal`, menos de 30 es `sobrepeso` y el resto `obesidad`. Muestra el IMC con un decimal y la categoría.",
+			"hint": "Calcula primero el IMC y luego usa una cadena `if/elif/else` con los cortes en orden ascendente.",
+			"solution": {
+				"lang": "python",
+				"caption": "imc.py",
+				"code": "peso = 72\naltura = 1.75\n\nimc = peso / altura ** 2\n\nif imc < 18.5:\n    categoria = \"bajo\"\nelif imc < 25:\n    categoria = \"normal\"\nelif imc < 30:\n    categoria = \"sobrepeso\"\nelse:\n    categoria = \"obesidad\"\n\nprint(f\"IMC: {imc:.1f} - {categoria}\")",
+				"explain": "72 / 1.75 ** 2 da 23.51..., que se muestra como 23.5. La primera condición es falsa y la segunda verdadera, así que la categoría es `normal`. Los cortes no necesitan un límite inferior porque el `elif` solo se evalúa si el anterior falló."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Año bisiesto",
+			"md": "Pide un año guardado en `anio` y decide si es bisiesto con la regla: divisible entre 4, salvo los múltiplos de 100 que no sean múltiplos de 400. Comprueba con `2024` (sí), `1900` (no) y `2000` (sí).",
+			"hint": "Combina `%` con `and`, `or` y `not`. Puedes escribir la regla completa en una sola condición booleana.",
+			"solution": {
+				"lang": "python",
+				"caption": "bisiesto.py",
+				"code": "anio = 2024\n\nbisiesto = anio % 4 == 0 and (anio % 100 != 0 or anio % 400 == 0)\n\nif bisiesto:\n    print(f\"{anio} es bisiesto\")\nelse:\n    print(f\"{anio} no es bisiesto\")",
+				"explain": "2024 % 4 es 0 y 2024 % 100 no es 0, así que la condición es verdadera. Con 1900, el primer término es verdadero pero 1900 % 100 es 0 y 1900 % 400 no, así que el paréntesis falla. Con 2000, el paréntesis se cumple por 400."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la cadena",
+			"lang": "python",
+			"code": "nota = 14\n\nif nota >= 18:\n    nivel = \"excelente\"\n___ nota >= 13:\n    nivel = \"bueno\"\nelse:\n    nivel = \"insuficiente\"\n\nprint(___)",
+			"answers": [
+				"elif",
+				"nivel"
+			],
+			"hint": "La segunda condición es la continuación de la primera; al final imprime el resultado.",
+			"explain": "`elif` encadena la segunda condición y solo se evalúa si la primera falló. Con 14 se asigna `bueno` y `print(nivel)` lo muestra. Si escribieras `if` en lugar de `elif`, el segundo bloque también se evaluaría y la lógica cambiaría."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el IMC, el cálculo debe hacerse antes de la cadena: si comparas `peso / altura ** 2` dentro de cada condición, repites la operación y el código se vuelve frágil. Los cortes funcionan sin límite inferior porque cada `elif` solo se alcanza cuando el anterior fue falso. Si los pusieras en orden inverso, un IMC de 23 entraría en `obesidad`."
+		},
+		{
+			"type": "p",
+			"md": "En el año bisiesto, la trampa está en la precedencia: `anio % 4 == 0 and anio % 100 != 0 or anio % 400 == 0` sin paréntesis se evalúa como `(A and B) or C`, que también es correcto aquí, pero los paréntesis comunican la regla. Comprueba siempre los tres casos límite: un año normal, un múltiplo de 100 y un múltiplo de 400."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un condicional ejecuta un bloque solo si su condición es verdadera.",
+				"`if/elif/else` se evalúa de arriba abajo y ejecuta **una sola** rama.",
+				"El orden de las condiciones cambia el resultado cuando se solapan.",
+				"Los dos puntos y la indentación de 4 espacios son obligatorios.",
+				"Cualquier valor se puede usar como condición: vacío, cero y `None` son falsos.",
+				"El ternario elige entre dos valores; `match/case` compara patrones desde 3.10.",
+				"`=` asigna y `==` compara: nunca los confundas dentro de un `if`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Con `valor = 0`, ¿qué bloque se ejecuta en `if valor: ... else: ...`?",
+			"options": [
+				"El `if`, porque 0 es un valor válido",
+				"El `else`, porque 0 es falso",
+				"Ninguno: se lanza un error",
+				"Los dos, en orden"
+			],
+			"answer": 1,
+			"explain": "El cero numérico es falso en un contexto booleano. Por eso `else` se ejecuta. Si querías distinguir «cero» de «sin dato», usa `if valor is None`."
+		},
+		{
+			"type": "quiz",
+			"question": "Con `x = 12`, ¿qué imprime `if x > 10: print(\"A\") elif x > 5: print(\"B\") else: print(\"C\")`?",
+			"options": [
+				"`A` y `B`",
+				"Solo `A`",
+				"Solo `B`",
+				"`C`"
+			],
+			"answer": 1,
+			"explain": "La primera condición es verdadera y la cadena se detiene. Aunque `x > 5` también sea verdadera, ese `elif` no se evalúa: solo se ejecuta una rama."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la salida de `estado = \"apto\" if 13 >= 13 else \"no apto\"`?",
+			"options": [
+				"`apto`",
+				"`no apto`",
+				"`True`",
+				"`SyntaxError`"
+			],
+			"answer": 0,
+			"explain": "La condición `13 >= 13` es verdadera, así que el ternario devuelve el valor anterior al `if`. Es una expresión: el resultado se asigna a `estado`."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "Estructuras de control de flujo",
+					"url": "https://docs.python.org/es/3/tutorial/controlflow.html",
+					"note": "if, for, while y match en el tutorial oficial"
+				},
+				{
+					"label": "Operador condicional (ternario)",
+					"url": "https://docs.python.org/es/3/reference/expressions.html#conditional-expressions",
+					"note": "sintaxis y precedencia"
+				},
+				{
+					"label": "match: coincidencia de patrones",
+					"url": "https://docs.python.org/es/3/reference/compound_stmts.html#the-match-statement",
+					"note": "referencia de Python 3.10+"
+				}
+			]
+		}
+	]
+}

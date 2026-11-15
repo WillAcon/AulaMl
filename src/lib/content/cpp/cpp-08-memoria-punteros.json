@@ -1,0 +1,494 @@
+{
+	"id": "cpp-08-memoria-punteros",
+	"track": "cpp",
+	"order": 8,
+	"title": "Memoria, stack, heap y punteros",
+	"subtitle": "Qué guarda realmente una variable y cómo apuntar a una dirección",
+	"level": "intermedio",
+	"minutes": 52,
+	"tags": ["memoria", "punteros", "stack", "heap"],
+	"keywords": [
+		"qué es un puntero",
+		"stack vs heap",
+		"dirección de memoria",
+		"operador &",
+		"desreferenciar",
+		"nullptr",
+		"aritmética de punteros",
+		"memoria dinámica",
+		"puntero nulo",
+		"paso por puntero",
+		"c++ memoria"
+	],
+	"summary": "Entender la memoria es entender qué hace C++ debajo de cada variable. Aquí verás cómo se organizan el stack y el heap, qué guarda un puntero, cómo se desreferencia y por qué un puntero mal usado es la fuente de los errores más difíciles.",
+	"objectives": [
+		"Explicar la diferencia entre stack y heap con direcciones concretas",
+		"Declarar punteros, obtener direcciones con & y acceder con *",
+		"Recorrer un array usando aritmética de punteros",
+		"Reservar y liberar memoria dinámica con new y delete",
+		"Reconocer punteros nulos, colgantes y fugas de memoria"
+	],
+	"prerequisites": ["Funciones: declaración, parámetros y retorno", "Paso por valor, referencia, sobrecarga y recursión"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Cuando escribes `int x = 42;`, C++ no guarda el número «en el aire». Reserva un espacio en la memoria RAM, escribe allí los bits que representan 42 y asocia el nombre `x` a esa posición. Un **puntero** es una variable cuyo valor es precisamente eso: una dirección de memoria."
+		},
+		{
+			"type": "p",
+			"md": "Esta lección es la bisagra del curso. Hasta ahora las variables eran cajas opacas; a partir de aquí vas a ver las direcciones, a decidir dónde vive cada dato y a entender por qué C++ puede ser tan rápido y tan peligroso al mismo tiempo."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la memoria de un programa?"
+		},
+		{
+			"type": "p",
+			"md": "Piensa en la memoria como una calle larguísima de casas numeradas. Cada casa guarda un byte y tiene una **dirección** única. Una variable de tipo `int` ocupa normalmente 4 casas contiguas; un `double`, 8. El compilador decide en qué dirección empieza cada variable y traduce `x` a esa dirección."
+		},
+		{
+			"type": "p",
+			"md": "C++ organiza la memoria de un proceso en varias zonas. Las dos que más te importan ahora son el **stack** (pila) y el **heap** (montón):"
+		},
+		{
+			"type": "table",
+			"head": ["Zona", "Qué guarda", "Quién la gestiona", "Velocidad"],
+			"rows": [
+				["Stack", "Variables locales, parámetros, direcciones de retorno", "El compilador, automáticamente", "Muy rápida, acceso directo"],
+				["Heap", "Objetos creados con `new`, datos de tamaño dinámico", "Tú, con `new` y `delete`", "Más lenta, requiere búsqueda de espacio"],
+				["Estáticas", "Globales y `static`, viven todo el programa", "El sistema al cargar el programa", "Rápida"],
+				["Código", "Las instrucciones compiladas", "El sistema (solo lectura)", "Se ejecuta desde ahí"]
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Stack no significa «almacenamiento de pila»",
+			"md": "El nombre viene de *stack frame*: cada llamada a función apila un bloque con sus variables locales y lo desapila al volver. Ese comportamiento automático es la base de RAII, que verás más adelante."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve entenderla?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Saber cuándo algo se destruye**: una variable local desaparece al salir de la función; si guardaste su dirección, esa dirección queda apuntando a basura.",
+				"**Compartir datos sin copiarlos**: pasar un puntero o una referencia evita copiar estructuras grandes, clave en Machine Learning.",
+				"**Crear estructuras de tamaño variable**: un `std::vector` reserva su buffer en el heap y lo administra por ti.",
+				"**Depurar errores reales**: los *segmentation faults* casi siempre son punteros nulos, colgantes o fuera de rango.",
+				"**Entender C++ moderno**: `unique_ptr`, `shared_ptr`, `std::string` y `std::vector` son envoltorios seguros sobre estas mismas ideas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: stack, heap y direcciones"
+		},
+		{
+			"type": "p",
+			"md": "Cada vez que llamas a una función, el programa reserva un **stack frame**: un bloque contiguo con los parámetros, las variables locales y la dirección a la que debe volver. Al terminar, el puntero de pila retrocede y ese bloque se considera libre. No se borra físicamente: simplemente deja de pertenecerte, y la siguiente llamada puede reutilizarlo."
+		},
+		{
+			"type": "p",
+			"md": "El heap es distinto: no tiene un orden de entrada y salida. Pides espacio con `new`, el sistema busca un bloque libre y te devuelve su dirección. Ese bloque sigue existiendo hasta que lo liberas con `delete`, aunque la función que lo creó haya terminado. Esa independencia es su ventaja y su trampa: si olvidas liberarlo, la memoria queda ocupada hasta que el proceso muere."
+		},
+		{
+			"type": "p",
+			"md": "Una dirección se representa en hexadecimal, por ejemplo `0x7ffc1a2b3c4d`. En el stack suele ser alta y cercana; en el heap, más baja. No importa el número exacto: importa que **dos punteros son iguales si apuntan a la misma dirección**, no si los valores apuntados coinciden."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: & y *"
+		},
+		{
+			"type": "p",
+			"md": "Dos operadores hacen casi todo el trabajo. Se leen según el contexto, y esa es la primera fuente de confusión:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`&x` — **dirección de**: devuelve la dirección donde vive `x`.",
+				"`int* p` — **tipo puntero**: `p` guarda la dirección de un `int`.",
+				"`*p` — **desreferencia**: accede al valor que hay en la dirección guardada en `p`.",
+				"`p = nullptr` — apunta a ninguna parte; desreferenciarlo es error en tiempo de ejecución.",
+				"`p -> miembro` — azúcar para `(*p).miembro`, muy usado con structs y clases."
+			]
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "int x = 42;\nint* p = &x;      // p guarda la dirección de x\n\nstd::cout << x << '\\n';    // 42\nstd::cout << &x << '\\n';   // 0x... (dirección)\nstd::cout << p << '\\n';    // la misma dirección\nstd::cout << *p << '\\n';   // 42 (valor apuntado)\n\n*p = 7;                    // modifica x a través de p\nstd::cout << x << '\\n';    // 7"
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "El asterisco tiene dos vidas",
+			"md": "En `int* p`, el `*` forma parte del tipo: «puntero a int». En `*p`, es el operador de desreferencia. El compilador distingue ambos por la posición, pero al leer código conviene verbalizarlo: «p es un puntero a int» frente a «el valor al que apunta p»."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: leer y modificar a través de un puntero"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "basico.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int x = 42;\n    int* p = &x;\n\n    std::cout << \"x = \" << x << '\\n';\n    std::cout << \"*p = \" << *p << '\\n';\n\n    *p = 7;\n    std::cout << \"x despues = \" << x << '\\n';\n    return 0;\n}"
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`int x = 42;` reserva 4 bytes en el stack y escribe 42.",
+				"`int* p = &x;` reserva otros 8 bytes (en un sistema de 64 bits) para guardar la dirección de `x`.",
+				"`*p` lee el valor que hay en esa dirección: 42. No es una copia de `x`; es la misma celda.",
+				"`*p = 7;` escribe 7 en esa celda, así que `x` también vale 7. No hay dos variables, hay una sola con dos formas de acceder a ella."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: recorrer un array con aritmética de punteros"
+		},
+		{
+			"type": "p",
+			"md": "Un array es un bloque contiguo de elementos. El nombre del array, en la mayoría de expresiones, se convierte en un puntero a su primer elemento. Sumar 1 a un puntero no suma un byte: avanza **un elemento completo**. Esa es la regla que hace que `p + 1` funcione igual para `int`, `double` o una struct de 40 bytes."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Aritmética de punteros sobre un array",
+			"code": "int a[3] = {10, 20, 30};\nint* p = a;\n\nstd::cout << *p << '\\n';\nstd::cout << *(p + 2) << '\\n';\np++;\nstd::cout << *p << '\\n';",
+			"steps": [
+				{
+					"line": 1,
+					"note": "El array ocupa 3 ints contiguos en el stack. `a` decae a un puntero a su primer elemento.",
+					"vars": { "a": "{10, 20, 30}", "p": "—" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`p` guarda la dirección de `a[0]`. No copia el array: apunta a él.",
+					"vars": { "a": "{10, 20, 30}", "p": "&a[0]" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Desreferenciar `p` da el primer elemento: 10.",
+					"vars": { "a": "{10, 20, 30}", "p": "&a[0]" },
+					"output": "10\n"
+				},
+				{
+					"line": 5,
+					"note": "`p + 2` avanza dos ints (8 bytes), no dos bytes. Apunta a `a[2]`: 30.",
+					"vars": { "a": "{10, 20, 30}", "p": "&a[0]" },
+					"output": "30\n"
+				},
+				{
+					"line": 6,
+					"note": "`p++` mueve el puntero al siguiente elemento. El array no cambia; cambia a dónde mira `p`.",
+					"vars": { "a": "{10, 20, 30}", "p": "&a[1]" },
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "Ahora `*p` es 20. Si hubieras hecho `p + 5`, estarías fuera del array: comportamiento indefinido.",
+					"vars": { "a": "{10, 20, 30}", "p": "&a[1]" },
+					"output": "20\n"
+				}
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Sumar al valor no es sumar al puntero",
+			"wrong": {
+				"caption": "Incorrecto: mueve el entero, no el puntero",
+				"code": "int* p = a;\n(*p)++;   // a[0] pasa a 11\np + 1;    // calcula una dirección, pero no la guarda"
+			},
+			"right": {
+				"caption": "Correcto: avanza el puntero",
+				"code": "int* p = a;\np++;      // p ahora apunta a a[1]\nstd::cout << *p;"
+			},
+			"explain": "Los paréntesis cambian por completo el significado. `(*p)++` incrementa el valor apuntado; `p++` incrementa la dirección. Y `p + 1` sin asignación no modifica `p`: solo produce una dirección temporal."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: reservar memoria en el heap"
+		},
+		{
+			"type": "p",
+			"md": "`new int(5)` pide espacio para un entero en el heap, lo inicializa con 5 y devuelve su dirección. Esa memoria no se libera sola: debes llamar a `delete` cuando termines. En código moderno casi nunca escribirás esto directamente; usarás `std::vector` o `std::unique_ptr`. Pero entenderlo es obligatorio para leer código antiguo y para saber qué hay dentro de esas abstracciones."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "heap.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int* q = new int(5);   // reserva en el heap\n    std::cout << *q << '\\n'; // 5\n\n    *q = *q + 1;            // 6\n    std::cout << *q << '\\n'; // 6\n\n    delete q;               // libera el bloque\n    q = nullptr;            // evita un puntero colgante\n    return 0;\n}"
+		},
+		{
+			"type": "h",
+			"text": "Visualización: mapa de memoria"
+		},
+		{
+			"type": "p",
+			"md": "Avanza por los pasos y observa tres cosas: dónde vive cada variable, qué valor guarda y a qué dirección apunta. Fíjate en que `p` no contiene 42: contiene la dirección donde está 42."
+		},
+		{
+			"type": "memory",
+			"title": "Un puntero en el stack apuntando a otra variable del stack",
+			"lang": "cpp",
+			"code": "int x = 42;\nint* p = &x;\nstd::cout << *p;\n*p = 7;",
+			"steps": [
+				{
+					"note": "`x` ocupa 4 bytes en el stack y guarda 42.",
+					"stack": [
+						{ "name": "x", "value": "42", "addr": "0x7ffc1000", "type": "int" }
+					],
+					"heap": [],
+					"highlight": ["x"]
+				},
+				{
+					"note": "`p` ocupa 8 bytes. Su valor es la dirección de `x`, no el 42.",
+					"stack": [
+						{ "name": "x", "value": "42", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "p", "value": "0x7ffc1000", "addr": "0x7ffc1004", "type": "int*" }
+					],
+					"heap": [],
+					"arrows": [{ "from": "p", "to": "0x7ffc1000", "label": "apunta a x" }],
+					"highlight": ["p"]
+				},
+				{
+					"note": "`*p` sigue la flecha y lee 42. La salida es 42.",
+					"stack": [
+						{ "name": "x", "value": "42", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "p", "value": "0x7ffc1000", "addr": "0x7ffc1004", "type": "int*" }
+					],
+					"heap": [],
+					"arrows": [{ "from": "p", "to": "0x7ffc1000", "label": "desreferenciar" }],
+					"highlight": ["x", "p"]
+				},
+				{
+					"note": "`*p = 7` escribe en la dirección de `x`. `x` cambia a 7; `p` sigue apuntando al mismo sitio.",
+					"stack": [
+						{ "name": "x", "value": "7", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "p", "value": "0x7ffc1000", "addr": "0x7ffc1004", "type": "int*" }
+					],
+					"heap": [],
+					"arrows": [{ "from": "p", "to": "0x7ffc1000" }],
+					"highlight": ["x"]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Ahora el mismo esquema con memoria dinámica. La diferencia esencial: el bloque del heap **sobrevive** a la función que lo creó, y `delete` lo devuelve al sistema."
+		},
+		{
+			"type": "memory",
+			"title": "new, modificación y delete",
+			"lang": "cpp",
+			"code": "int* q = new int(5);\n*q = *q + 1;\ndelete q;\nq = nullptr;",
+			"steps": [
+				{
+					"note": "`new int(5)` reserva 4 bytes en el heap, escribe 5 y devuelve la dirección 0x5500. `q` la guarda.",
+					"stack": [
+						{ "name": "q", "value": "0x5500", "addr": "0x7ffc2000", "type": "int*" }
+					],
+					"heap": [
+						{ "name": "*q", "value": "5", "addr": "0x5500", "type": "int" }
+					],
+					"arrows": [{ "from": "q", "to": "0x5500" }],
+					"highlight": ["q", "*q"]
+				},
+				{
+					"note": "`*q = *q + 1` lee 5, suma 1 y escribe 6 en el heap. El puntero no cambia.",
+					"stack": [
+						{ "name": "q", "value": "0x5500", "addr": "0x7ffc2000", "type": "int*" }
+					],
+					"heap": [
+						{ "name": "*q", "value": "6", "addr": "0x5500", "type": "int" }
+					],
+					"arrows": [{ "from": "q", "to": "0x5500" }],
+					"highlight": ["*q"]
+				},
+				{
+					"note": "`delete q` libera el bloque. `q` conserva la dirección, pero ya no es válida: es un puntero colgante.",
+					"stack": [
+						{ "name": "q", "value": "0x5500 (colgante)", "addr": "0x7ffc2000", "type": "int*" }
+					],
+					"heap": [],
+					"highlight": ["q"]
+				},
+				{
+					"note": "Asignar `nullptr` deja explícito que no apunta a nada. Desreferenciarlo ahora falla de forma predecible en lugar de corromper memoria.",
+					"stack": [
+						{ "name": "q", "value": "nullptr", "addr": "0x7ffc2000", "type": "int*" }
+					],
+					"heap": [],
+					"highlight": ["q"]
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Desreferenciar un puntero nulo**: `int* p = nullptr; *p = 3;` provoca un fallo de segmentación inmediato. Comprueba `if (p != nullptr)` cuando el puntero pueda no apuntar a nada.",
+				"**Usar un puntero colgante**: guardas `&x`, la función termina y `x` desaparece. La dirección sigue ahí, pero el contenido ya no es tuyo.",
+				"**Olvidar `delete`**: cada `new` sin su `delete` deja un bloque ocupado (fuga). En un bucle, puede agotar la memoria.",
+				"**Hacer `delete` dos veces**: liberar el mismo bloque dos veces corrompe el heap. Tras `delete`, asigna `nullptr`.",
+				"**Salir del array**: `*(p + 3)` en un array de 3 elementos es comportamiento indefinido; puede no fallar y aun así ser un error grave.",
+				"**Confundir el tamaño**: `p + 1` avanza `sizeof(*p)` bytes, no uno. Ese es el comportamiento correcto, pero explica por qué un `char*` y un `int*` no avanzan igual."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Inicializa siempre: `int* p = nullptr;` es más seguro que un puntero con basura.",
+				"Usa `const int* p` cuando no vayas a modificar el valor apuntado; el compilador te protege.",
+				"Prefiere `std::vector` a `new int[n]`, y `std::unique_ptr` a `new`/`delete` manual.",
+				"No devuelvas punteros a variables locales de una función.",
+				"Pasa objetos grandes como `const T&` en lugar de por valor o puntero crudo.",
+				"Compila con `-Wall -Wextra` y ejecuta con AddressSanitizer (`-fsanitize=address`) cuando depures memoria.",
+				"Si una función recibe un puntero que no puede ser nulo, documenta ese contrato; si puede, compruébalo."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Nombres en Python, direcciones en C++",
+			"python": {
+				"caption": "referencia.py",
+				"code": "x = 42\np = x      # p apunta al mismo objeto\nx = 7      # p sigue siendo 42\nprint(p)   # 42"
+			},
+			"cpp": {
+				"caption": "puntero.cpp",
+				"code": "int x = 42;\nint* p = &x;  // p guarda la direccion\nx = 7;\nstd::cout << *p; // 7"
+			},
+			"note": "En Python los nombres se reasignan a objetos y no hay aritmética de punteros visible. En C++ un puntero guarda una dirección concreta: si el valor cambia, `*p` lo refleja. Esa explicitud es la que permite controlar el rendimiento y también la que exige disciplina."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Intercambiar dos números con punteros",
+			"md": "Escribe una función `void intercambiar(int* a, int* b)` que intercambie los valores apuntados. Llámala desde `main` con dos variables y comprueba que ambas cambian. No uses `std::swap`.",
+			"hint": "Guarda `*a` en una variable temporal antes de sobrescribirlo. Dentro de la función, `a` y `b` son punteros; los valores son `*a` y `*b`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "intercambiar.cpp",
+				"code": "#include <iostream>\n\nvoid intercambiar(int* a, int* b) {\n    int temp = *a;\n    *a = *b;\n    *b = temp;\n}\n\nint main() {\n    int x = 3, y = 8;\n    intercambiar(&x, &y);\n    std::cout << x << ' ' << y << '\\n'; // 8 3\n    return 0;\n}",
+				"explain": "Se pasan las direcciones con `&`, por eso la función modifica las variables originales. Si se pasaran por valor, solo cambiarían copias locales. La variable temporal evita perder el primer valor al sobrescribirlo."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Sumar un array sin índices",
+			"md": "Dado `int datos[5] = {2, 4, 6, 8, 10};`, calcula la suma recorriendo el array con un puntero (`int* p = datos` y `p++`), sin usar `datos[i]`. Muestra el resultado.",
+			"hint": "El puntero avanza hasta `datos + 5`. Puedes comparar `p < datos + 5` o usar un contador de elementos.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "suma_array.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    int datos[5] = {2, 4, 6, 8, 10};\n    int suma = 0;\n\n    for (int* p = datos; p < datos + 5; ++p) {\n        suma += *p;\n    }\n\n    std::cout << suma << '\\n'; // 30\n    return 0;\n}",
+				"explain": "`datos + 5` es la dirección inmediatamente posterior al último elemento; es un límite válido para comparar, aunque no se puede desreferenciar. `++p` avanza un int cada vez, por eso el bucle visita exactamente los cinco elementos."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el acceso al valor",
+			"lang": "cpp",
+			"code": "int x = 10;\nint* p = ___x;\nstd::cout << ___p;   // debe imprimir 10\n___p = 20;           // x pasa a 20",
+			"answers": ["&", "*", "*"],
+			"hint": "Para guardar la dirección se usa `&`; para leer o escribir el valor apuntado, `*`.",
+			"explain": "`&x` obtiene la dirección, `*p` accede al valor y `*p = 20` escribe en la celda de `x`. Sin el `*`, `p = 20` intentaría guardar el entero 20 en un puntero, lo que no compila."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la clave es que `a` y `b` son **copias de las direcciones**, no copias de los enteros. Por eso `*a` accede a la variable original. En el segundo, el puntero recorre el array sin índice; el límite `datos + 5` es legal porque apunta una posición después del último elemento, pero nunca debes desreferenciarlo. Esa distinción entre «dirección válida para comparar» y «dirección válida para leer» es exactamente la clase de detalle que separa un programa correcto de uno que falla solo a veces."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Toda variable vive en una dirección; un puntero almacena esa dirección.",
+				"`&` obtiene la dirección y `*` accede al valor apuntado.",
+				"El stack es automático y rápido; el heap es manual y persistente hasta `delete`.",
+				"La aritmética de punteros avanza en unidades del tipo apuntado, no en bytes.",
+				"Un puntero nulo, colgante o fuera de rango es la causa de los fallos más difíciles.",
+				"Inicializa con `nullptr`, usa `const` y prefiere `std::vector`/`unique_ptr` al manejo manual.",
+				"Entender esta capa es lo que permite entender después RAII, move semantics y el rendimiento de C++."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Después de `int x = 5; int* p = &x; *p = 9;`, ¿cuánto vale `x`?",
+			"options": ["5", "9", "La dirección de p", "Comportamiento indefinido"],
+			"answer": 1,
+			"explain": "`p` apunta a `x`, así que `*p = 9` escribe 9 en la misma celda de memoria. No hay copia: `x` pasa a valer 9."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la diferencia principal entre stack y heap?",
+			"options": [
+				"El stack es más lento porque el sistema busca espacio libre",
+				"El heap se libera automáticamente al salir de la función",
+				"El stack lo gestiona el compilador; el heap lo gestionas tú con new/delete",
+				"El stack solo guarda punteros y el heap solo enteros"
+			],
+			"answer": 2,
+			"explain": "Las variables locales del stack se crean y destruyen con la función. La memoria del heap permanece hasta que la liberas explícitamente (o la libera un contenedor/RAII que la posea)."
+		},
+		{
+			"type": "quiz",
+			"question": "Si `int* p` apunta a `a[0]`, ¿qué hace `p + 2` en un sistema con int de 4 bytes?",
+			"options": [
+				"Suma 2 bytes a la dirección",
+				"Avanza 2 elementos, es decir, 8 bytes",
+				"Multiplica el valor apuntado por 2",
+				"Es un error de compilación"
+			],
+			"answer": 1,
+			"explain": "La aritmética de punteros escala por `sizeof(*p)`. Con `int` de 4 bytes, `p + 2` avanza 8 bytes y apunta a `a[2]`."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · Punteros",
+					"url": "https://en.cppreference.com/w/cpp/language/pointer",
+					"note": "referencia del lenguaje"
+				},
+				{
+					"label": "learncpp · Introducción a los punteros",
+					"url": "https://www.learncpp.com/cpp-tutorial/introduction-to-pointers/",
+					"note": "explicación progresiva"
+				},
+				{
+					"label": "AddressSanitizer",
+					"url": "https://clang.llvm.org/docs/AddressSanitizer.html",
+					"note": "detectar errores de memoria"
+				}
+			]
+		}
+	]
+}

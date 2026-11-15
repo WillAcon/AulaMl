@@ -1,0 +1,582 @@
+{
+	"id": "cpp-25-pybind11",
+	"track": "cpp",
+	"order": 25,
+	"title": "Integración con Python y pybind11",
+	"subtitle": "Exponer C++ como módulo de Python, compartir arrays de NumPy y saber cuándo vale la pena",
+	"level": "avanzado",
+	"minutes": 48,
+	"tags": [
+		"pybind11",
+		"extensiones",
+		"numpy",
+		"interoperabilidad"
+	],
+	"keywords": [
+		"pybind11 tutorial",
+		"extensión nativa python",
+		"c++ para python",
+		"PYBIND11_MODULE",
+		"compilar módulo .so python",
+		"numpy array en c++",
+		"py::array_t",
+		"gil python c++",
+		"gil_scoped_release",
+		"cuándo acelerar con c++",
+		"importar c++ desde python",
+		"pyproject pybind11"
+	],
+	"summary": "Python orquesta y C++ calcula: pybind11 permite que una función o una clase de C++ se importe como si fuera un módulo más. Verás cómo se construye la extensión, cómo se comparten arrays de NumPy sin copiar, cómo se maneja el GIL y en qué casos no merece la pena el cambio.",
+	"objectives": [
+		"Escribir un módulo pybind11 con funciones, argumentos con nombre y docstrings",
+		"Compilar la extensión a mano y distribuirla con pyproject.toml o CMake",
+		"Pasar arrays de NumPy a C++ y distinguir vista de copia",
+		"Explicar el papel del GIL y liberarlo solo cuando es seguro",
+		"Decidir con datos si una parte del pipeline debe pasar a C++"
+	],
+	"prerequisites": [
+		"Eigen: álgebra lineal en C++",
+		"Machine Learning desde cero en C++",
+		"RAII y punteros inteligentes"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Tienes un pipeline en Python que funciona: carga datos, entrena, evalúa. El perfilado revela que el 78 % del tiempo se consume en un bucle que calcula distancias entre vectores, y ese bucle no se vectoriza bien porque actualiza estado en cada paso. Reescribir el proyecto entero en C++ sería caro y frágil; reescribir **solo esa función** y llamarla desde Python cuesta una tarde. Ese intercambio es exactamente el que resuelve pybind11."
+		},
+		{
+			"type": "p",
+			"md": "La clave está en no mover los datos: un proceso, una memoria, dos lenguajes. Python decide qué hacer y C++ hace el trabajo pesado sobre la misma dirección de memoria. Lo que cambia es que tú respondes por la frontera: qué se copia, quién libera y cuándo se puede ejecutar código Python."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es pybind11?"
+		},
+		{
+			"type": "p",
+			"md": "pybind11 es una biblioteca de cabecera (header-only) que genera el código de pegamento entre la API C de CPython y C++ moderno. No es un lenguaje intermedio ni un generador de archivos: describes el binding con plantillas de C++ y el compilador produce las funciones que Python necesita para crear el módulo."
+		},
+		{
+			"type": "p",
+			"md": "La analogía útil es la de una aduana. Tu función `mean` vive en territorio C++; Python vive en el suyo. La macro `PYBIND11_MODULE` construye la oficina de aduanas: declara qué entra, con qué formulario se convierte cada objeto y qué se devuelve. Nada cruza gratis: cada argumento se convierte, se copia o se envuelve en un objeto Python que apunta al original."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "pybind11 no acelera Python",
+			"md": "Solo permite ejecutar código C++ dentro del proceso de Python. Si el cuello de botella está en una operación que NumPy ya resuelve de forma vectorizada, envolverla en C++ no aportará nada: el coste de cruzar la frontera puede superar la ganancia."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Acelerar bucles con estado**: simulaciones de Monte Carlo, decodificación token a token, distancias con acumuladores. Aquí NumPy no ayuda porque cada paso depende del anterior.",
+				"**Reutilizar una biblioteca C++ existente**: Eigen, OpenCV, ONNX Runtime o tu propio motor matricial, sin escribir un servidor HTTP alrededor.",
+				"**Exponer objetos con estado**: un índice invertido, un modelo ya cargado en memoria, un buffer circular de métricas.",
+				"**Compartir memoria con NumPy**: pasar un `ndarray` y leerlo como `double*` sin copiar millones de elementos.",
+				"**Distribuir el resultado**: una wheel que se instala con `pip install` y funciona en el portátil de un compañero."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning la frontera aparece en tres puntos: el *tokenizer* de un modelo de lenguaje, los *kernels* de una capa personalizada y el preprocesado que no encaja en un `ufunc`. PyTorch y TensorFlow están construidos así: la API es Python, el cálculo es C++ y el puente es una extensión nativa."
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: del .cpp al import"
+		},
+		{
+			"type": "p",
+			"md": "El recorrido tiene tres etapas. Primero compilas un objeto compartido (`.so` en Linux y macOS, `.pyd` en Windows) enlazado contra las cabeceras de Python. Segundo, al escribir `import faststats`, CPython busca un archivo con la etiqueta ABI de tu intérprete (por ejemplo `faststats.cpython-312-darwin.so`), lo carga y llama a `PyInit_faststats`. Tercero, esa función —la genera `PYBIND11_MODULE`— construye el módulo y le cuelga las funciones y clases declaradas. Si el nombre del módulo y el del archivo no coinciden, el import no encuentra su punto de entrada."
+		},
+		{
+			"type": "p",
+			"md": "Cada argumento que cruza se traduce con un *caster*. Estos son los casos que vas a usar el 90 % del tiempo:"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Python",
+				"C++",
+				"Qué ocurre",
+				"Coste"
+			],
+			"rows": [
+				[
+					"`int`",
+					"`int` / `long`",
+					"Conversión con comprobación de rango",
+					"Bajo"
+				],
+				[
+					"`float`",
+					"`double`",
+					"Conversión numérica",
+					"Bajo"
+				],
+				[
+					"`str`",
+					"`std::string`",
+					"Copia del contenido UTF-8",
+					"Medio"
+				],
+				[
+					"`list` / `tuple`",
+					"`std::vector<T>`",
+					"Copia elemento a elemento (requiere `stl.h`)",
+					"Alto en listas grandes"
+				],
+				[
+					"`numpy.ndarray`",
+					"`py::array_t<T>`",
+					"Vista sobre el buffer si el dtype y el orden coinciden; copia con `forcecast`",
+					"Bajo o alto"
+				],
+				[
+					"Clase de C++",
+					"`py::class_<T>`",
+					"Objeto Python que envuelve un puntero al objeto C++",
+					"Bajo"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El **GIL** (Global Interpreter Lock) es el candado que impide que dos hilos ejecuten bytecode Python a la vez. Cuando Python llama a tu función, el hilo ya lo tiene. Si tu función solo toca memoria C++, puedes soltarlo con `py::call_guard<py::gil_scoped_release>()` para que otros hilos sigan trabajando. La regla es tajante: con el GIL liberado no puedes crear, leer ni modificar objetos `py::`, ni lanzar una excepción de Python; si lo haces, el proceso puede caerse sin mensaje."
+		},
+		{
+			"type": "p",
+			"md": "Queda un detalle silencioso: la política de retorno. Al devolver un `std::vector` o un `std::string`, pybind11 copia a un objeto Python. Al devolver `T&` o un puntero decide según `return_value_policy`; si le pides `reference`, estarás prestando memoria C++ a Python, y si ese objeto muere antes que la referencia tendrás un fallo de segmentación lejos del origen."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: la forma canónica"
+		},
+		{
+			"type": "p",
+			"md": "Todo módulo tiene la misma silueta: una o más funciones o clases en C++, y una macro final que las publica. Los nombres que declares ahí son los que verá Python."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "esqueleto.cpp",
+			"code": "#include <pybind11/pybind11.h>\n#include <pybind11/stl.h>   // habilita vector, map y optional\n\nnamespace py = pybind11;\n\nint suma(int a, int b) { return a + b; }\n\nPYBIND11_MODULE(mi_modulo, m) {        // debe coincidir con el nombre del archivo\n    m.doc() = \"Descripcion que muestra help(mi_modulo)\";\n\n    m.def(\"suma\", &suma,                // nombre en Python, funcion de C++\n          py::arg(\"a\"), py::arg(\"b\"),   // nombres de los argumentos\n          \"Devuelve a + b\");            // docstring\n}"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`m.def(\"nombre\", &funcion, ...)` registra una función libre. El primer argumento es el nombre visible en Python.",
+				"`py::arg(\"x\")` permite llamar con palabra clave (`f(x=3)`) y aparece en la firma que muestra `help()`.",
+				"`py::class_<T>(m, \"Nombre\")` publica una clase; `.def(py::init<...>())` elige el constructor y `.def(\"metodo\", &T::metodo)` los métodos.",
+				"`py::call_guard<T>()` ejecuta un objeto RAII alrededor de la llamada: el uso más común es liberar el GIL.",
+				"`m.attr(\"VERSION\") = \"0.1.0\"` expone una constante, útil para comprobar qué binario está cargado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: un módulo sin dependencias"
+		},
+		{
+			"type": "p",
+			"md": "Empieza por lo mínimo para aislar problemas de compilación. Este módulo no usa NumPy ni Eigen: solo dos funciones y un `int` que cruza la frontera."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "mates.cpp",
+			"code": "#include <pybind11/pybind11.h>\n\nnamespace py = pybind11;\n\nint suma(int a, int b) { return a + b; }\ndouble media(double a, double b) { return (a + b) / 2.0; }\n\nPYBIND11_MODULE(mates, m) {\n    m.doc() = \"Operaciones basicas escritas en C++\";\n    m.def(\"suma\", &suma, py::arg(\"a\"), py::arg(\"b\"), \"Suma dos enteros\");\n    m.def(\"media\", &media, py::arg(\"a\"), py::arg(\"b\"), \"Media de dos numeros\");\n}"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "compilar en Linux o macOS",
+			"code": "# 1. Instala pybind11 en el mismo intérprete que usará el módulo\npython3 -m pip install pybind11\n\n# 2. Compila el objeto compartido con el sufijo ABI correcto\ng++ -O2 -std=c++20 -Wall -Wextra -shared -fPIC \\\n    $(python3 -m pybind11 --includes) \\\n    mates.cpp -o mates$(python3 -c \"import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))\")\n\n# 3. Comprueba que se importa y responde\npython3 -c \"import mates; print(mates.suma(2, 3), mates.media(2, 3))\""
+		},
+		{
+			"type": "p",
+			"md": "La salida es `5 2.5`. Cada bandera tiene una razón: `-shared -fPIC` produce código independiente de la posición que puede cargarse en un proceso ya en marcha; `--includes` añade las rutas de Python y de pybind11; el sufijo `EXT_SUFFIX` evita que un módulo compilado para 3.11 se cargue por error en 3.12. `-O2` importa: sin optimización el cálculo puede quedar más lento que el bucle de Python que intentabas sustituir."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "macOS necesita un permiso extra",
+			"md": "En macOS el enlazador exige resolver los símbolos de Python en tiempo de carga. Si aparece `Undefined symbols ... _PyLong_FromLong`, añade `-undefined dynamic_lookup` a la línea de compilación. En Windows el comando cambia por completo: usa `cl.exe` o, mejor, `pyproject.toml` con `setuptools`, que resuelve las banderas por ti."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: listas, optional y argumentos con nombre"
+		},
+		{
+			"type": "p",
+			"md": "El siguiente paso es aceptar colecciones. Con `#include <pybind11/stl.h>`, pybind11 convierte una `list` de Python en `std::vector<double>` y un `std::optional<T>` en `T` o `None`. Fíjate en el detalle importante: la lista **se copia**; si son diez millones de elementos, esa copia se come la ganancia."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "estadisticas.cpp",
+			"code": "#include <pybind11/pybind11.h>\n#include <pybind11/stl.h>\n\n#include <cstddef>\n#include <optional>\n#include <stdexcept>\n#include <vector>\n\nnamespace py = pybind11;\n\ndouble media(const std::vector<double>& valores) {\n    if (valores.empty()) throw std::invalid_argument(\"media espera al menos un valor\");\n    double suma = 0.0;\n    for (double v : valores) suma += v;\n    return suma / static_cast<double>(valores.size());\n}\n\nstd::optional<std::size_t> indice_max(const std::vector<double>& valores) {\n    if (valores.empty()) return std::nullopt;\n    std::size_t mejor = 0;\n    for (std::size_t i = 1; i < valores.size(); ++i) {\n        if (valores[i] > valores[mejor]) mejor = i;\n    }\n    return mejor;\n}\n\nPYBIND11_MODULE(estadisticas, m) {\n    m.def(\"media\", &media, py::arg(\"valores\"), \"Media aritmetica de una lista\");\n    m.def(\"indice_max\", &indice_max, py::arg(\"valores\"),\n          \"Indice del mayor valor, o None si la lista esta vacia\");\n}"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "uso desde Python",
+			"code": "import estadisticas\n\nprint(estadisticas.media([1, 2, 3, 4]))          # 2.5\nprint(estadisticas.indice_max([3.5, 9.0, 2.0]))  # 1\nprint(estadisticas.indice_max([]))               # None\n\nprint(estadisticas.media(valores=[10, 20]))      # 15.0\ntry:\n    estadisticas.media([])\nexcept ValueError as error:\n    print(\"ValueError:\", error)"
+		},
+		{
+			"type": "p",
+			"md": "Dos traducciones automáticas merecen atención. `throw std::invalid_argument(...)` llega a Python como `ValueError` con el mismo mensaje, así que no necesitas comprobar códigos de error: usa excepciones y deja que pybind11 las traduzca. Y `std::nullopt` se convierte en `None`, lo que permite expresar «no hay resultado» sin inventar un valor centinela como `-1`."
+		},
+		{
+			"type": "compare",
+			"title": "La misma media, a los dos lados de la frontera",
+			"python": {
+				"caption": "media.py",
+				"code": "def media(valores):\n    if not valores:\n        raise ValueError(\"media espera al menos un valor\")\n    return sum(valores) / len(valores)"
+			},
+			"cpp": {
+				"caption": "media.cpp",
+				"code": "double media(const std::vector<double>& valores) {\n    if (valores.empty())\n        throw std::invalid_argument(\"media espera al menos un valor\");\n    double suma = 0.0;\n    for (double v : valores) suma += v;\n    return suma / static_cast<double>(valores.size());\n}"
+			},
+			"note": "La lógica es idéntica; cambia quién paga el coste. La versión de Python crea un objeto por elemento al iterar; la de C++ recorre memoria contigua. Pero al llamarla desde Python, la lista se convierte a `std::vector` antes de entrar: con pocos elementos gana Python, con millones gana C++ solo si evitas la copia usando arrays."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: NumPy, estado y GIL"
+		},
+		{
+			"type": "p",
+			"md": "Este es el módulo que justifica la lección. `py::array_t<double>` con `c_style | forcecast` acepta cualquier array convertible a `double` en orden C, y `request()` devuelve un `buffer_info` con puntero, forma y *strides*: si el array ya es contiguo de `double`, C++ lee la misma memoria que NumPy. Además publicamos una clase con estado y una función que libera el GIL."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "faststats.cpp",
+			"code": "#include <pybind11/numpy.h>\n#include <pybind11/pybind11.h>\n#include <pybind11/stl.h>\n\n#include <algorithm>\n#include <cmath>\n#include <cstddef>\n#include <deque>\n#include <stdexcept>\n#include <vector>\n\nnamespace py = pybind11;\n\n// Acepta cualquier array convertible a double contiguo (C-order).\ndouble mean(py::array_t<double, py::array::c_style | py::array::forcecast> valores) {\n    auto info = valores.request();\n    if (info.ndim != 1) throw std::invalid_argument(\"mean espera un array 1-D\");\n    const auto n = static_cast<std::size_t>(info.shape[0]);\n    if (n == 0) throw std::invalid_argument(\"mean espera al menos un valor\");\n    const auto* datos = static_cast<const double*>(info.ptr);\n    double suma = 0.0;\n    for (std::size_t i = 0; i < n; ++i) suma += datos[i];\n    return suma / static_cast<double>(n);\n}\n\nstd::vector<double> normalizar(const std::vector<double>& valores) {\n    double maximo = 0.0;\n    for (double v : valores) maximo = std::max(maximo, std::abs(v));\n    if (maximo == 0.0) return std::vector<double>(valores.size(), 0.0);\n    std::vector<double> salida;\n    salida.reserve(valores.size());\n    for (double v : valores) salida.push_back(v / maximo);\n    return salida;\n}\n\n// Trabajo puro de C++: puede soltar el GIL durante el bucle.\nlong long sumar_hasta(long long n) {\n    long long total = 0;\n    for (long long i = 1; i <= n; ++i) total += i;\n    return total;\n}\n\nclass MediaMovil {\npublic:\n    explicit MediaMovil(std::size_t ventana) : ventana_(ventana) {\n        if (ventana == 0) throw std::invalid_argument(\"la ventana debe ser mayor que cero\");\n    }\n\n    double push(double valor) {\n        buffer_.push_back(valor);\n        suma_ += valor;\n        if (buffer_.size() > ventana_) {\n            suma_ -= buffer_.front();\n            buffer_.pop_front();\n        }\n        return suma_ / static_cast<double>(buffer_.size());\n    }\n\n    std::size_t size() const noexcept { return buffer_.size(); }\n\nprivate:\n    std::size_t ventana_;\n    std::deque<double> buffer_;\n    double suma_ = 0.0;\n};\n\nPYBIND11_MODULE(faststats, m) {\n    m.doc() = \"Estadisticas basicas implementadas en C++\";\n\n    m.def(\"mean\", &mean, py::arg(\"valores\"), \"Media aritmetica de un array 1-D\");\n    m.def(\"normalizar\", &normalizar, py::arg(\"valores\"),\n          \"Divide cada valor por el maximo absoluto\");\n    m.def(\"sumar_hasta\", &sumar_hasta, py::arg(\"n\"),\n          py::call_guard<py::gil_scoped_release>(),\n          \"Suma 1..n liberando el GIL mientras trabaja\");\n\n    py::class_<MediaMovil>(m, \"MediaMovil\")\n        .def(py::init<std::size_t>(), py::arg(\"ventana\"))\n        .def(\"push\", &MediaMovil::push, py::arg(\"valor\"),\n             \"Anade un valor y devuelve la media de la ventana\")\n        .def_property_readonly(\"size\", &MediaMovil::size)\n        .def(\"__repr__\", [](const MediaMovil& mm) {\n            return \"<MediaMovil size=\" + std::to_string(mm.size()) + \">\";\n        });\n}"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "compilación (Linux; en macOS añade -undefined dynamic_lookup)",
+			"code": "g++ -O2 -std=c++20 -Wall -Wextra -shared -fPIC \\\n    $(python3 -m pybind11 --includes) \\\n    faststats.cpp -o faststats$(python3 -c \"import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))\")"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "medir antes de celebrar",
+			"code": "import time\n\nimport numpy as np\n\nimport faststats\n\nrng = np.random.default_rng(0)\ndatos = rng.random(2_000_000)\n\ninicio = time.perf_counter()\nresultado_cpp = faststats.mean(datos)\nt_cpp = time.perf_counter() - inicio\n\ninicio = time.perf_counter()\nresultado_py = sum(datos) / len(datos)\nt_py = time.perf_counter() - inicio\n\nprint(f\"C++  : {resultado_cpp:.6f} en {t_cpp * 1000:.2f} ms\")\nprint(f\"Python: {resultado_py:.6f} en {t_py * 1000:.2f} ms\")\nprint(f\"factor: {t_py / t_cpp:.1f}x\")\n\nmm = faststats.MediaMovil(2)\nprint(mm.push(1.0), mm.push(2.0), mm.push(3.0), mm.size, mm)\nprint(faststats.sumar_hasta(10))"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "salida esperada (las cifras dependen de la máquina)",
+			"code": "C++  : 0.499925 en 1.90 ms\nPython: 0.499925 en 190.00 ms\nfactor: 100.0x\n1.0 1.5 2.5 2 <MediaMovil size=2>\n55"
+		},
+		{
+			"type": "p",
+			"md": "Dos observaciones honestas. La primera: dos órdenes de magnitud es habitual en bucles puros sobre memoria, pero no es una ley; mide con `time.perf_counter` y varias repeticiones, porque el primer *import* incluye cargar el `.so`. La segunda: `sum(datos) / len(datos)` itera elementos de NumPy uno a uno; si comparas contra `datos.mean()` la ventaja de C++ desaparece, y ese es el caso en el que **no** debes escribir una extensión."
+		},
+		{
+			"type": "p",
+			"md": "La clase `MediaMovil` muestra el otro motivo para usar pybind11: mantener estado que Python no debe reconstruir en cada llamada. El objeto C++ vive dentro del objeto Python; cuando Python lo recolecta, el destructor se ejecuta y el `std::deque` libera su memoria. No hay `new`, no hay `delete`, no hay fuga."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué cruza la frontera en una llamada"
+		},
+		{
+			"type": "p",
+			"md": "Sigue la ejecución paso a paso. Lo relevante no es el resultado —2.0 es trivial— sino cuándo se convierte cada objeto."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Import, conversión de buffer y retorno",
+			"code": "import numpy as np\nimport faststats\n\ndatos = np.array([1.0, 2.0, 3.0])\nresultado = faststats.mean(datos)\nprint(resultado)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "NumPy se carga como cualquier módulo. Todavía no hay nada de C++ propio en juego.",
+					"vars": {
+						"np": "<module numpy>",
+						"faststats": "—",
+						"datos": "—",
+						"resultado": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "CPython encuentra `faststats.cpython-312-....so`, lo carga y llama a `PyInit_faststats`. Se registran las funciones y la clase.",
+					"vars": {
+						"np": "<module numpy>",
+						"faststats": "<module faststats>",
+						"datos": "—",
+						"resultado": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El array ocupa 24 bytes contiguos (3 doubles). `datos.flags.c_contiguous` es True y el dtype ya es float64.",
+					"vars": {
+						"np": "<module numpy>",
+						"faststats": "<module faststats>",
+						"datos": "array([1.0, 2.0, 3.0])",
+						"resultado": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Al entrar, `forcecast` comprueba dtype y contigüidad: no hace falta copiar. `request()` entrega el puntero al buffer de NumPy.",
+					"vars": {
+						"np": "<module numpy>",
+						"faststats": "<module faststats>",
+						"datos": "array([1.0, 2.0, 3.0])",
+						"resultado": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "El bucle de C++ suma 1.0 + 2.0 + 3.0 y divide entre 3. No se crea ningún objeto Python dentro del bucle.",
+					"vars": {
+						"np": "<module numpy>",
+						"faststats": "<module faststats>",
+						"datos": "array([1.0, 2.0, 3.0])",
+						"resultado": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "El `double` de retorno se convierte en un `float` de Python y se asigna a `resultado`.",
+					"vars": {
+						"np": "<module numpy>",
+						"faststats": "<module faststats>",
+						"datos": "array([1.0, 2.0, 3.0])",
+						"resultado": "2.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`print` escribe el float. Toda la ventaja vino de recorrer memoria contigua sin interpretar bytecode.",
+					"vars": {
+						"np": "<module numpy>",
+						"faststats": "<module faststats>",
+						"datos": "array([1.0, 2.0, 3.0])",
+						"resultado": "2.0"
+					},
+					"output": "2.0\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "diff",
+			"title": "El nombre del módulo y el del archivo deben coincidir",
+			"wrong": {
+				"caption": "faststats.cpp",
+				"code": "PYBIND11_MODULE(_faststats, m) {\n    m.def(\"mean\", &mean);\n}"
+			},
+			"right": {
+				"caption": "faststats.cpp",
+				"code": "PYBIND11_MODULE(faststats, m) {\n    m.def(\"mean\", &mean);\n}"
+			},
+			"explain": "Python busca la función `PyInit_faststats` dentro de `faststats.cpython-312-....so`. Si la macro declara `_faststats`, el símbolo exportado es otro y el import falla con `ImportError: dynamic module does not define module export function (PyInit_faststats)`. El archivo y la macro son un contrato."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**`TypeError: ... incompatible function arguments ... Did you forget to #include <pybind11/stl.h>?`** — intentas pasar una lista a un `std::vector` sin la cabecera de conversiones. Añádela; el mensaje de pybind11 es literalmente ese.",
+				"**`ModuleNotFoundError: No module named faststats`** — el `.so` quedó en otro directorio o con otro sufijo. Ejecuta Python desde la carpeta del binario y comprueba el sufijo con `sysconfig.get_config_var`.",
+				"**`ImportError: ... undefined symbol`** — el módulo se compiló contra otra versión de Python. Recompila con el mismo intérprete que lo importa: `python3 -m pybind11 --includes` debe apuntar a ese intérprete.",
+				"**Segmentation fault al llamar** — casi siempre es una referencia a un objeto ya destruido o un `return_value_policy::reference` sobre memoria local.",
+				"**Cuelgue al liberar el GIL** — tocaste objetos `py::` (imprimir, crear una lista, lanzar `py::value_error`) dentro de un `gil_scoped_release`. Copia los datos a estructuras C++ antes de soltar el candado.",
+				"**Cambios que no se ven** — Python cargó un `.so` viejo de otro directorio. Imprime `faststats.__file__` antes de depurar la lógica."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Mide antes y después con el mismo hardware y los mismos datos. Sin número previo no hay optimización, solo intuición.",
+				"Cruza la frontera pocas veces con muchos datos, no muchas veces con pocos: cada llamada tiene un coste fijo.",
+				"Prefiere `py::array_t<T>` sobre `std::vector<T>` cuando los datos vengan de NumPy; evitas una copia completa.",
+				"Escribe `py::arg` y docstrings en todas las funciones públicas: son la documentación que verá quien use el módulo.",
+				"Usa `std::optional` y excepciones estándar en lugar de centinelas; pybind11 los traduce a `None` y a excepciones de Python.",
+				"Libera el GIL solo en funciones que no toquen objetos Python y que duren lo suficiente para amortizar el cambio de contexto.",
+				"Automatiza la compilación con `pyproject.toml` o CMake. Una línea de `g++` del historial no es reproducible."
+			]
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "pyproject.toml",
+			"code": "[build-system]\nrequires = [\"setuptools>=68\", \"pybind11>=2.12\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[project]\nname = \"faststats\"\nversion = \"0.1.0\"\nrequires-python = \">=3.10\""
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "setup.py",
+			"code": "from pybind11.setup_helpers import Pybind11Extension, build_ext\nfrom setuptools import setup\n\next_modules = [Pybind11Extension(\"faststats\", [\"faststats.cpp\"], cxx_std=20)]\nsetup(ext_modules=ext_modules, cmdclass={\"build_ext\": build_ext})"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "instalación en modo editable y comprobación",
+			"code": "python3 -m pip install -e .\npython3 -c \"import faststats; print(faststats.mean([1, 2, 3]))\"   # 2.0"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "CMakeLists.txt para integrarlo en un proyecto existente",
+			"code": "# CMakeLists.txt\ncmake_minimum_required(VERSION 3.20)\nproject(faststats LANGUAGES CXX)\nset(CMAKE_CXX_STANDARD 20)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\nfind_package(pybind11 CONFIG REQUIRED)\npybind11_add_module(faststats faststats.cpp)\n\n# configuración y compilación\npython3 -m pip install pybind11\ncmake -S . -B build -Dpybind11_DIR=$(python3 -m pybind11 --cmakedir)\ncmake --build build -j"
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Producto escalar con argumentos con nombre",
+			"md": "Escribe un módulo `vector_ops` con una función `producto_punto(a, b)` que reciba dos listas de `double`, compruebe que tienen la misma longitud, lance `std::invalid_argument` si no coinciden y devuelva la suma de productos. Compílalo, llama con palabras clave desde Python y provoca el error para ver qué excepción llega.",
+			"hint": "Necesitas `#include <pybind11/stl.h>` para aceptar listas. Recorre con un índice `std::size_t` y acumula en un `double`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "vector_ops.cpp",
+				"code": "#include <pybind11/pybind11.h>\n#include <pybind11/stl.h>\n\n#include <cstddef>\n#include <stdexcept>\n#include <vector>\n\nnamespace py = pybind11;\n\ndouble producto_punto(const std::vector<double>& a, const std::vector<double>& b) {\n    if (a.size() != b.size()) {\n        throw std::invalid_argument(\"los vectores deben tener el mismo tamano\");\n    }\n    double total = 0.0;\n    for (std::size_t i = 0; i < a.size(); ++i) total += a[i] * b[i];\n    return total;\n}\n\nPYBIND11_MODULE(vector_ops, m) {\n    m.def(\"producto_punto\", &producto_punto, py::arg(\"a\"), py::arg(\"b\"),\n          \"Producto escalar de dos vectores\");\n}",
+				"explain": "La comprobación de longitud es obligatoria: sin ella, `b[i]` leería fuera del vector y el comportamiento sería indefinido. `std::invalid_argument` se convierte en `ValueError`, así que desde Python basta con `except ValueError`. Con `py::arg` la llamada `producto_punto(b=v2, a=v1)` funciona y el orden deja de importar."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Una clase con propiedad de solo lectura",
+			"md": "Publica una clase `Contador` con `incrementar()`, `reiniciar()` y una propiedad `valor` que no se pueda asignar desde Python. Añade un `__repr__`. Comprueba en el intérprete que `contador.valor = 10` lanza `AttributeError`.",
+			"hint": "`def_property_readonly` produce una propiedad sin setter. Para el constructor vacío usa `py::init<>()`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "contador.cpp",
+				"code": "#include <pybind11/pybind11.h>\n\n#include <string>\n\nnamespace py = pybind11;\n\nclass Contador {\npublic:\n    void incrementar() { ++valor_; }\n    void reiniciar() { valor_ = 0; }\n    int valor() const { return valor_; }\n\nprivate:\n    int valor_ = 0;\n};\n\nPYBIND11_MODULE(contador, m) {\n    py::class_<Contador>(m, \"Contador\")\n        .def(py::init<>())\n        .def(\"incrementar\", &Contador::incrementar)\n        .def(\"reiniciar\", &Contador::reiniciar)\n        .def_property_readonly(\"valor\", &Contador::valor)\n        .def(\"__repr__\", [](const Contador& c) {\n            return \"<Contador valor=\" + std::to_string(c.valor()) + \">\";\n        });\n}",
+				"explain": "La propiedad de solo lectura protege el invariante: el contador solo cambia mediante métodos que conoces. Si hubieras usado `def_readwrite`, Python podría escribir cualquier entero y saltarse la lógica. El `__repr__` ayuda a depurar porque `print(contador)` muestra el estado en lugar de una dirección de memoria."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el binding",
+			"lang": "cpp",
+			"code": "PYBIND11_MODULE(___, m) {\n    m.def(\"escalar\", &escalar, ___, py::arg(\"factor\"), \"Multiplica el vector por factor\");\n}",
+			"answers": [
+				"vector_ops",
+				"py::arg(\"v\")"
+			],
+			"hint": "El primer hueco es el nombre del módulo, que debe coincidir con el archivo. El segundo declara el nombre del primer argumento.",
+			"explain": "`PYBIND11_MODULE(vector_ops, m)` fija el identificador del módulo y genera `PyInit_vector_ops`. `py::arg(\"v\")` da nombre al primer parámetro y permite llamarlo por palabra clave; sin él, la función sigue funcionando pero la firma aparece como posicional."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la decisión relevante no es el bucle sino el contrato: dos vectores de distinta longitud no tienen producto escalar, y fallar rápido con una excepción es mejor que devolver un número incorrecto en silencio. La versión con listas copia ambos vectores a `std::vector` al entrar: aceptable para cientos de elementos, inaceptable para millones, donde cambiarías la firma a `py::array_t<double>` para leer el buffer original."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, `def_property_readonly` no impide que C++ modifique el valor: impide que Python lo asigne. Esa asimetría es intencionada. Y el `__repr__` no es cosmético: cuando un objeto aparece dentro de una lista en un error, su representación es lo único que verás."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una extensión nativa es un objeto compartido que Python carga e inicializa mediante `PyInit_<modulo>`.",
+				"`PYBIND11_MODULE(nombre, m)` genera ese punto de entrada; `nombre` debe coincidir con el archivo.",
+				"`m.def`, `py::arg` y `py::class_` publican funciones y clases; `.def(py::init<...>())` elige el constructor.",
+				"Con `stl.h` se convierten listas en `std::vector` copiando; con `py::array_t` puedes leer el buffer de NumPy sin copia.",
+				"Las excepciones estándar de C++ llegan como excepciones de Python y `std::optional` como `None`.",
+				"El GIL protege el estado de CPython: se libera con `py::call_guard<py::gil_scoped_release>()` solo en código que no toque objetos `py::`.",
+				"La compilación se automatiza con `pyproject.toml` o CMake; una orden manual en la terminal no es reproducible.",
+				"Cruzar la frontera tiene coste fijo: acelera C++ cuando el trabajo por llamada es grande y no está ya vectorizado en NumPy."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Declaras `PYBIND11_MODULE(_faststats, m)` pero el archivo se llama `faststats.cpp`. ¿Qué ocurre al importar?",
+			"options": [
+				"Funciona: Python usa el nombre del archivo",
+				"Falla con ImportError porque no encuentra PyInit_faststats",
+				"Compila pero las funciones no aparecen en el módulo",
+				"Falla en tiempo de compilación por el guion bajo"
+			],
+			"answer": 1,
+			"explain": "El import busca la función de inicialización que corresponde al nombre del archivo. La macro exporta `PyInit__faststats`, así que CPython no encuentra `PyInit_faststats` y lanza `ImportError: dynamic module does not define module export function`."
+		},
+		{
+			"type": "quiz",
+			"question": "Quieres que una función C++ reciba una lista de Python como `std::vector<double>`. ¿Qué añades?",
+			"options": [
+				"`#include <pybind11/numpy.h>`",
+				"`#include <pybind11/stl.h>`",
+				"`py::call_guard<py::gil_scoped_release>()`",
+				"Nada: pybind11 convierte listas por defecto"
+			],
+			"answer": 1,
+			"explain": "Las conversiones de contenedores STL son opcionales y viven en `stl.h`. Sin ella, el error es `TypeError: incompatible function arguments` y el propio mensaje sugiere la cabecera que falta. `numpy.h` sirve para `py::array_t`, no para listas."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuándo es seguro añadir `py::call_guard<py::gil_scoped_release>()` a una función?",
+			"options": [
+				"Cuando la función es rápida, para no bloquear al intérprete",
+				"Cuando la función no toca ningún objeto de Python y solo opera con datos C++",
+				"Siempre: liberar el GIL nunca puede fallar",
+				"Solo en Windows, donde no existe el GIL"
+			],
+			"answer": 1,
+			"explain": "Con el GIL liberado, el intérprete puede ejecutar otro hilo y mover objetos. Tocar un `py::object`, crear una lista o lanzar una excepción de Python en ese estado provoca fallos difíciles de reproducir. La ganancia solo aparece en cálculos largos que no necesitan el intérprete."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "pybind11 · Documentación oficial",
+					"url": "https://pybind11.readthedocs.io/en/stable/",
+					"note": "guía, referencia de API y ejemplos"
+				},
+				{
+					"label": "pybind11 · Build systems",
+					"url": "https://pybind11.readthedocs.io/en/stable/compiling.html",
+					"note": "CMake, setuptools y banderas por plataforma"
+				},
+				{
+					"label": "Python docs · Extending Python with C or C++",
+					"url": "https://docs.python.org/3/extending/extending.html",
+					"note": "la API C que pybind11 envuelve"
+				},
+				{
+					"label": "NumPy docs · Array interface",
+					"url": "https://numpy.org/doc/stable/reference/arrays.interface.html",
+					"note": "qué es el buffer protocol"
+				}
+			]
+		}
+	]
+}

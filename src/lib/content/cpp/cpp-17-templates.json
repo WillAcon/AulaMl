@@ -1,0 +1,437 @@
+{
+	"id": "cpp-17-templates",
+	"track": "cpp",
+	"order": 17,
+	"title": "Templates y programación genérica",
+	"subtitle": "Escribir una función o una clase una vez y que sirva para muchos tipos",
+	"level": "avanzado",
+	"minutes": 46,
+	"tags": ["templates", "genéricos", "concepts", "stl"],
+	"keywords": [
+		"qué es una plantilla en c++",
+		"template typename",
+		"plantilla de función",
+		"plantilla de clase",
+		"instanciación de plantillas",
+		"especialización de plantilla",
+		"plantillas variádicas",
+		"concepts c++20",
+		"error de plantilla",
+		"programación genérica",
+		"typename dependent name"
+	],
+	"summary": "Una plantilla es un molde con el que el compilador fabrica funciones y clases para cada tipo que uses. Aquí verás cómo se instancian, cómo restringirlas con concepts de C++20 y cómo leer los errores que producen.",
+	"objectives": [
+		"Escribir plantillas de función y de clase y reconocer cuándo se instancian",
+		"Explicar la diferencia entre una plantilla y el código que genera",
+		"Usar typename, especialización y plantillas variádicas sin copiar código",
+		"Restringir una plantilla con concepts para obtener errores legibles",
+		"Decidir cuándo una plantilla es mejor que una sobrecarga o una clase base"
+	],
+	"prerequisites": ["Regla de 0/3/5 y sobrecarga de operadores", "Clases, constructores y encapsulamiento"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Cuando usas `std::vector<int>`, `std::vector<double>` o `std::vector<std::string>`, no existe una clase distinta escrita a mano para cada uno: existe una **plantilla**. Una plantilla no es código ejecutable, sino un molde que el compilador rellena con el tipo concreto que le pidas."
+		},
+		{
+			"type": "p",
+			"md": "Esa idea, la **programación genérica**, es la que permite que la biblioteca estándar tenga un solo `std::sort` que ordena enteros, cadenas o structs, y un solo `std::vector` que guarda cualquier cosa. En esta lección vas a escribir tus propios moldes y a entender qué genera el compilador por debajo."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una plantilla?"
+		},
+		{
+			"type": "p",
+			"md": "Piensa en una plantilla de repostería: el cortador tiene la forma, pero no es el bizcocho. Con `template <typename T> T doble(T x)` describes la forma de una función; el bizcocho aparece cuando escribes `doble(4)`. En ese momento el compilador sustituye `T` por `int` y genera una función real."
+		},
+		{
+			"type": "p",
+			"md": "`T` es un **parámetro de tipo**: un hueco que se rellena con `int`, `double`, `std::string` o incluso con otro tipo de tu programa. También puedes tener parámetros que no son tipos, como un tamaño entero, y plantillas con varios parámetros a la vez."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Plantilla no es polimorfismo en tiempo de ejecución",
+			"md": "Una plantilla se resuelve durante la compilación: no hay tabla de funciones virtuales ni búsqueda en tiempo de ejecución. Por eso el código genérico de C++ puede ser tan rápido como el escrito a mano, a cambio de generar una versión por cada tipo distinto."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve la programación genérica?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Evitar duplicación**: una sola `ordenar` para todos los tipos comparables, en lugar de una copia por tipo.",
+				"**Usar la biblioteca estándar**: `vector`, `map`, `sort`, `find_if` y `accumulate` son plantillas; entenderlas es entender la STL.",
+				"**Escribir contenedores propios**: una matriz, una cola o un buffer funcionan igual con `float`, `int` o un struct de tu dominio.",
+				"**Código sin coste**: el compilador conoce el tipo concreto y puede insertar las operaciones directamente, sin indirecciones.",
+				"**Bibliotecas de Machine Learning**: Eigen declara `Matrix<float, 3, 3>`; el tipo y el tamaño forman parte de la plantilla, lo que permite optimizar en compilación."
+			]
+		},
+		{
+			"type": "table",
+			"head": ["Enfoque", "Cómo evita repetir", "Coste o límite"],
+			"rows": [
+				["Sobrecarga manual", "Una función por tipo, todas explícitas", "Mucho código y mantenimiento"],
+				["Macro o `void*`", "Se escribe una vez", "Pierde el tipo: errores tardíos y conversiones inseguras"],
+				["Plantilla", "El compilador genera una versión por tipo", "Más código máquina y errores de compilación largos"],
+				["Herencia virtual", "Una implementación para todos", "Indirección en tiempo de ejecución y jerarquías rígidas"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: instanciación"
+		},
+		{
+			"type": "p",
+			"md": "El compilador procesa una plantilla en dos momentos. Primero comprueba su sintaxis y sus nombres no dependientes, aunque nadie la use. Después, cuando encuentra una llamada como `doble(4)`, **deduce** que `T` es `int` e **instancia** la función `doble<int>`, es decir, genera el código de esa versión concreta."
+		},
+		{
+			"type": "p",
+			"md": "Ese proceso se llama **monomorphization** y explica dos cosas. La buena: cada versión está especializada y el optimizador trabaja con tipos conocidos. La mala: si usas la plantilla con veinte tipos, tendrás veinte copias del código; si además la plantilla vive en una cabecera, cada archivo que la usa la vuelve a instanciar."
+		},
+		{
+			"type": "p",
+			"md": "De ahí una regla práctica: las definiciones de plantillas se escriben en la cabecera (`.hpp`), no en un `.cpp` separado. El compilador necesita ver el cuerpo completo en el punto donde deduce `T`; si solo ve la declaración, compila la llamada pero falla el enlazado con un `undefined reference`."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: parámetros, typename y especialización"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica empieza por `template` y una lista de parámetros entre ángulos. `typename T` y `class T` significan exactamente lo mismo aquí; hoy se prefiere `typename` porque también se usa para tipos que no son clases. El parámetro puede deducirse del argumento o indicarse de forma explícita: `menor<double>(3, 4.5)`."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "#include <iostream>\n#include <string>\n#include <utility>\n\ntemplate <typename T>\nT menor(const T& a, const T& b) {\n    return (a < b) ? a : b;\n}\n\ntemplate <typename T>\nclass Caja {\npublic:\n    explicit Caja(T valor) : valor_(std::move(valor)) {}\n    const T& valor() const { return valor_; }\nprivate:\n    T valor_;\n};\n\nint main() {\n    std::cout << menor(9, 4) << '\\n';          // 4\n    std::cout << menor(2.5, 7.5) << '\\n';      // 2.5\n\n    Caja<std::string> c(\"peso\");\n    std::cout << c.valor() << '\\n';            // peso\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Dentro de una plantilla, a veces necesitas decirle al compilador que un nombre colgante es un tipo. Si `T` es un contenedor, `T::value_type` podría ser un tipo o un miembro estático; el compilador no lo sabe hasta instanciar. La palabra `typename` resuelve la ambigüedad y es obligatoria en ese contexto."
+		},
+		{
+			"type": "p",
+			"md": "La **especialización total** sustituye el molde por una implementación concreta cuando todos los parámetros están fijados. Sirve para optimizar un caso o para cambiar el comportamiento con un tipo específico, sin tocar la versión genérica."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "especializacion.cpp",
+			"code": "#include <iostream>\n#include <string>\n\ntemplate <typename T>\nstruct Etiqueta {\n    static std::string texto() { return \"tipo generico\"; }\n};\n\ntemplate <>\nstruct Etiqueta<bool> {\n    static std::string texto() { return \"booleano\"; }\n};\n\ntemplate <>\nstruct Etiqueta<std::string> {\n    static std::string texto() { return \"texto\"; }\n};\n\nint main() {\n    std::cout << Etiqueta<int>::texto() << '\\n';\n    std::cout << Etiqueta<bool>::texto() << '\\n';\n    std::cout << Etiqueta<std::string>::texto() << '\\n';\n    return 0;\n}"
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: una función para muchos tipos"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "maximo.cpp",
+			"code": "#include <iostream>\n#include <string>\n\ntemplate <typename T>\nT maximo(const T& a, const T& b) {\n    return (a < b) ? b : a;\n}\n\nint main() {\n    std::cout << maximo(3, 7) << '\\n';              // 7\n    std::cout << maximo(2.5, 1.5) << '\\n';          // 2.5\n    std::cout << maximo<std::string>(\"ana\", \"bea\") << '\\n'; // bea\n    return 0;\n}"
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`template <typename T>` abre el molde: todo lo que sigue puede usar `T` como si fuera un tipo conocido.",
+				"`T maximo(const T& a, const T& b)` recibe dos referencias constantes y devuelve una copia del mayor. La referencia evita copiar objetos grandes.",
+				"En `maximo(3, 7)` el compilador deduce `T = int` y genera `maximo<int>`; en `maximo(2.5, 1.5)` genera `maximo<double>`.",
+				"La llamada con cadenas necesita `maximo<std::string>` porque dos literales son `const char*`: sin el tipo explícito se compararían direcciones, no textos."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La deducción no convierte entre tipos",
+			"md": "`maximo(3, 4.5)` no compila: de un argumento se deduce `int` y del otro `double`, y el compilador no elige por ti. Escribe `maximo<double>(3, 4.5)` o convierte antes. Esta rigidez es una protección: evita comparaciones con pérdidas silenciosas."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: una clase plantilla"
+		},
+		{
+			"type": "p",
+			"md": "Una clase plantilla se instancia igual que una función: cada combinación de parámetros produce un tipo distinto. `Caja<int>` y `Caja<std::string>` son clases diferentes para el compilador, con sus propios métodos y su propio `sizeof`."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "caja.cpp",
+			"code": "#include <iostream>\n#include <string>\n#include <utility>\n\ntemplate <typename T>\nclass Caja {\npublic:\n    explicit Caja(T valor) : valor_(std::move(valor)) {}\n    const T& valor() const { return valor_; }\n    void guardar(T nuevo) { valor_ = std::move(nuevo); }\nprivate:\n    T valor_;\n};\n\nint main() {\n    Caja<int> entero(42);\n    Caja<std::string> texto(\"modelo\");\n\n    entero.guardar(7);\n    std::cout << entero.valor() << ' ' << texto.valor() << '\\n'; // 7 modelo\n\n    Caja deducida(3.5);                 // C++17: deduce Caja<double>\n    std::cout << deducida.valor() << '\\n';\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "La última línea usa **deducción de argumentos de plantilla del constructor** (CTAD): al no escribir `<double>`, el compilador lo obtiene del argumento `3.5`. Funciona cuando hay un constructor que permite deducir todos los parámetros; en clases con varios parámetros puede volverse ambiguo, así que conviene usarla en casos simples."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: variádicas y concepts"
+		},
+		{
+			"type": "p",
+			"md": "Una **plantilla variádica** acepta un número arbitrario de argumentos. `typename... Ts` es un paquete de tipos y `Ts...` un paquete de parámetros; `sizeof...(valores)` cuenta cuántos hay. La forma clásica de procesarlos es recursiva: separas el primero y pasas el resto."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "variadica.cpp",
+			"code": "#include <iostream>\n\ntemplate <typename... Ts>\nauto cantidad(const Ts&... valores) {\n    return sizeof...(valores);\n}\n\ntemplate <typename T>\nT suma(T valor) {\n    return valor;\n}\n\ntemplate <typename T, typename... Resto>\nT suma(T primero, Resto... resto) {\n    return primero + suma(resto...);\n}\n\nint main() {\n    std::cout << cantidad(1, 2.5, \"tres\") << '\\n'; // 3\n    std::cout << suma(1, 2, 3, 4) << '\\n';         // 10\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Los **concepts** de C++20 permiten declarar qué operaciones debe soportar un tipo antes de instanciar la plantilla. El mensaje de error deja de ser una lista de errores internos y pasa a decir «no se cumplen las restricciones». Además documentan el contrato en la firma."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "concepts.cpp",
+			"code": "#include <concepts>\n#include <iostream>\n\ntemplate <typename T>\nconcept Numerico = std::integral<T> || std::floating_point<T>;\n\ntemplate <Numerico T>\nT promedio(T a, T b) {\n    return (a + b) / 2;\n}\n\nint main() {\n    std::cout << promedio(3, 5) << '\\n';     // 4\n    std::cout << promedio(3.0, 4.0) << '\\n'; // 3.5\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en que `promedio(3, 5)` devuelve 4 y no 4.0: con `T = int`, la división es entera. La plantilla no cambia las reglas del tipo que le pasas; solo escribe la operación una vez. Si quieres un resultado real, pasa `double` o diseña la firma con `double` como tipo de retorno."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué genera el compilador"
+		},
+		{
+			"type": "p",
+			"md": "El código de abajo tiene una sola plantilla, pero produce dos funciones. Avanza por los pasos y observa que la plantilla nunca se ejecuta: lo que se ejecuta son las instancias `doble<int>` y `doble<double>`."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Una plantilla, dos instancias",
+			"code": "#include <iostream>\n\ntemplate <typename T>\nT doble(T x) {\n    return x + x;\n}\n\nint main() {\n    int a = doble(4);\n    double b = doble(1.5);\n    std::cout << a << ' ' << b << '\\n';\n}",
+			"steps": [
+				{
+					"line": 3,
+					"note": "El compilador registra el molde `doble<T>`. No genera código todavía porque no conoce `T`.",
+					"vars": {},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "La llamada `doble(4)` deduce `T = int`. Se instancia `doble<int>` con `x = 4`.",
+					"vars": { "a": "—", "b": "—" },
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Dentro de `doble<int>`, `x + x` es `4 + 4`. El resultado 8 se asigna a `a`.",
+					"vars": { "a": "8", "b": "—" },
+					"frames": [{ "name": "doble<int>(4)", "vars": { "x": "4", "T": "int" } }],
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "`doble(1.5)` deduce `T = double` y crea una segunda instancia, independiente de la anterior.",
+					"vars": { "a": "8", "b": "—" },
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "En `doble<double>`, `x + x` es `1.5 + 1.5 = 3.0`. `b` guarda 3.",
+					"vars": { "a": "8", "b": "3" },
+					"frames": [{ "name": "doble<double>(1.5)", "vars": { "x": "1.5", "T": "double" } }],
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "Se imprimen las dos variables. La plantilla desapareció: solo quedan dos funciones normales.",
+					"vars": { "a": "8", "b": "3" },
+					"output": "8 3\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Tipos deducidos en conflicto**: `menor(3, 4.5)` produce `deduced conflicting types for parameter 'const T&'`. Solución: convertir un argumento o indicar `menor<double>(3, 4.5)`.",
+				"**Falta `typename`**: `T::value_type x;` en una plantilla da `need 'typename' before 'T::value_type' because 'T' is a dependent scope`. Escribe `typename T::value_type x;`.",
+				"**Definir la plantilla en un `.cpp`**: si el cuerpo no está en la cabecera, otras unidades de traducción no pueden instanciarla y el enlazador reporta `undefined reference`.",
+				"**Leer solo el primer error**: el mensaje real suele estar en la última línea de una cadena larga; busca `required from here` para encontrar tu llamada.",
+				"**Restricciones implícitas**: si la plantilla usa `a + b` y le pasas un tipo sin `operator+`, el error aparece dentro de la plantilla, lejos de tu código. Un concept lo acerca a la llamada.",
+				"**Abusar de la especialización**: varias especializaciones parciales superpuestas hacen que la resolución sea difícil de predecir. Prefiere `if constexpr` o concepts cuando puedas."
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El error clásico de deducción",
+			"wrong": {
+				"caption": "Incorrecto: dos tipos distintos para el mismo T",
+				"code": "template <typename T>\nT menor(const T& a, const T& b);\n\nmenor(3, 4.5);   // T = int e double a la vez"
+			},
+			"right": {
+				"caption": "Correcto: un solo tipo",
+				"code": "menor(3.0, 4.5);          // T = double\nmenor<double>(3, 4.5);    // conversion explicita"
+			},
+			"explain": "La deducción exige que todos los usos de `T` lleguen al mismo tipo. No hay promoción automática entre argumentos de una plantilla, porque eso podría ocultar conversiones con pérdida. Indica el tipo o unifica los argumentos."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Nombra los parámetros con intención: `T` para un tipo genérico, `Iter` para un iterador, `Pred` para un predicado.",
+				"Pasa los argumentos grandes como `const T&` y devuelve por valor; el compilador aplicará la elisión de copia.",
+				"Restringe con concepts en cuanto la plantilla dependa de una operación concreta: `<std::integral T>` es más claro que un error interno.",
+				"Define plantillas en cabeceras y marca las funciones cortas como `inline` si hace falta evitar duplicados al enlazar.",
+				"Prefiere una plantilla de función a una clase plantilla cuando no necesites guardar estado.",
+				"No generalices por adelantado: si solo tienes dos tipos y el código es corto, dos sobrecargas se leen mejor.",
+				"Prueba la plantilla con un tipo inesperado (por ejemplo, una cadena y un `double`) para descubrir restricciones ocultas."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Genérico en Python y en C++",
+			"python": {
+				"caption": "generico.py",
+				"code": "def doble(x):\n    return x + x\n\nprint(doble(4))     # 8\nprint(doble(\"ab\"))  # abab"
+			},
+			"cpp": {
+				"caption": "generico.cpp",
+				"code": "template <typename T>\nT doble(T x) { return x + x; }\n\nstd::cout << doble(4);                  // 8\nstd::cout << doble(std::string(\"ab\"));  // abab"
+			},
+			"note": "Python comprueba en tiempo de ejecución si el objeto soporta `+`; si no, falla al llamar. C++ comprueba al compilar y genera una versión por tipo. El resultado es el mismo, pero en C++ el error llega antes y el coste en ejecución es cero."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Sumar los elementos de un vector",
+			"md": "Escribe una plantilla `suma_vector` que reciba `const std::vector<T>&` y devuelva la suma de sus elementos. Pruébala con `{1, 2, 3}` y con `{1.5, 2.0, 2.5}`. No uses `std::accumulate`.",
+			"hint": "Declara `T total{};` para inicializar a cero del tipo correcto y recorre con range-for. El valor de retorno debe ser `T`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "suma_vector.cpp",
+				"code": "#include <iostream>\n#include <vector>\n\ntemplate <typename T>\nT suma_vector(const std::vector<T>& datos) {\n    T total{};\n    for (const T& valor : datos) {\n        total += valor;\n    }\n    return total;\n}\n\nint main() {\n    std::vector<int> enteros{1, 2, 3};\n    std::vector<double> reales{1.5, 2.0, 2.5};\n\n    std::cout << suma_vector(enteros) << '\\n'; // 6\n    std::cout << suma_vector(reales) << '\\n';  // 6\n    return 0;\n}",
+				"explain": "`T total{}` usa inicialización de valor: 0 para tipos numéricos, vacío para cadenas. La plantilla deduce `T` del `vector` que recibe, así que no hay conversiones. Si el vector está vacío, devuelve el cero del tipo, que es el resultado correcto."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Un mínimo restringido con concepts",
+			"md": "Define un concept `Ordenable` que exija `a < b` convertible a `bool` y una función `minimo` restringida a él, que devuelva el menor elemento de un `std::vector<T>`. Si el vector está vacío, lanza `std::invalid_argument`. Pruébala con enteros y con cadenas.",
+			"hint": "Usa `requires(const T& a, const T& b) { { a < b } -> std::convertible_to<bool>; }`. Recorre desde el segundo elemento comparando con el mínimo actual.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "minimo.cpp",
+				"code": "#include <concepts>\n#include <iostream>\n#include <stdexcept>\n#include <string>\n#include <vector>\n\ntemplate <typename T>\nconcept Ordenable = requires(const T& a, const T& b) {\n    { a < b } -> std::convertible_to<bool>;\n};\n\ntemplate <Ordenable T>\nT minimo(const std::vector<T>& datos) {\n    if (datos.empty()) {\n        throw std::invalid_argument(\"vector vacio\");\n    }\n    T mejor = datos.front();\n    for (const T& valor : datos) {\n        if (valor < mejor) {\n            mejor = valor;\n        }\n    }\n    return mejor;\n}\n\nint main() {\n    std::vector<int> enteros{5, 2, 9};\n    std::vector<std::string> nombres{\"ana\", \"bea\", \"zoe\"};\n\n    std::cout << minimo(enteros) << '\\n';  // 2\n    std::cout << minimo(nombres) << '\\n';  // ana\n    return 0;\n}",
+				"explain": "El concept documenta el requisito y hace que una llamada con un tipo sin `operator<` falle en la firma, no dentro del bucle. La copia `T mejor` es aceptable para tipos pequeños y para cadenas; si el tipo fuera muy caro, podrías devolver una referencia o un índice."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la plantilla",
+			"lang": "cpp",
+			"code": "___ <typename T>\nT menor(T a, T b) {\n    return (a < b) ? ___ : b;\n}\n\nint main() {\n    std::cout << menor(9, 4);     // 4\n    std::cout << menor(2.5, 7.5); // 2.5\n}",
+			"answers": ["template", "a"],
+			"hint": "La palabra que abre el molde es la misma que aparece en la declaración de una plantilla de clase.",
+			"explain": "`template` introduce la lista de parámetros y `a` es el menor cuando la condición se cumple. Si inviertes el ternario, la función devuelve el mayor y el ejemplo deja de coincidir con la salida."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la decisión importante es inicializar con `T total{}` y no con `0`. Si el tipo es `double`, un `0` literal también funcionaría por conversión, pero `T{}` expresa la intención y evita sorpresas con tipos definidos por el usuario. La plantilla no necesita saber si suma enteros o reales: solo necesita que `+=` exista."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el concept cumple dos funciones. Para el compilador, impide instanciar la plantilla con tipos que no se pueden ordenar. Para quien lee el código, documenta el contrato sin abrir el cuerpo. Fíjate también en que la comprobación de vacío ocurre antes de `front()`: llamar a `front()` en un vector vacío es comportamiento indefinido, no una excepción."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una plantilla es un molde; el compilador genera código para cada tipo con el que se usa.",
+				"La instanciación ocurre al compilar, no al ejecutar: no hay coste de indirección.",
+				"`typename T` y `class T` son equivalentes en la lista de parámetros; `typename` también marca nombres dependientes.",
+				"Las definiciones de plantillas van en cabeceras para que cualquier unidad pueda instanciarlas.",
+				"La especialización total cambia el comportamiento para un tipo concreto.",
+				"Las variádicas aceptan paquetes de argumentos; los concepts restringen y documentan el contrato.",
+				"Si el código solo se usa con dos tipos y es corto, dos sobrecargas pueden ser más claras."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuándo se genera el código de `template <typename T> T doble(T x)`?",
+			"options": [
+				"Al ejecutar el programa, la primera vez que se llama",
+				"Al compilar, por cada tipo con el que se instancia",
+				"Al enlazar, una sola vez para todos los tipos",
+				"Siempre que se incluye la cabecera, una vez por archivo"
+			],
+			"answer": 1,
+			"explain": "La plantilla se instancia durante la compilación con el tipo deducido. Por eso no hay despacho dinámico y por eso el mismo molde puede producir varias funciones en el binario."
+		},
+		{
+			"type": "quiz",
+			"question": "`maximo(3, 4.5)` no compila. ¿Cuál es la corrección más directa?",
+			"options": [
+				"Cambiar la plantilla por una macro",
+				"Escribir `maximo<double>(3, 4.5)` o `maximo(3.0, 4.5)`",
+				"Declarar `T` como `auto` en la plantilla",
+				"Añadir `using namespace std;`"
+			],
+			"answer": 1,
+			"explain": "La deducción exige un único tipo para `T`. Al indicarlo explícitamente o al unificar los argumentos, la instanciación es posible. Una macro perdería la comprobación de tipos."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Para qué sirve `typename` en `typename T::value_type x;`?",
+			"options": [
+				"Para convertir el valor a otro tipo",
+				"Para indicar que el nombre dependiente es un tipo y no un miembro estático",
+				"Para que la plantilla se instancie en tiempo de ejecución",
+				"Para declarar una variable constante"
+			],
+			"answer": 1,
+			"explain": "El compilador no puede saber si `T::value_type` es un tipo hasta instanciar. `typename` se lo asegura y evita el error de ámbito dependiente. No tiene relación con las conversiones ni con `const`."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · Plantillas",
+					"url": "https://en.cppreference.com/w/cpp/language/templates",
+					"note": "referencia del lenguaje"
+				},
+				{
+					"label": "cppreference · Concepts",
+					"url": "https://en.cppreference.com/w/cpp/language/constraints",
+					"note": "restricciones de C++20"
+				},
+				{
+					"label": "learncpp · Function templates",
+					"url": "https://www.learncpp.com/cpp-tutorial/function-templates/",
+					"note": "explicación progresiva"
+				}
+			]
+		}
+	]
+}

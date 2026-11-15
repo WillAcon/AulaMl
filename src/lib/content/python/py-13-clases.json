@@ -1,0 +1,467 @@
+{
+	"id": "py-13-clases",
+	"track": "python",
+	"order": 13,
+	"title": "Clases y objetos",
+	"subtitle": "Agrupar datos y comportamiento en un mismo tipo, con estado propio para cada instancia",
+	"level": "intermedio",
+	"minutes": 42,
+	"tags": ["clases", "objetos", "poo", "init", "self"],
+	"keywords": [
+		"qué es una clase",
+		"objeto instancia",
+		"__init__ python",
+		"self python",
+		"atributo de instancia",
+		"atributo de clase",
+		"métodos",
+		"encapsulamiento",
+		"__repr__",
+		"objetos mutables",
+		"crear clase",
+		"programación orientada a objetos"
+	],
+	"summary": "Una clase es un plano que define qué datos y qué operaciones tiene un tipo de objeto; cada instancia guarda su propio estado. Aprenderás a escribir __init__, usar self, distinguir atributos de instancia y de clase, proteger datos por convención y mostrar objetos con __repr__.",
+	"objectives": [
+		"Definir clases con atributos y métodos",
+		"Explicar qué representa self en una llamada a un método",
+		"Distinguir un atributo de instancia de uno de clase",
+		"Crear objetos mutables propios en __init__ y no en el cuerpo de la clase",
+		"Aplicar encapsulamiento por convención con nombres que empiezan por guion bajo",
+		"Escribir un __repr__ útil para depurar"
+	],
+	"prerequisites": ["Lambda, map/filter/reduce y recursividad"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora cada dato vivía en una variable suelta y cada operación en una función que recibía esos datos por separado. Para un producto puedes tener `nombre`, `precio` y `stock` en tres variables sueltas, y nada garantiza que sigan siendo del mismo producto."
+		},
+		{
+			"type": "p",
+			"md": "Una **clase** agrupa esos datos y las operaciones que los usan bajo un mismo tipo. Cada **objeto** creado a partir de la clase lleva su propio estado: dos carritos distintos tienen listas distintas, aunque compartan el mismo código. Es la base de casi todas las bibliotecas que usarás en Machine Learning."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una clase?"
+		},
+		{
+			"type": "p",
+			"md": "Una **clase** es un molde o plano: describe qué atributos tendrá un objeto y qué métodos podrá ejecutar. Un **objeto** (o **instancia**) es una copia concreta de ese molde, con valores propios. La analogía clásica funciona: la clase es el plano de una casa; cada casa construida es una instancia, y pintar una pared de una no cambia las demás."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**`class`**: la palabra que inicia la definición y el nombre del tipo, por convención en `CamelCase`.",
+				"**Atributos**: los datos que guarda cada objeto, como `self.nombre` o `self.precio`.",
+				"**Métodos**: funciones definidas dentro de la clase que operan sobre el objeto.",
+				"**`__init__`**: el método especial que se ejecuta al crear una instancia y deja el objeto listo.",
+				"**`self`**: el primer parámetro de los métodos; por él se accede al objeto concreto.",
+				"**`__repr__`**: el método que decide cómo se muestra el objeto al imprimirlo."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "La clase no es el objeto",
+			"md": "`Producto` es la clase: el molde. `Producto(\"mouse\", 50)` es una instancia concreta. Puedes crear cinco mil y cada una tendrá su nombre y su precio. Al escribir `Producto` sin paréntesis obtienes el molde; al escribir los paréntesis, construyes un objeto."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Modelar entidades**: un producto, un cliente, una cuenta o una transacción con sus datos y reglas.",
+				"**Mantener el estado coherente**: el stock solo cambia a través de métodos que validan la cantidad.",
+				"**Evitar funciones con demasiados parámetros**: el objeto lleva sus datos consigo.",
+				"**Reutilizar con herencia**: un `ClientePremium` puede partir de `Cliente` y añadir ventajas.",
+				"**Integrarse con bibliotecas**: en scikit-learn cada modelo es un objeto con `fit` y `predict`.",
+				"**Organizar pruebas**: puedes crear instancias con estados concretos y comprobar sus métodos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Al ejecutar una `class`, Python crea un objeto de tipo clase y guarda dentro los métodos y los atributos definidos en el cuerpo. Ese cuerpo se ejecuta una sola vez, en el momento de la definición. Por eso un atributo asignado directamente en la clase se comparte entre todas las instancias: existe en el molde, no en cada objeto."
+		},
+		{
+			"type": "p",
+			"md": "Cuando escribes `p = Producto(\"mouse\", 50)`, Python crea un objeto vacío y llama a `__init__` pasándolo como primer argumento. Por eso el parámetro se llama `self`: dentro del método, `self` es esa instancia. Las asignaciones `self.nombre = ...` guardan los valores en el diccionario interno del objeto, visible con `p.__dict__`."
+		},
+		{
+			"type": "p",
+			"md": "Al llamar `p.precio_final()`, Python busca el método en la clase y lo invoca con `p` como `self`: el código se comparte, el estado no. Si un atributo no está en la instancia, se busca en la clase; al asignarlo con `self.x`, se crea uno nuevo que oculta al de clase."
+		},
+		{
+			"type": "table",
+			"head": ["Concepto", "Dónde se define", "Se comparte"],
+			"rows": [
+				["Atributo de instancia", "`self.x = ...` dentro de un método", "No: cada objeto tiene el suyo"],
+				["Atributo de clase", "`x = ...` en el cuerpo de la clase", "Sí: todos lo ven por defecto"],
+				["Método", "`def m(self):` en la clase", "Sí: el código es único"],
+				["Atributo tras `self.x = ...`", "Instancia, aunque exista en la clase", "No: oculta al de clase"],
+				["Nombre con `_`", "Convención de uso interno", "Sí, pero no lo toques desde fuera"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: class, __init__ y métodos"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica incluye una docstring, un atributo de clase si es común a todos, un `__init__` que crea el estado y métodos que lo consultan o lo modifican. El nombre de la clase va en `CamelCase`; los métodos y atributos, en `snake_case`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "producto.py",
+			"code": "class Producto:\n    \"\"\"Producto del inventario con su precio final.\"\"\"\n\n    igv = 0.18  # atributo de clase: igual para todos\n\n    def __init__(self, nombre, precio):\n        self.nombre = nombre\n        self.precio = precio\n\n    def precio_final(self):\n        return self.precio * (1 + self.igv)\n\n    def __repr__(self):\n        return f\"Producto({self.nombre!r}, {self.precio})\"\n\n\np = Producto(\"mouse\", 50)\nprint(p)\nprint(p.precio_final())",
+			"highlight": [4, 6, 7, 8, 10, 11, 14, 18, 19]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`__init__` no crea el objeto: lo inicializa. El objeto ya existe cuando se ejecuta.",
+				"`self` debe ser el primer parámetro de cada método de instancia; el nombre es convención, pero no lo cambies.",
+				"`__repr__` debe devolver una cadena; si no, Python lanza `TypeError`.",
+				"Los métodos se llaman sin pasar `self`: `p.precio_final()` lo añade Python por ti.",
+				"Un método que no usa `self` puede ser una función normal o un `@staticmethod`; no lo fuerces a ser método."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: un producto"
+		},
+		{
+			"type": "p",
+			"md": "El bloque anterior ya es un ejemplo completo. Al crear `p`, `__init__` guarda `\"mouse\"` y `50`. `precio_final` lee `self.precio` y `self.igv`, que se encuentra en la clase. `print(p)` usa `__repr__` y muestra `Producto('mouse', 50)` en lugar de una dirección de memoria."
+		},
+		{
+			"type": "p",
+			"md": "El `!r` de la f-string aplica `repr` al nombre y añade las comillas, así se distingue un texto de un número. Sin `__repr__`, verías algo como `<__main__.Producto object at 0x104f3c190>`, que no dice nada."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: dos carritos independientes"
+		},
+		{
+			"type": "p",
+			"md": "Aquí aparece la diferencia clave entre atributo de clase y de instancia. Si declaras la lista en el cuerpo de la clase, todos los carritos comparten la misma y agregar algo en uno aparece en el otro."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "carrito.py",
+			"code": "class Carrito:\n    \"\"\"Carrito de compras con una lista propia por instancia.\"\"\"\n\n    def __init__(self, cliente):\n        self.cliente = cliente\n        self.items = []  # lista nueva para cada carrito\n\n    def agregar(self, nombre, precio):\n        self.items.append((nombre, precio))\n        return len(self.items)\n\n    def total(self):\n        return sum(precio for _, precio in self.items)\n\n    def __repr__(self):\n        return f\"Carrito({self.cliente!r}, {len(self.items)} items)\"\n\n\nana = Carrito(\"Ana\")\nluis = Carrito(\"Luis\")\nana.agregar(\"teclado\", 120)\nana.agregar(\"mouse\", 45)\nluis.agregar(\"monitor\", 300)\nprint(ana, ana.total())\nprint(luis, luis.total())",
+			"highlight": [6, 9, 10, 13, 16, 20, 21, 22, 23, 24]
+		},
+		{
+			"type": "p",
+			"md": "La línea 6 crea una lista vacía cada vez que se ejecuta `__init__`, es decir, una por carrito. `agregar` modifica `self.items` y devuelve cuántos ítems hay; `total` recorre esa lista con una expresión generadora y suma los precios. El resultado es `Carrito('Ana', 2 items) 165` y `Carrito('Luis', 1 items) 300`."
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en que `total` no recibe la lista como parámetro: la obtiene de `self`. Esa es la ventaja de agrupar estado y comportamiento. También podrías escribir `sum(p for _, p in self.items)`, pero el desempaquetado en el `for` evita índices y se lee mejor."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: control de inventario"
+		},
+		{
+			"type": "p",
+			"md": "Un inventario debe impedir operaciones imposibles: no se puede sacar más de lo que hay ni ingresar una cantidad negativa. Si el stock fuera un diccionario suelto, cualquiera podría modificarlo sin validar; con una clase, los únicos caminos son `entrar` y `salir`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "inventario.py",
+			"code": "class Inventario:\n    \"\"\"Controla el stock con operaciones validadas.\"\"\"\n\n    def __init__(self):\n        self._stock = {}\n\n    def entrar(self, producto, cantidad):\n        if cantidad <= 0:\n            raise ValueError(\"La cantidad debe ser positiva\")\n        self._stock[producto] = self._stock.get(producto, 0) + cantidad\n\n    def salir(self, producto, cantidad):\n        disponible = self._stock.get(producto, 0)\n        if cantidad > disponible:\n            raise ValueError(f\"Stock insuficiente: hay {disponible}\")\n        self._stock[producto] = disponible - cantidad\n\n    def consultar(self, producto):\n        return self._stock.get(producto, 0)\n\n    def __repr__(self):\n        return f\"Inventario({self._stock})\"\n\n\ninv = Inventario()\ninv.entrar(\"mouse\", 10)\ninv.salir(\"mouse\", 3)\nprint(inv.consultar(\"mouse\"))\nprint(inv)",
+			"highlight": [5, 8, 9, 10, 13, 14, 15, 16, 23]
+		},
+		{
+			"type": "p",
+			"md": "`self._stock` empieza como un diccionario vacío propio de cada inventario. `entrar` usa `get(producto, 0)` para tratar un producto nuevo como cero y suma la cantidad. `salir` lee lo disponible, compara y solo entonces descuenta; si no alcanza, lanza `ValueError` antes de dejar el stock en un estado inconsistente."
+		},
+		{
+			"type": "p",
+			"md": "El guion bajo de `_stock` es una **convención**: indica que es un detalle interno y que no deberías leerlo ni escribirlo desde fuera. Python no lo impide, pero quien lo haga se arriesga a romper las reglas. Si necesitaras un acceso controlado, usarías una propiedad, que se estudia más adelante. El resultado es `7` y `Inventario({'mouse': 7})`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: crear un objeto y llamar a un método"
+		},
+		{
+			"type": "p",
+			"md": "La traza muestra lo que ocurre al crear `Producto(\"mouse\", 50)` y después llamar a `con_igv`: primero `__init__` para llenar el objeto, luego el método para calcular. Observa cómo `self` aparece en cada marco apuntando a la misma instancia."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Del molde a la instancia",
+			"code": "class Producto:\n    def __init__(self, nombre, precio):\n        self.nombre = nombre\n        self.precio = precio\n\n    def con_igv(self):\n        return self.precio * 1.18\n\n\np = Producto(\"mouse\", 50)\nprint(p.con_igv())",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se ejecuta el cuerpo de la clase y se crea el tipo `Producto`. Sus métodos están definidos, pero no hay ninguna instancia.",
+					"vars": { "Producto": "<class Producto>" },
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "Al llamar a `Producto(...)`, Python crea un objeto vacío y entra en `__init__` con ese objeto como `self`. `nombre` y `precio` son los argumentos.",
+					"vars": { "Producto": "<class Producto>", "p": "(sin asignar)" },
+					"frames": [
+						{ "name": "<module>", "vars": { "p": "(sin asignar)" } },
+						{ "name": "__init__", "vars": { "self": "<Producto vacío>", "nombre": "'mouse'", "precio": "50" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`self.nombre = nombre` guarda el texto en el diccionario interno de la instancia. El objeto va tomando forma.",
+					"vars": { "Producto": "<class Producto>", "p": "(sin asignar)" },
+					"frames": [
+						{ "name": "<module>", "vars": { "p": "(sin asignar)" } },
+						{ "name": "__init__", "vars": { "self": "<Producto mouse>", "nombre": "'mouse'", "precio": "50" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`self.precio = precio` guarda 50. Con esto `__init__` completa sus asignaciones; al volver, el objeto se asigna a `p`.",
+					"vars": { "Producto": "<class Producto>", "p": "(sin asignar)" },
+					"frames": [
+						{ "name": "<module>", "vars": { "p": "(sin asignar)" } },
+						{ "name": "__init__", "vars": { "self": "<Producto mouse>", "nombre": "'mouse'", "precio": "50" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "El objeto ya construido se asigna a `p`. Ahora `p.__dict__` contiene `{'nombre': 'mouse', 'precio': 50}`.",
+					"vars": { "Producto": "<class Producto>", "p": "<Producto mouse>" },
+					"frames": [{ "name": "<module>", "vars": { "p": "<Producto mouse>" } }],
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "`p.con_igv()` busca el método en la clase y lo llama con `p` como `self`. Dentro del método, `self.precio` vale 50.",
+					"vars": { "Producto": "<class Producto>", "p": "<Producto mouse>" },
+					"frames": [
+						{ "name": "<module>", "vars": { "p": "<Producto mouse>" } },
+						{ "name": "con_igv", "vars": { "self": "<Producto mouse>" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`50 * 1.18` da 59.0. `return` prepara la entrega del número a la llamada: es el último paso dentro de este marco.",
+					"vars": { "Producto": "<class Producto>", "p": "<Producto mouse>" },
+					"frames": [
+						{ "name": "<module>", "vars": { "p": "<Producto mouse>" } },
+						{ "name": "con_igv", "vars": { "self": "<Producto mouse>" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "`print` recibe 59.0 y lo escribe. La instancia sigue existiendo con sus dos atributos.",
+					"vars": { "Producto": "<class Producto>", "p": "<Producto mouse>" },
+					"frames": [{ "name": "<module>", "vars": { "p": "<Producto mouse>" } }],
+					"output": "59.0\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "`__init__` devuelve `None` siempre; si devuelves otro valor, Python lanza `TypeError`. Y `self` no es palabra reservada, pero cambiarle el nombre rompe la convención."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje o síntoma", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`TypeError: Producto() takes no arguments`", "La clase no define `__init__`", "Añade `def __init__(self, ...)`"],
+				["`TypeError: __init__() missing 1 required positional argument: 'precio'`", "Creaste la instancia sin un dato obligatorio", "Pasa todos los argumentos o usa un valor por defecto"],
+				["`AttributeError: 'Producto' object has no attribute 'precio'`", "Nunca asignaste ese atributo, o escribiste mal el nombre", "Créalo en `__init__` y revisa la ortografía"],
+				["Todos los objetos comparten una lista", "La lista se declaró en el cuerpo de la clase", "Créala en `__init__` con `self.lista = []`"],
+				["`NameError: name 'self' is not defined`", "Olvidaste `self` en la firma del método", "Escribe `def metodo(self):`"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "La lista compartida entre instancias",
+			"wrong": {
+				"caption": "Atributo de clase mutable",
+				"code": "class Carrito:\n    items = []\n\n    def agregar(self, item):\n        self.items.append(item)\n\na = Carrito()\nb = Carrito()\na.agregar(\"pan\")\nprint(b.items)"
+			},
+			"right": {
+				"caption": "Atributo de instancia",
+				"code": "class Carrito:\n    def __init__(self):\n        self.items = []\n\n    def agregar(self, item):\n        self.items.append(item)\n\na = Carrito()\nb = Carrito()\na.agregar(\"pan\")\nprint(b.items)"
+			},
+			"explain": "En la primera versión, `items` vive en la clase y `a.items.append` lo modifica sin crear un atributo nuevo en `a`; por eso `b.items` muestra `['pan']`. En la segunda, cada `__init__` crea una lista propia y `b.items` sigue vacía. La regla: los mutables siempre se crean dentro de `__init__`."
+		},
+		{
+			"type": "p",
+			"md": "Hay una sutileza que sorprende: `self.items = []` sí crea un atributo de instancia, pero `self.items.append(x)` no. Si el atributo no existe en la instancia, Python encuentra la lista de la clase y la muta. Esa diferencia entre **asignar** y **mutar** explica la mayoría de los bugs de estado compartido."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa `CamelCase` para clases y `snake_case` para atributos y métodos.",
+				"Crea todo el estado en `__init__`; un atributo que aparece a mitad de un método es difícil de rastrear.",
+				"Valida en los métodos que cambian el estado: es el equivalente a una puerta con control de acceso.",
+				"Marca como internos los atributos que no forman parte de la interfaz con un guion bajo: `_stock`.",
+				"No uses `__atributo` para «proteger»: solo cambia el nombre y complica las pruebas; reserva esa forma para evitar colisiones.",
+				"Escribe `__repr__` desde el principio: depurar con `<objeto en 0x...>` es perder tiempo."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "repr frente a str",
+			"md": "`__repr__` está pensado para quien programa: debe ser preciso y, si es posible, parecerse a la llamada que reconstruye el objeto. `__str__` está pensado para el usuario final y puede ser más legible. Si solo defines `__repr__`, `print` lo usa como respaldo, que es justo lo que quieres en el 90 % de los casos."
+		},
+		{
+			"type": "compare",
+			"title": "Una clase con método en Python y en C++",
+			"python": {
+				"caption": "punto.py",
+				"code": "class Punto:\n    def __init__(self, x, y):\n        self.x = x\n        self.y = y\n\n    def norma(self):\n        return (self.x ** 2 + self.y ** 2) ** 0.5\n\np = Punto(3, 4)\nprint(p.norma())"
+			},
+			"cpp": {
+				"caption": "punto.cpp",
+				"code": "#include <cmath>\n#include <iostream>\n\nclass Punto {\npublic:\n    Punto(double x, double y) : x_(x), y_(y) {}\n\n    double norma() const {\n        return std::sqrt(x_ * x_ + y_ * y_);\n    }\n\nprivate:\n    double x_;\n    double y_;\n};\n\nint main() {\n    Punto p(3, 4);\n    std::cout << p.norma() << std::endl;\n    return 0;\n}"
+			},
+			"note": "En Python `self` es explícito en cada método y los atributos se crean al asignarlos; en C++ el objeto tiene una `this` implícita y los miembros se declaran en la clase con su tipo. `private` en C++ lo comprueba el compilador; el guion bajo en Python es solo una convención que el programador respeta."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Cuenta con saldo protegido",
+			"md": "Escribe una clase `Cuenta` con `titular` y un saldo inicial de 0 guardado en `_saldo`. Añade `depositar(monto)` y `retirar(monto)`, que rechacen montos no positivos y retiros mayores que el saldo lanzando `ValueError`. Define `__repr__` y comprueba depositando 100 y retirando 30.",
+			"hint": "Valida antes de modificar `_saldo`. Para el retiro, compara con el saldo actual y resta solo si alcanza. `__repr__` debe devolver una cadena.",
+			"solution": {
+				"lang": "python",
+				"caption": "cuenta.py",
+				"code": "class Cuenta:\n    \"\"\"Cuenta con saldo privado por convención.\"\"\"\n\n    def __init__(self, titular):\n        self.titular = titular\n        self._saldo = 0\n\n    def depositar(self, monto):\n        if monto <= 0:\n            raise ValueError(\"El monto debe ser positivo\")\n        self._saldo += monto\n\n    def retirar(self, monto):\n        if monto > self._saldo:\n            raise ValueError(\"Saldo insuficiente\")\n        self._saldo -= monto\n\n    def __repr__(self):\n        return f\"Cuenta({self.titular!r}, saldo={self._saldo})\"\n\n\nc = Cuenta(\"Ada\")\nc.depositar(100)\nc.retirar(30)\nprint(c)",
+				"explain": "El saldo se crea en `__init__`, así que cada cuenta tiene el suyo. Los métodos validan antes de escribir: un depósito negativo o un retiro excesivo no dejan el objeto en un estado raro. La salida es `Cuenta('Ada', saldo=70)`. Si `_saldo` fuera un atributo de clase, las dos cuentas compartirían el mismo número."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el constructor",
+			"lang": "python",
+			"code": "class Perro:\n    def __init__(___, nombre):\n        ___.nombre = nombre\n\n    def ladrar(self):\n        return f\"{self.nombre} dice guau\"\n\nprint(Perro(\"Toby\").ladrar())",
+			"answers": ["self", "self"],
+			"hint": "El primer parámetro de un método de instancia es el objeto que se está construyendo.",
+			"explain": "`self` recibe la instancia recién creada y `self.nombre = nombre` guarda el dato en ella. Sin ese parámetro, Python pasaría el objeto igualmente y la llamada fallaría con un `TypeError` por argumentos de más. La salida es `Toby dice guau`."
+		},
+		{
+			"type": "exercise",
+			"title": "Producto con historial de precios",
+			"md": "Crea `Producto` con `nombre`, `precio` y un `historial` vacío. El método `cambiar_precio(nuevo)` debe guardar el precio anterior en el historial y actualizar el actual. Crea dos productos, cambia el precio de uno y comprueba con `__repr__` que el historial del otro sigue vacío.",
+			"hint": "Crea `self.historial = []` dentro de `__init__`. Antes de asignar el nuevo precio, añade el actual con `append`.",
+			"solution": {
+				"lang": "python",
+				"caption": "historial.py",
+				"code": "class Producto:\n    \"\"\"Producto que recuerda sus precios anteriores.\"\"\"\n\n    def __init__(self, nombre, precio):\n        self.nombre = nombre\n        self.precio = precio\n        self.historial = []\n\n    def cambiar_precio(self, nuevo):\n        self.historial.append(self.precio)\n        self.precio = nuevo\n\n    def __repr__(self):\n        return f\"Producto({self.nombre!r}, {self.precio}, cambios={len(self.historial)})\"\n\n\na = Producto(\"teclado\", 120)\nb = Producto(\"mouse\", 45)\na.cambiar_precio(100)\na.cambiar_precio(90)\nprint(a)\nprint(b)",
+				"explain": "Cada `__init__` crea una lista nueva, de modo que los historiales no se mezclan. `cambiar_precio` añade el precio vigente antes de reemplazarlo, así que el historial queda en el orden en que ocurrieron los cambios. La salida es `Producto('teclado', 90, cambios=2)` y `Producto('mouse', 45, cambios=0)`. Si `historial` estuviera en el cuerpo de la clase, ambos productos mostrarían los mismos dos cambios."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En la cuenta, la protección es una decisión de diseño, no una característica del lenguaje: `c._saldo = 9999` funcionaría. Lo que ganas con los métodos es que el camino normal quede validado y que el resto del programa no necesite conocer el formato interno. Si mañana el saldo se guarda en céntimos, solo cambian los métodos."
+		},
+		{
+			"type": "p",
+			"md": "En el historial, el error que se evita es sutil: `historial` parece un dato más, pero al ser mutable debe nacer con cada objeto. La misma lógica se aplica a listas de tareas, cachés, conexiones y contadores. Cuando diseñes una clase, pregúntate qué atributos son iguales para todos y cuáles deben ser propios; los mutables siempre pertenecen a la instancia."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una clase es un molde; cada instancia guarda su propio estado.",
+				"`__init__` inicializa el objeto recién creado y siempre devuelve `None`.",
+				"`self` es la instancia concreta; Python lo pasa como primer argumento.",
+				"Los atributos creados con `self.x` son de instancia; los del cuerpo de la clase se comparten.",
+				"Los atributos mutables se crean en `__init__` para que no se compartan.",
+				"El guion bajo marca uso interno por convención, no por imposición del lenguaje.",
+				"`__repr__` devuelve una cadena útil para depurar y reconstruir el objeto.",
+				"Los métodos validan el estado: son la puerta de entrada a los datos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué es `self` dentro de un método?",
+			"options": [
+				"Una palabra reservada que representa la clase",
+				"El objeto concreto sobre el que se llamó al método",
+				"Una copia de los atributos de la clase",
+				"El módulo donde está definida la clase"
+			],
+			"answer": 1,
+			"explain": "Python pasa la instancia como primer argumento al método, y el parámetro que la recibe se llama `self` por convención. Por eso `ana.agregar(...)` ejecuta `agregar` con `self` apuntando al carrito `ana`. No es una palabra reservada, pero cambiarla por otro nombre es una mala idea."
+		},
+		{
+			"type": "quiz",
+			"question": "Con `class C: items = []` y dos instancias `a` y `b`, tras `a.items.append(1)`, ¿qué vale `b.items`?",
+			"options": ["`[]`", "`[1]`", "`None`", "Lanza un `AttributeError`"],
+			"answer": 1,
+			"explain": "`items` vive en la clase y es una sola lista compartida. `append` la muta sin crear un atributo en `a`, así que `b.items` también ve el 1. Para que cada instancia tenga la suya, hay que escribir `self.items = []` en `__init__`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál de estas afirmaciones sobre `__init__` es correcta?",
+			"options": [
+				"Es el método que destruye el objeto al terminar",
+				"Debe devolver el objeto creado con `return self`",
+				"Se ejecuta al crear la instancia y debe devolver `None`",
+				"Es obligatorio en todas las clases de Python"
+			],
+			"answer": 2,
+			"explain": "`__init__` inicializa un objeto que ya existe y Python exige que devuelva `None`; si devuelves otra cosa, se lanza `TypeError`. No es obligatorio: una clase sin `__init__` se puede instanciar si no necesita argumentos, aunque normalmente lo necesitará."
+		},
+		{
+			"type": "links",
+			"title": "Documentación y práctica",
+			"items": [
+				{
+					"label": "Clases (Python docs)",
+					"url": "https://docs.python.org/es/3/tutorial/classes.html",
+					"note": "referencia oficial con ejemplos"
+				},
+				{
+					"label": "Modelo de datos: __repr__",
+					"url": "https://docs.python.org/es/3/reference/datamodel.html#object.__repr__",
+					"note": "qué debe devolver una representación"
+				}
+			]
+		}
+	]
+}

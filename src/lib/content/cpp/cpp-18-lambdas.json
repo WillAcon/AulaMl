@@ -1,0 +1,410 @@
+{
+	"id": "cpp-18-lambdas",
+	"track": "cpp",
+	"order": 18,
+	"title": "Lambdas, range-for y C++ moderno",
+	"subtitle": "Funciones anónimas, captura de variables y las comodidades que cambiaron C++",
+	"level": "intermedio",
+	"minutes": 42,
+	"tags": ["lambdas", "algoritmos", "range-for", "c++20"],
+	"keywords": [
+		"qué es una lambda en c++",
+		"sintaxis de lambda",
+		"captura por valor y referencia",
+		"lambda mutable",
+		"std::function",
+		"lambdas con algoritmos",
+		"auto en c++",
+		"structured bindings",
+		"nullptr",
+		"range-for",
+		"función anónima c++"
+	],
+	"summary": "Una lambda es una función que se escribe en el lugar donde se usa y que puede llevarse consigo variables del entorno. Aquí verás cómo capturarlas, cómo pasarlas a los algoritmos y qué partes de C++ moderno hacen el código más corto sin volverlo opaco.",
+	"objectives": [
+		"Escribir lambdas con parámetros, retorno deducido y captura explícita",
+		"Distinguir captura por valor de captura por referencia y explicar sus riesgos",
+		"Usar lambdas con sort, count_if y transform",
+		"Elegir entre auto, std::function y una función normal",
+		"Recorrer contenedores con range-for, structured bindings y nullptr"
+	],
+	"prerequisites": ["Iteradores y algoritmos STL", "Paso por valor, referencia, sobrecarga y recursión"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora, para pasar una operación a un algoritmo tenías que escribir una función aparte, muchas veces a varias pantallas de distancia del lugar donde se usaba. Una **lambda** resuelve ese problema: es una función anónima que se define en la misma expresión y que puede recordar variables del ámbito donde aparece."
+		},
+		{
+			"type": "p",
+			"md": "La sintaxis parece extraña la primera vez, pero son solo tres piezas: corchetes para la captura, paréntesis para los parámetros y llaves para el cuerpo. `[](int x) { return x * x; }` se lee «una función que recibe un entero y devuelve su cuadrado»."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una lambda?"
+		},
+		{
+			"type": "p",
+			"md": "Una lambda es azúcar para una clase con un `operator()`. El compilador crea un tipo único, sin nombre, con los miembros que hayas capturado y un método de llamada con el cuerpo que escribiste. Ese objeto se llama **cierre** (closure) y se puede guardar en una variable, pasar a una función o devolver desde otra."
+		},
+		{
+			"type": "p",
+			"md": "La diferencia con una función normal es precisamente esa: la lambda puede llevar estado. Una función libre no recuerda nada entre llamadas salvo que uses globales; un cierre guarda copias o referencias de las variables que capturaste, y cada lambda tiene su propio estado."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Cada lambda tiene un tipo distinto",
+			"md": "Dos lambdas con el mismo cuerpo y la misma firma son tipos diferentes para el compilador. Por eso no puedes declarar `int (*f)(int)` esperando una lambda con captura: si no captura nada puede convertirse a puntero a función, pero si captura necesita `auto` o `std::function`."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven las lambdas?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Personalizar algoritmos sin escribir funciones sueltas**: el criterio de `sort`, el predicado de `count_if` o la operación de `transform` quedan junto a su uso.",
+				"**Capturar contexto**: ordenar por una nota de corte, filtrar por un umbral o acumular en una variable local sin crear parámetros extra.",
+				"**Diferir trabajo**: guardar una operación en un `std::function` y ejecutarla después, algo habitual en callbacks y sistemas de eventos.",
+				"**Evitar duplicación**: una lambda pequeña reutilizada en varias llamadas del mismo ámbito.",
+				"**Escribir código genérico más simple**: una lambda genérica `[](const auto& x) { ... }` sirve para varios tipos sin declarar una plantilla."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: el cierre y la captura"
+		},
+		{
+			"type": "p",
+			"md": "Capturar es decidir qué variables del entorno forman parte del objeto. Con `[x]` el cierre guarda una **copia** del valor que `x` tenía al construirse; con `[&x]` guarda una **referencia** a la variable original. La diferencia no es de estilo: cambia qué ocurre cuando el original se modifica o deja de existir."
+		},
+		{
+			"type": "p",
+			"md": "La copia se hace una sola vez, al crear la lambda, no en cada llamada. Por eso una captura por valor no ve los cambios posteriores. La referencia sí los ve, pero exige que la variable siga viva mientras la lambda pueda ejecutarse. Si devuelves una lambda que captura por referencia una local, tendrás una referencia colgante."
+		},
+		{
+			"type": "p",
+			"md": "Por defecto, el `operator()` de la lambda es `const`: no puede modificar las copias capturadas. La palabra `mutable` quita ese `const` y permite cambiar el estado interno del cierre. Es útil para contadores y acumuladores, pero conviene usarla con intención: el estado es propio de la lambda, no de la variable original."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: parámetros, captura, mutable y std::function"
+		},
+		{
+			"type": "p",
+			"md": "La forma completa es `[captura](parámetros) -> retorno { cuerpo }`. El retorno casi nunca se escribe: el compilador lo deduce de la primera `return`. Los parámetros pueden ser concretos, o `auto` para una lambda genérica."
+		},
+		{
+			"type": "table",
+			"head": ["Captura", "Qué guarda", "Cuándo usarla"],
+			"rows": [
+				["`[]`", "Nada", "La lambda no necesita el entorno"],
+				["`[x]`", "Una copia de `x`", "El valor debe sobrevivir a la variable original"],
+				["`[&x]`", "Una referencia a `x`", "Necesitas leer o modificar el original"],
+				["`[=]`", "Copia todo lo que se use", "Cómodo, pero oculta qué depende de qué"],
+				["`[&]`", "Referencia a todo lo que se use", "Bucles cortos y de vida corta"],
+				["`[this]`", "El puntero al objeto actual", "Dentro de un método de una clase"]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "#include <functional>\n#include <iostream>\n\nint main() {\n    auto cuadrado = [](int x) { return x * x; };\n    std::cout << cuadrado(5) << '\\n';   // 25\n\n    int base = 10;\n    auto sumar_base = [base](int x) { return base + x; };\n    std::cout << sumar_base(5) << '\\n'; // 15\n\n    std::function<int(int)> operacion;  // vacia, como un puntero nulo\n    if (!operacion) {\n        std::cout << \"sin operacion\\n\";\n    }\n    operacion = cuadrado;\n    std::cout << operacion(4) << '\\n';  // 16\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`std::function` es un envoltorio que puede guardar cualquier callable con una firma concreta: una lambda, un puntero a función o un objeto con `operator()`. Se puede declarar vacío y comprobar con `if (!operacion)`, igual que un puntero con `nullptr`. Su coste es una posible reserva en el heap y una llamada indirecta; úsalo cuando necesites heterogeneidad o una firma estable en una interfaz, no en bucles internos."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: una lambda con estado"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "contador.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int contador = 0;\n    auto siguiente = [contador]() mutable {\n        ++contador;\n        return contador;\n    };\n\n    std::cout << siguiente() << ' ' << siguiente() << '\\n'; // 1 2\n    std::cout << contador << '\\n';                          // 0\n    return 0;\n}"
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`int contador = 0;` es la variable del ámbito exterior.",
+				"`[contador]` copia el 0 dentro del cierre. La lambda tiene su propio `contador`, independiente del exterior.",
+				"`mutable` permite modificar esa copia; sin él, `++contador` no compila porque el `operator()` es `const`.",
+				"Cada llamada incrementa la copia interna: la primera devuelve 1 y la segunda 2. El `contador` original sigue en 0, como muestra la última línea."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "mutable no conecta con la variable original",
+			"md": "Si querías modificar el `contador` de fuera, la captura correcta es `[&contador]` y no hace falta `mutable`. Usar `[contador] mutable` es correcto cuando el estado debe vivir dentro de la lambda, por ejemplo en un generador que llevas contigo."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: lambdas en algoritmos"
+		},
+		{
+			"type": "p",
+			"md": "Aquí está el uso que más verás: pasar el criterio al algoritmo. `count_if` recibe un predicado y `sort` un comparador. Ambos aceptan lambdas, así que la regla queda escrita en la misma línea y puede capturar el umbral."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "algoritmos.cpp",
+			"code": "#include <algorithm>\n#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> notas{7, 3, 9, 5, 8, 6};\n    const int aprobado = 6;\n\n    const auto cuantos = std::count_if(notas.begin(), notas.end(),\n        [aprobado](int n) { return n >= aprobado; });\n\n    std::sort(notas.begin(), notas.end(),\n        [](int a, int b) { return a > b; });\n\n    std::cout << \"aprobados: \" << cuantos << '\\n'; // 4\n    for (int n : notas) {\n        std::cout << n << ' ';                      // 9 8 7 6 5 3\n    }\n    std::cout << '\\n';\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "El comparador `[](int a, int b) { return a > b; }` invierte el orden: `sort` coloca antes los elementos para los que el comparador devuelve `true`. Si escribes `a >= b`, el comparador deja de ser un orden estricto y el comportamiento de `sort` no está garantizado. Esa es una fuente real de fallos intermitentes."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: range-for, structured bindings y auto"
+		},
+		{
+			"type": "p",
+			"md": "C++ moderno reduce el ruido alrededor de los contenedores. `auto` evita repetir tipos largos, `range-for` recorre sin índices y los **structured bindings** descomponen un `pair` o un struct en nombres con significado. Juntos hacen que el recorrido se lea como una frase."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "modelos.cpp",
+			"code": "#include <algorithm>\n#include <iostream>\n#include <string>\n#include <vector>\n\nstruct Modelo {\n    std::string nombre;\n    double error;\n};\n\nint main() {\n    std::vector<Modelo> modelos{\n        {\"lineal\", 0.42},\n        {\"arbol\", 0.31},\n        {\"knn\", 0.38},\n    };\n\n    std::sort(modelos.begin(), modelos.end(),\n        [](const Modelo& a, const Modelo& b) { return a.error < b.error; });\n\n    for (const auto& [nombre, error] : modelos) {\n        std::cout << nombre << ' ' << error << '\\n';\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "La salida es `arbol 0.31`, `knn 0.38`, `lineal 0.42`, en orden de error ascendente. `const auto&` evita copiar cada `Modelo` y el `const` impide modificarlo por accidente. Los nombres `nombre` y `error` son alias de los miembros, no copias: si el bucle modificara el vector, se vería reflejado. Para copiar de verdad usarías `auto [nombre, error]`."
+		},
+		{
+			"type": "p",
+			"md": "`auto` también sirve para punteros: `auto* p = buscar(modelos);` deduce el tipo apuntado y deja explícito que esperas un puntero. Cuando no hay resultado, devuelve `nullptr`, no `NULL` ni `0`. `nullptr` tiene tipo propio y no se confunde con un entero, lo que evita ambigüedades en la sobrecarga."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: captura por valor y por referencia"
+		},
+		{
+			"type": "p",
+			"md": "Las dos lambdas se crean antes de modificar `x`, pero no se comportan igual. Avanza por los pasos y fíjate en cuándo se copia el valor y cuándo se lee la variable original."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Dos capturas, dos resultados",
+			"code": "int x = 1;\nauto por_valor = [x]() { return x; };\nauto por_ref = [&x]() { return x; };\nx = 5;\nstd::cout << por_valor() << ' ' << por_ref() << '\\n';",
+			"steps": [
+				{
+					"line": 1,
+					"note": "`x` vale 1 en el stack.",
+					"vars": { "x": "1", "por_valor": "—", "por_ref": "—" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "El cierre copia el 1 dentro de sí mismo. Esa copia ya no depende de `x`.",
+					"vars": { "x": "1", "por_valor": "copia: 1", "por_ref": "—" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "El segundo cierre guarda una referencia: apunta a la misma celda que `x`, no a una copia.",
+					"vars": { "x": "1", "por_valor": "copia: 1", "por_ref": "ref: &x" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`x` pasa a 5. La copia de `por_valor` sigue siendo 1; `por_ref` verá el cambio porque mira la celda original.",
+					"vars": { "x": "5", "por_valor": "copia: 1", "por_ref": "ref: &x" },
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`por_valor()` devuelve 1; `por_ref()` lee el 5 actual. Se imprime la pareja.",
+					"vars": { "x": "5", "por_valor": "copia: 1", "por_ref": "ref: &x" },
+					"output": "1 5\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Devolver una lambda que captura por referencia una local**: al salir de la función, la referencia queda colgante. Captura por valor si la lambda va a sobrevivir al ámbito.",
+				"**Esperar que `[x]` vea cambios posteriores**: la copia se hizo al construir el cierre. Si necesitas el valor actual, captura por referencia.",
+				"**Olvidar `mutable`**: modificar una copia capturada sin `mutable` da `assignment of read-only variable`. Añádelo solo si el estado interno es intencional.",
+				"**Usar `[&]` en un callback asíncrono**: el hilo o la tarea puede ejecutarse cuando las locales ya no existen. Captura explícitamente lo que necesites, por valor.",
+				"**Guardar una lambda sin captura en `std::function` innecesariamente**: si solo la usas en el momento, `auto` evita la indirección y la posible reserva.",
+				"**Confundir `nullptr` con `NULL` o `0`**: usa `nullptr` para punteros; en una sobrecarga con `int` y `char*`, `NULL` puede elegir la versión equivocada."
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Capturar la referencia equivocada",
+			"wrong": {
+				"caption": "Incorrecto: la lambda sobrevive a la variable",
+				"code": "std::function<int()> crear() {\n    int local = 7;\n    return [&local]() { return local; };\n}   // local muere al volver"
+			},
+			"right": {
+				"caption": "Correcto: una copia sobrevive",
+				"code": "std::function<int()> crear() {\n    int local = 7;\n    return [local]() { return local; };\n}"
+			},
+			"explain": "Una referencia capturada no prolonga la vida de la variable. Al regresar de `crear`, el stack frame se libera y la lambda apunta a memoria que ya no es suya. La copia cuesta unos bytes y elimina el problema."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Captura de forma explícita (`[umbral]`, `[&total]`) en lugar de `[=]` o `[&]`: el lector ve de qué depende la lambda.",
+				"Usa `auto` para guardar la lambda; reserva `std::function` para interfaces, contenedores heterogéneos y callbacks almacenados.",
+				"Mantén las lambdas cortas. Si ocupan más de cinco o seis líneas, una función con nombre se lee mejor y se puede probar.",
+				"En range-for, usa `const auto&` para no copiar y `auto&` solo si vas a modificar los elementos.",
+				"Devuelve `nullptr` y comprueba con `if (p)`; no devuelvas referencias a locales ni punteros a memoria liberada.",
+				"Si la lambda se ejecuta en otro hilo, captura por valor y asegúrate de que los objetos copiados son seguros de compartir.",
+				"Prefiere un comparador que cumpla orden estricto (`<` o `>`), nunca `<=` o `>=`."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "La misma lambda en dos lenguajes",
+			"python": {
+				"caption": "lambda.py",
+				"code": "notas = [7, 3, 9, 5, 8, 6]\naprobado = 6\ncuantos = len([n for n in notas if n >= aprobado])\nnotas.sort(reverse=True)\nprint(cuantos, notas)"
+			},
+			"cpp": {
+				"caption": "lambda.cpp",
+				"code": "std::vector<int> notas{7, 3, 9, 5, 8, 6};\nconst int aprobado = 6;\nauto cuantos = std::count_if(notas.begin(), notas.end(),\n    [aprobado](int n) { return n >= aprobado; });\nstd::sort(notas.begin(), notas.end(),\n    [](int a, int b) { return a > b; });"
+			},
+			"note": "En Python la lambda también existe, pero para filtrar se suele usar una comprensión. En C++ la lambda aparece donde el algoritmo necesita una función; la captura `[aprobado]` sustituye al cierre que en Python hace la comprensión de forma implícita."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Filtrar, transformar y sumar",
+			"md": "Dado `std::vector<int> datos{1, 2, 3, 4, 5, 6};`, usa `std::transform` con una lambda para elevar al cuadrado solo los pares en un vector nuevo, y luego suma el resultado con `std::accumulate`. Muestra el vector y la suma. No escribas bucles manuales.",
+			"hint": "Puedes usar `std::copy_if` para quedarte con los pares y después `std::transform`, o una sola lambda dentro de `transform`. Para la suma, `std::accumulate(v.begin(), v.end(), 0)`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "pipeline.cpp",
+				"code": "#include <algorithm>\n#include <iostream>\n#include <numeric>\n#include <vector>\n\nint main() {\n    std::vector<int> datos{1, 2, 3, 4, 5, 6};\n    std::vector<int> pares;\n\n    std::copy_if(datos.begin(), datos.end(), std::back_inserter(pares),\n        [](int n) { return n % 2 == 0; });\n\n    std::transform(pares.begin(), pares.end(), pares.begin(),\n        [](int n) { return n * n; });\n\n    const int total = std::accumulate(pares.begin(), pares.end(), 0);\n\n    for (int n : pares) {\n        std::cout << n << ' ';   // 4 16 36\n    }\n    std::cout << '\\n' << total << '\\n'; // 56\n    return 0;\n}",
+				"explain": "`copy_if` necesita un iterador de salida; `back_inserter` inserta al final sin reservar tamaño previo. `transform` escribe en el mismo vector porque cada elemento se transforma de forma independiente y el rango de entrada ya está completo. La suma 4 + 16 + 36 = 56 se calcula sin bucles explícitos."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Ranking de alumnos",
+			"md": "Define `struct Alumno { std::string nombre; double nota; };` y crea un vector con cuatro alumnos. Ordénalo por nota de mayor a menor y, en caso de empate, por nombre alfabético. Imprime el ranking con structured bindings y cuenta cuántos aprobaron con nota mayor o igual que 6 usando `count_if`.",
+			"hint": "El comparador recibe dos `const Alumno&`. Para el empate: `if (a.nota != b.nota) return a.nota > b.nota; return a.nombre < b.nombre;`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "ranking.cpp",
+				"code": "#include <algorithm>\n#include <iostream>\n#include <string>\n#include <vector>\n\nstruct Alumno {\n    std::string nombre;\n    double nota;\n};\n\nint main() {\n    std::vector<Alumno> alumnos{\n        {\"ana\", 7.5},\n        {\"luis\", 6.0},\n        {\"eva\", 7.5},\n        {\"tom\", 4.0},\n    };\n\n    std::sort(alumnos.begin(), alumnos.end(),\n        [](const Alumno& a, const Alumno& b) {\n            if (a.nota != b.nota) return a.nota > b.nota;\n            return a.nombre < b.nombre;\n        });\n\n    for (const auto& [nombre, nota] : alumnos) {\n        std::cout << nombre << ' ' << nota << '\\n';\n    }\n\n    const auto aprobados = std::count_if(alumnos.begin(), alumnos.end(),\n        [](const Alumno& a) { return a.nota >= 6.0; });\n    std::cout << \"aprobados: \" << aprobados << '\\n'; // 3\n    return 0;\n}",
+				"explain": "El comparador primero decide por nota y solo usa el nombre cuando las notas son iguales, lo que garantiza un orden total y estable. `ana` aparece antes que `eva` por el desempate alfabético. Los structured bindings evitan escribir `alumno.nombre` y `alumno.nota` en cada línea."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la captura y la llamada",
+			"lang": "cpp",
+			"code": "std::vector<int> v{4, 1, 7, 3};\nint limite = 3;\n\nauto supera = [___](int x) {\n    return x > limite;   // debe ver el valor actual\n};\nlimite = 5;\n\nauto total = std::count_if(v.begin(), v.end(), ___);\nstd::cout << total;   // 1",
+			"answers": ["&limite", "supera"],
+			"hint": "Si capturas por valor, la lambda conserva el 3 y contarías dos elementos; necesitas la referencia. El segundo hueco es el nombre del predicado.",
+			"explain": "Con `[&limite]`, la lambda lee el 5 que se asigna después, así que solo el 7 supera el umbral y el resultado es 1. Con `[limite]` obtendrías 2, porque la copia conserva el 3 original."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la clave es que `copy_if` y `transform` no asignan memoria por su cuenta: tú decides el contenedor de salida. `back_inserter` convierte una inserción en un iterador de salida, y por eso funciona aunque `pares` empiece vacío. La lambda de `transform` no captura nada porque su cálculo solo depende del argumento."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el comparador debe ser una relación de orden: si `a` y `b` tienen la misma nota, compara nombres; si ambos coinciden, devuelve `false` en las dos direcciones. Escribir solo `a.nota > b.nota` también compila, pero el orden de los empates queda indefinido entre ejecuciones, algo que complica las pruebas. Los structured bindings y `const auto&` son la forma habitual de recorrer resultados sin copiar."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una lambda es un objeto con `operator()`; su tipo lo genera el compilador y es único.",
+				"`[x]` copia en el momento de crear el cierre; `[&x]` referencia la variable original.",
+				"`mutable` permite modificar las copias capturadas; no afecta a la variable exterior.",
+				"Las lambdas son el criterio natural de `sort`, `count_if`, `transform` y `find_if`.",
+				"`auto` guarda la lambda sin coste; `std::function` permite firmas estables y callbacks heterogéneos.",
+				"`range-for` con `const auto&` y structured bindings simplifica el recorrido de contenedores.",
+				"`nullptr` es la forma correcta de expresar «sin puntero»; evita `NULL` y `0`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime este código? `int x = 2; auto f = [x]() { return x; }; x = 9; std::cout << f();`",
+			"options": ["2", "9", "0", "No compila porque falta mutable"],
+			"answer": 0,
+			"explain": "La captura por valor copia el 2 al construir el cierre. La asignación posterior cambia `x`, no la copia. `mutable` no es necesario porque la lambda solo lee su miembro."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuándo es preferible `std::function` frente a `auto` para guardar una lambda?",
+			"options": [
+				"Siempre: es más rápido y más seguro",
+				"Cuando necesitas una firma común para varias lambdas o almacenarlas en un contenedor",
+				"Cuando la lambda captura por referencia",
+				"Cuando la lambda no tiene parámetros"
+			],
+			"answer": 1,
+			"explain": "`auto` es el tipo exacto y evita indirección, pero cada lambda tiene un tipo distinto. `std::function` unifica la firma a cambio de una posible reserva y una llamada indirecta."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué es peligroso `return [&local]() { return local; };` desde una función?",
+			"options": [
+				"Porque las lambdas no pueden devolverse",
+				"Porque la referencia apunta a una variable que deja de existir al salir de la función",
+				"Porque `local` se copia dos veces",
+				"Porque falta la palabra mutable"
+			],
+			"answer": 1,
+			"explain": "El cierre conserva la referencia, pero no la vida de la variable. Al terminar la función, el stack frame se libera y la lambda accede a memoria inválida. Capturar por valor resuelve el problema."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · Expresiones lambda",
+					"url": "https://en.cppreference.com/w/cpp/language/lambda",
+					"note": "referencia del lenguaje"
+				},
+				{
+					"label": "cppreference · std::function",
+					"url": "https://en.cppreference.com/w/cpp/utility/functional/function",
+					"note": "envoltorio de callables"
+				},
+				{
+					"label": "learncpp · Lambdas",
+					"url": "https://www.learncpp.com/cpp-tutorial/introduction-to-lambdas-anonymous-functions/",
+					"note": "explicación progresiva"
+				}
+			]
+		}
+	]
+}

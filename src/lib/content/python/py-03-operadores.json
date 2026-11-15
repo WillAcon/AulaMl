@@ -1,0 +1,629 @@
+{
+	"id": "py-03-operadores",
+	"track": "python",
+	"order": 3,
+	"title": "Operadores y expresiones",
+	"subtitle": "Aritmética, comparaciones, lógica booleana y el orden exacto en que Python evalúa cada símbolo",
+	"level": "principiante",
+	"minutes": 28,
+	"tags": [
+		"operadores",
+		"expresiones",
+		"precedencia"
+	],
+	"keywords": [
+		"operadores aritméticos",
+		"división entera",
+		"módulo",
+		"operador potencia",
+		"operadores de comparación",
+		"and or not",
+		"cortocircuito",
+		"identidad vs igualdad",
+		"is y ==",
+		"precedencia de operadores",
+		"asignación aumentada",
+		"operador morsa",
+		"walrus"
+	],
+	"summary": "Una expresión combina valores y operadores para producir un resultado nuevo. En esta lección dominas la aritmética de Python, las comparaciones, la lógica con cortocircuito, la diferencia entre `is` y `==`, la precedencia y los operadores que además asignan, como `+=` y `:=`.",
+	"objectives": [
+		"Calcular con los operadores aritméticos y explicar la diferencia entre `/`, `//` y `%`",
+		"Construir condiciones con comparaciones encadenadas y operadores lógicos",
+		"Predecir el resultado de una expresión aplicando la precedencia",
+		"Distinguir igualdad de identidad y saber cuándo usar `==` y cuándo `is`",
+		"Usar asignación aumentada y el operador morsa sin perder legibilidad"
+	],
+	"prerequisites": [
+		"Variables y tipos de datos"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Ya sabes guardar valores. El siguiente paso es transformarlos: sumar dos precios, comprobar si una nota llega al mínimo, decidir si un cliente cumple dos requisitos. Todo eso se escribe con **operadores**, los símbolos que conectan valores y producen un resultado nuevo."
+		},
+		{
+			"type": "p",
+			"md": "Esta lección es corta en teoría y larga en consecuencias. Un error de precedencia o un `=` donde iba `==` puede cambiar por completo el comportamiento de un programa que parece correcto a simple vista."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un operador y qué es una expresión?"
+		},
+		{
+			"type": "p",
+			"md": "Un **operador** es un símbolo que opera sobre uno o más valores llamados **operandos**. En `7 + 2`, el operador es `+` y los operandos son `7` y `2`. Una **expresión** combina valores, nombres y operadores y se reduce a un único valor: `precio * cantidad`, `not activo`, `0 < nota <= 20`."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en los operadores como los verbos de la frase: los valores son sustantivos y el operador dice qué se hace con ellos. `a + b` no es una orden que desaparece: es una expresión que **devuelve** un valor que puedes imprimir, guardar o combinar con otro."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven?"
+		},
+		{
+			"type": "p",
+			"md": "Casi todo lo que hace un programa útil pasa por un operador. Estos son los usos que verás una y otra vez:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Calcular totales**: `subtotal + igv`, `precio * cantidad`, `total / meses`.",
+				"**Validar datos**: `0 <= nota <= 20`, `stock > 0`, `correo != \"\"`.",
+				"**Combinar requisitos**: `edad >= 18 and tiene_dni`.",
+				"**Acumular**: `total += venta` dentro de un bucle.",
+				"**Machine Learning**: normalizar es `(x - media) / desviacion`; una predicción binaria se decide con `probabilidad >= 0.5`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? Precedencia y asociatividad"
+		},
+		{
+			"type": "p",
+			"md": "Python analiza la expresión, construye un árbol donde cada operador tiene como hijos sus operandos y lo evalúa de abajo hacia arriba. El orden lo decide la **precedencia**: cuanto más arriba está un operador en la tabla, antes se aplica."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Prioridad",
+				"Operadores",
+				"Ejemplo",
+				"Resultado"
+			],
+			"rows": [
+				[
+					"1 (mayor)",
+					"`**`",
+					"`2 ** 3 ** 2`",
+					"`512`, porque asocia a la derecha"
+				],
+				[
+					"2",
+					"`*`, `/`, `//`, `%`",
+					"`7 // 2 * 3`",
+					"`9`"
+				],
+				[
+					"3",
+					"`+`, `-`",
+					"`2 + 3 - 1`",
+					"`4`"
+				],
+				[
+					"4",
+					"`<`, `<=`, `>`, `>=`, `==`, `!=`",
+					"`0 < 5 <= 5`",
+					"`True`"
+				],
+				[
+					"5",
+					"`not`",
+					"`not True`",
+					"`False`"
+				],
+				[
+					"6",
+					"`and`",
+					"`True and False`",
+					"`False`"
+				],
+				[
+					"7 (menor)",
+					"`or`",
+					"`False or True`",
+					"`True`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Cuando dos operadores tienen la misma prioridad, casi todos asocian por la izquierda: `100 / 10 / 2` es `(100 / 10) / 2`, o sea `5.0`. La potencia asocia por la derecha: `2 ** 3 ** 2` es `2 ** 9`, no `8 ** 2`. Ante la duda, escribe paréntesis."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: los operadores aritméticos"
+		},
+		{
+			"type": "p",
+			"md": "Son siete y cada uno responde una pregunta distinta. `+`, `-` y `*` se comportan como esperas; los otros cuatro merecen atención."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "aritmetica.py",
+			"code": "print(7 / 2)\nprint(7 // 2)\nprint(7 % 2)\nprint(2 ** 10)\nprint(-7 // 2, -7 % 2)",
+			"highlight": [
+				2,
+				3,
+				5
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`7 / 2` da `3.5`: la división normal **siempre** devuelve `float`.",
+				"`7 // 2` da `3`: división entera, descarta la parte decimal.",
+				"`7 % 2` da `1`: el resto de la división entera.",
+				"`2 ** 10` da `1024`: potencia.",
+				"`-7 // 2` da `-4` y `-7 % 2` da `1`: con negativos, `//` redondea hacia menos infinito y el resto conserva el signo del divisor."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La relación entre `//` y `%` es útil para recordar: `a == (a // b) * b + (a % b)`. Con `a = 47` y `b = 6`, `47 // 6` es `7`, `47 % 6` es `5`, y `7 * 6 + 5` vuelve a dar `47`. Esa pareja sirve para repartir unidades en paquetes y saber cuántas sobran."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "`/` nunca devuelve un entero",
+			"md": "Aunque la división sea exacta, `10 / 2` es `5.0`, no `5`. Si necesitas un índice entero, usa `//`; si necesitas el valor exacto con decimales, usa `/`. Y cuidado: `//` con `float` también devuelve `float`, así que `7.5 // 2` es `3.0`."
+		},
+		{
+			"type": "h",
+			"text": "Comparaciones: preguntas que devuelven bool"
+		},
+		{
+			"type": "p",
+			"md": "Los operadores de comparación (`==`, `!=`, `<`, `<=`, `>`, `>=`) comparan dos valores y producen `True` o `False`. Python permite **encadenarlos**, y la cadena se lee como una conjunción: `0 < nota <= 20` equivale a `0 < nota and nota <= 20`, pero evalúa `nota` una sola vez."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "comparaciones.py",
+			"code": "print(1 == 1.0)\nprint(\"a\" < \"b\")\nprint(0 < 16 <= 20)\nprint(10 != 10)",
+			"highlight": [
+				3
+			]
+		},
+		{
+			"type": "p",
+			"md": "`1 == 1.0` es `True`: la igualdad compara valores numéricos, no tipos. `\"a\" < \"b\"` compara códigos de caracteres y da `True`. `0 < 16 <= 20` se lee como una sola pregunta. `10 != 10` es `False`. Nunca escribas `x = 5` en una comparación: `=` asigna y `==` compara."
+		},
+		{
+			"type": "h",
+			"text": "Operadores lógicos y cortocircuito"
+		},
+		{
+			"type": "p",
+			"md": "`and`, `or` y `not` combinan valores lógicos. `and` es verdadero solo si ambos lados lo son; `or` lo es si al menos uno lo es; `not` invierte. Lo importante ocurre con el **cortocircuito**: si el lado izquierdo ya decide el resultado, Python no evalúa el derecho."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "logica.py",
+			"code": "a = 10\nb = 0\n\nprint(b != 0 and a / b > 2)\nprint(b == 0 or a / b > 2)\nprint(not b)",
+			"highlight": [
+				4,
+				5
+			]
+		},
+		{
+			"type": "p",
+			"md": "La línea 4 imprime `False` sin lanzar `ZeroDivisionError`: como `b != 0` es falso, `and` no mira la división. La línea 5 también evita el error porque `b == 0` ya decide. La línea 6 imprime `True`: `0` es falso y `not` lo invierte. Ese orden es la base de las guardas que protegen cálculos peligrosos."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "`and` y `or` devuelven un operando",
+			"md": "No siempre devuelven `True` o `False`. `\"\" or \"sin dato\"` devuelve `\"sin dato\"` y `\"Ana\" and \"Luis\"` devuelve `\"Luis\"`. Es un atajo útil para valores por defecto (`nombre or \"anónimo\"`), pero no lo uses cuando necesites un booleano estricto: ahí conviene `bool(...)`."
+		},
+		{
+			"type": "h",
+			"text": "Identidad frente a igualdad: `is` y `==`"
+		},
+		{
+			"type": "p",
+			"md": "`==` pregunta «¿valen lo mismo?». `is` pregunta «¿son exactamente el mismo objeto en memoria?». Para enteros pequeños y cadenas cortas, Python reutiliza objetos y `is` puede dar `True` por casualidad; con listas construidas por separado, no."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "identidad.py",
+			"code": "a = [1, 2, 3]\nb = [1, 2, 3]\nc = a\n\nprint(a == b)\nprint(a is b)\nprint(a is c)",
+			"highlight": [
+				2,
+				3
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `True`, `False`, `True`. `a` y `b` tienen el mismo contenido pero son listas distintas; `c` es otra etiqueta del mismo objeto que `a`. Usa `==` para valores y reserva `is` para `None`, `True` y `False`. `if x is None` es correcto; `if x == None` funciona pero se considera mal estilo."
+		},
+		{
+			"type": "h",
+			"text": "Asignación aumentada y operador morsa"
+		},
+		{
+			"type": "p",
+			"md": "`total += venta` equivale a `total = total + venta`, pero evalúa el destino una sola vez y comunica mejor la idea de acumular. Existen `-=`, `*=`, `/=`, `//=`, `%=` y `**=`. Con textos, `+=` concatena; con listas, extiende."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "acumular.py",
+			"code": "stock = 12\nstock -= 5\nprecio = 45.5\nprecio *= 2\n\nprint(stock, precio)",
+			"highlight": [
+				2,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "`stock` pasa de 12 a 7 y `precio` de 45.5 a 91.0. Cada operador trabaja con los tipos de sus operandos: `int` menos `int` da `int`, y `float` por `int` da `float`. El **operador morsa** `:=` (Python 3.8+) asigna dentro de una expresión y devuelve el valor, lo que evita calcular dos veces."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "morsa.py",
+			"code": "stock = 12\n\nif (restante := stock - 5) > 5:\n    print(f\"Quedan {restante} unidades\")\n\nprint(restante * 2)",
+			"highlight": [
+				3
+			]
+		},
+		{
+			"type": "p",
+			"md": "`restante` se calcula una vez, se compara con 5 y queda disponible para el resto del bloque; no hace falta repetir `stock - 5`. Imprime `Quedan 7 unidades` y luego `14`. El morsa es útil cuando necesitas el valor de una condición más de una vez; en expresiones largas, resta legibilidad."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: dividir una cuenta"
+		},
+		{
+			"type": "p",
+			"md": "Cuatro amigos pagan una cena de 187.5 soles y dejan 10 % de propina. El total se reparte en partes iguales. Cada operador interviene en un paso distinto:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "cuenta.py",
+			"code": "cuenta = 187.5\npersonas = 4\npropina = cuenta * 0.10\ntotal = cuenta + propina\npor_persona = total / personas\n\nprint(total, round(por_persona, 2))",
+			"highlight": [
+				3,
+				6
+			]
+		},
+		{
+			"type": "p",
+			"md": "`cuenta * 0.10` da `18.75`; la suma da `206.25`; la división entre 4 da `51.5625`, que `round` reduce a `51.56`. La multiplicación se ejecuta antes que la suma aunque no haya paréntesis, porque tiene mayor precedencia. Si solo se repartiera la cuenta sin propina, dividirías `cuenta / personas` y obtendrías `46.875`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: promedio ponderado"
+		},
+		{
+			"type": "p",
+			"md": "Un curso pondera prácticas al 30 %, examen al 30 % y proyecto al 40 %. Además, se aprueba solo si el promedio llega a 13 **y** el examen llega a 10. Aquí se combinan aritmética, comparación y lógica en dos líneas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "promedio.py",
+			"code": "practicas = 16\nexamen = 14\nproyecto = 18\n\npromedio = practicas * 0.30 + examen * 0.30 + proyecto * 0.40\naprueba = promedio >= 13 and examen >= 10\n\nprint(f\"Promedio: {promedio:.2f}\")\nprint(f\"¿Aprueba? {aprueba}\")",
+			"highlight": [
+				5,
+				6
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los productos suman `4.8 + 4.2 + 7.2 = 16.2`, que se muestra como `16.20`. La condición evalúa primero `promedio >= 13` (`True`), luego `examen >= 10` (`True`), y `and` devuelve `True`. Si el examen fuera 9, el promedio no cambiaría pero `aprueba` sería `False`."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: repartir fotos en paquetes"
+		},
+		{
+			"type": "p",
+			"md": "Un cliente pide imprimir 47 fotos. Se venden en paquetes de 6 a 4.5 soles y las sueltas a 1.2 soles. Necesitas los paquetes completos, las fotos que sobran y el costo con IGV."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pedido.py",
+			"code": "fotos = 47\npor_paquete = 6\n\npaquetes = fotos // por_paquete\nsueltas = fotos % por_paquete\ncosto = paquetes * 4.5 + sueltas * 1.2\ncosto_final = round(costo * 1.18, 2)\n\nprint(f\"Paquetes: {paquetes} | Sueltas: {sueltas}\")\nprint(f\"Total con IGV: S/ {costo_final}\")",
+			"highlight": [
+				4,
+				5,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "`47 // 6` es `7` y `47 % 6` es `5`, porque `7 * 6 + 5 = 47`. El costo base es `31.5 + 6.0 = 37.5`; con IGV, `44.25`. `round(..., 2)` corta el ruido de la coma flotante y la f-string final ya no necesita formato."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: cómo se reparte la cuenta"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Reparto paso a paso",
+			"code": "cuenta = 187.5\npersonas = 4\npropina = cuenta * 0.10\ntotal = cuenta + propina\npor_persona = round(total / personas, 2)\nprint(por_persona)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se guarda el `float` 187.5 en `cuenta`.",
+					"vars": {
+						"cuenta": "187.5"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "Se guarda el `int` 4 en `personas`.",
+					"vars": {
+						"cuenta": "187.5",
+						"personas": "4"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "El 10 % de 187.5 es 18.75.",
+					"vars": {
+						"cuenta": "187.5",
+						"personas": "4",
+						"propina": "18.75"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Se suma la cuenta y la propina: 206.25.",
+					"vars": {
+						"cuenta": "187.5",
+						"personas": "4",
+						"propina": "18.75",
+						"total": "206.25"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "206.25 / 4 da 51.5625; `round` lo deja en 51.56.",
+					"vars": {
+						"cuenta": "187.5",
+						"personas": "4",
+						"propina": "18.75",
+						"total": "206.25",
+						"por_persona": "51.56"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`print` escribe la parte de cada uno.",
+					"vars": {
+						"cuenta": "187.5",
+						"personas": "4",
+						"propina": "18.75",
+						"total": "206.25",
+						"por_persona": "51.56"
+					},
+					"output": "51.56\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`ZeroDivisionError: division by zero`",
+					"Dividiste entre 0, quizá con un dato vacío",
+					"Comprueba el divisor antes: `if b != 0`"
+				],
+				[
+					"`TypeError: unsupported operand type(s) for +: 'int' and 'str'`",
+					"Mezclaste número y texto en una operación",
+					"Convierte con `int()`, `float()` o `str()`"
+				],
+				[
+					"`TypeError: '>' not supported between instances of 'str' and 'int'`",
+					"Comparaste un texto con un número",
+					"Convierte el texto o revisa de dónde viene el dato"
+				],
+				[
+					"El resultado es `False` cuando esperabas `True`",
+					"Precedencia: `not a and b` se lee `(not a) and b`",
+					"Añade paréntesis explícitos"
+				],
+				[
+					"`SyntaxError: invalid syntax` en una comparación",
+					"Escribiste `=` en lugar de `==`",
+					"Usa `==` para comparar"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "`is` no compara contenido",
+			"wrong": {
+				"caption": "Frágil",
+				"code": "nombre = \"Ada\"\nprint(nombre is \"Ada\")  # puede ser True o False"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "nombre = \"Ada\"\nprint(nombre == \"Ada\")  # siempre True"
+			},
+			"explain": "`is` compara identidad: si son el mismo objeto. El intérprete puede reutilizar cadenas cortas y hacer que `is` dé `True` por casualidad, pero no es una garantía del lenguaje. Para contenido, usa siempre `==`; reserva `is` para `None`, `True` y `False`."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe paréntesis cuando mezcles `and`, `or` y `not`: nadie debería recordar la tabla de precedencia.",
+				"Usa `==` para valores e `is` solo con `None`, `True` y `False`.",
+				"No compares `float` con `==`; usa `abs(a - b) < 1e-9`.",
+				"Prefiere `//` y `%` a conversiones cuando repartes unidades.",
+				"Evita cadenas largas sin nombres intermedios: se depuran peor.",
+				"Deja espacios alrededor de los operadores: `a + b`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Promedio ponderado con dos decimales",
+			"md": "Un alumno obtuvo `15` en prácticas, `18` en el examen y `12` en el proyecto. Las ponderaciones son 20 %, 50 % y 30 %. Calcula el promedio y muéstralo con dos decimales. Después comprueba si llega a 14 usando una comparación guardada en una variable booleana.",
+			"hint": "Multiplica cada nota por su peso, suma los tres productos y aplica `:.2f` al imprimir. Para la comparación, guarda el resultado en una variable.",
+			"solution": {
+				"lang": "python",
+				"caption": "ponderado.py",
+				"code": "practicas = 15\nexamen = 18\nproyecto = 12\n\npromedio = practicas * 0.20 + examen * 0.50 + proyecto * 0.30\nllega = promedio >= 14\n\nprint(f\"Promedio: {promedio:.2f}\")\nprint(f\"¿Llega a 14? {llega}\")",
+				"explain": "Los productos son 3.0, 9.0 y 3.6; la suma da 15.6, que se muestra como 15.60. La comparación produce `True` y se guarda en `llega`. Si sumaras las notas sin ponderar obtendrías 45, un resultado sin significado."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Minutos a horas y minutos",
+			"md": "Guarda `347` en `total_minutos`, calcula las horas completas y los minutos sobrantes, y muestra `347 minutos = 5 h 47 min`. Resuélvelo solo con `//` y `%`.",
+			"hint": "Una hora tiene 60 minutos: las horas completas son la división entera y el resto son los minutos sobrantes.",
+			"solution": {
+				"lang": "python",
+				"caption": "minutos.py",
+				"code": "total_minutos = 347\n\nhoras = total_minutos // 60\nminutos = total_minutos % 60\n\nprint(f\"{total_minutos} minutos = {horas} h {minutos} min\")",
+				"explain": "`347 // 60` es 5 y `347 % 60` es 47; juntos reconstruyen 347. La f-string inserta los tres valores sin conversiones manuales."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la expresión",
+			"lang": "python",
+			"code": "precio = 120\ndescuento = precio ___ 0.10\ntotal = precio - descuento\n\nprint(total ___ 100)\nprint(total > 100 ___ total < 120)",
+			"answers": [
+				"*",
+				">",
+				"and"
+			],
+			"hint": "El descuento es un porcentaje del precio; las dos comparaciones deben cumplirse a la vez.",
+			"explain": "`precio * 0.10` da 12.0, así que `total` es 108.0. `108.0 > 100` es `True`, y `True and True` también. Con `or`, un total de 130 pasaría igual y la expresión no comprobaría el rango."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el promedio ponderado, el error habitual es dividir entre 3 al final. Con pesos que ya suman 1 (0.20 + 0.50 + 0.30), no hay que dividir: cada nota ya está escalada. Si los pesos fueran enteros (20, 50, 30), dividirías entre 100. Comprueba que sumen 1 antes de confiar en el resultado."
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de minutos, `//` y `%` son complementarios: el cociente dice cuántas unidades completas caben y el resto, cuánto sobra. La misma idea convierte céntimos a soles o reparte artículos en cajas. No uses `round` aquí: redondear 5.78 a 6 horas sería incorrecto."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un operador combina operandos y produce un valor; una expresión es la combinación completa.",
+				"`/` siempre devuelve `float`; `//` descarta decimales; `%` da el resto.",
+				"Con negativos, `//` redondea hacia menos infinito y `%` conserva el signo del divisor.",
+				"Las comparaciones devuelven `bool` y se encadenan: `0 <= nota <= 20`.",
+				"`and` y `or` cortocircuitan: el lado derecho solo se evalúa si hace falta.",
+				"`==` compara valores; `is` compara identidad y se reserva para `None`, `True` y `False`.",
+				"La precedencia va de `**` a `or`; usa paréntesis ante la duda.",
+				"`+=` acumula y `:=` asigna dentro de una expresión (3.8+)."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime `print(7 // 2, 7 % 2)`?",
+			"options": [
+				"`3.5 1`",
+				"`3 1`",
+				"`3.5 0.5`",
+				"`4 1`"
+			],
+			"answer": 1,
+			"explain": "`//` da el cociente entero (3) y `%` el resto (1), porque 7 = 3 * 2 + 1. Si hubieras usado `/`, el primer valor sería 3.5."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es el valor de `2 + 3 * 4 ** 2`?",
+			"options": [
+				"`80`",
+				"`50`",
+				"`98`",
+				"`26`"
+			],
+			"answer": 1,
+			"explain": "Primero la potencia (4 ** 2 = 16), luego la multiplicación (3 * 16 = 48) y por último la suma (2 + 48 = 50). Sin precedencia, sumar primero daría 80."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `0 or \"sin dato\"`?",
+			"options": [
+				"`True`",
+				"`0`",
+				"`\"sin dato\"`",
+				"`False`"
+			],
+			"answer": 2,
+			"explain": "`or` devuelve el primer operando verdadero; como 0 es falso, devuelve el segundo. No convierte el resultado a `bool`: devuelve el valor tal cual."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "Operadores en el tutorial oficial",
+					"url": "https://docs.python.org/es/3/tutorial/introduction.html#using-python-as-a-calculator",
+					"note": "aritmética básica y ejemplos"
+				},
+				{
+					"label": "Precedencia de operadores",
+					"url": "https://docs.python.org/es/3/reference/expressions.html#operator-precedence",
+					"note": "tabla completa del lenguaje"
+				},
+				{
+					"label": "Comparaciones encadenadas",
+					"url": "https://docs.python.org/es/3/reference/expressions.html#comparisons",
+					"note": "semántica de `is`, `in` y encadenamiento"
+				}
+			]
+		}
+	]
+}

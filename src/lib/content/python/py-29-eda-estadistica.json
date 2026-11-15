@@ -1,0 +1,482 @@
+{
+	"id": "py-29-eda-estadistica",
+	"track": "python",
+	"order": 29,
+	"title": "Estadística y análisis exploratorio",
+	"subtitle": "Media, dispersión y correlación: qué afirman los números y qué dejan fuera",
+	"level": "intermedio",
+	"minutes": 45,
+	"tags": ["estadística", "eda", "correlación", "distribuciones"],
+	"keywords": [
+		"estadística descriptiva",
+		"media mediana moda",
+		"desviación estándar",
+		"cuartiles",
+		"correlación de pearson",
+		"spearman",
+		"análisis exploratorio",
+		"distribución sesgada",
+		"valores atípicos",
+		"sesgo de selección",
+		"correlación no es causalidad"
+	],
+	"summary": "Antes de modelar hay que mirar. Aprenderás a resumir una variable con media, mediana y dispersión, a leer una correlación sin confundirla con causalidad y a conducir un análisis exploratorio guiado por preguntas, detectando los sesgos que un solo número esconde.",
+	"objectives": [
+		"Elegir entre media, mediana y moda según la forma de la distribución",
+		"Medir dispersión con desviación estándar, rango intercuartílico y cuantiles",
+		"Interpretar una correlación de Pearson y saber cuándo usar Spearman",
+		"Conducir un EDA a partir de preguntas concretas sobre los datos",
+		"Reconocer sesgos de selección, de supervivencia y paradojas de agregación"
+	],
+	"prerequisites": ["Pandas: Series y DataFrames", "Limpieza de datos"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un gerente pregunta cuánto gasta el cliente típico. Respondes con la media y él decide subir el precio del plan básico. Semanas después descubres que dos clientes corporativos concentraban el 60 % del gasto. El número era correcto; la conclusión, no. La estadística descriptiva no consiste en calcular, sino en saber qué representa cada cálculo."
+		},
+		{
+			"type": "p",
+			"md": "El **análisis exploratorio de datos** (EDA) es la conversación previa al modelo: preguntas, resúmenes y comprobaciones que revelan la forma de los datos. Aquí usarás pandas y NumPy para cinco preguntas: ¿dónde está el centro, cuánto se dispersa, cómo se distribuye, qué se relaciona con qué y quién falta en la tabla?"
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la estadística descriptiva?"
+		},
+		{
+			"type": "p",
+			"md": "La estadística descriptiva resume un conjunto de observaciones en pocos números. Se distingue de la **inferencial**, que intenta extrapolar de una muestra a una población y por eso necesita intervalos de confianza y pruebas de hipótesis. En un EDA casi todo es descriptivo: describes lo que tienes, sin afirmar todavía qué pasaría con datos que no tienes."
+		},
+		{
+			"type": "p",
+			"md": "Tres familias de medidas cubren casi todo. Las de **posición** indican dónde está el centro: media, mediana, moda. Las de **dispersión** indican cuánto se alejan los valores de ese centro: desviación estándar, rango, rango intercuartílico. Las de **forma y relación** describen la silueta de la distribución y cómo se mueven dos variables juntas: asimetría, correlación."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Muestra y población no son lo mismo",
+			"md": "Si tus datos son todos los pedidos de enero, describes enero. Si son una muestra de clientes, cualquier promedio es una estimación con margen de error. La diferencia decide si dices «el ticket medio fue 85 soles» o «en esta muestra fue 85»."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Elegir un modelo**: la dispersión orienta la normalización y la asimetría sugiere transformaciones.",
+				"**Detectar errores**: una edad media de 7 años indica un problema de captura, no un mercado infantil.",
+				"**Comparar segmentos**: dos sedes con la misma media pueden tener riesgos muy distintos.",
+				"**Priorizar variables**: una correlación alta con la objetivo ahorra probar columnas a ciegas.",
+				"**Comunicar con honestidad**: «mediana 21, media 29.6 por una compra atípica» dice más que un promedio solo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "La **media** suma los valores y divide entre la cantidad; es el centro de gravedad, y se desplaza si un dato se aleja. La **mediana** deja la mitad de las observaciones a cada lado: se ordenan los datos y se toma el central, o el promedio de los dos centrales. La **moda** es el valor más repetido, útil con categorías."
+		},
+		{
+			"type": "p",
+			"md": "Cuando la distribución es simétrica, media y mediana coinciden. Cuando hay una cola hacia la derecha, la media queda por encima de la mediana porque los valores grandes la atraen; cuando la cola es hacia la izquierda, ocurre lo contrario. Esa comparación es un diagnóstico rápido de asimetría, y también la razón por la que los ingresos se reportan con mediana."
+		},
+		{
+			"type": "p",
+			"md": "La **desviación estándar** es la distancia típica a la media: se calcula la varianza, promedio de las distancias al cuadrado, y se toma su raíz. Aquí aparece una trampa: pandas divide entre n − 1 y NumPy entre n, así que con pocos datos las cifras discrepan. El **rango intercuartílico**, distancia entre el cuartil 75 y el 25, no se deja arrastrar por los extremos."
+		},
+		{
+			"type": "table",
+			"head": ["Medida", "Qué responde", "Sensible a extremos", "Cuándo usarla"],
+			"rows": [
+				["Media", "Centro aritmético", "Mucho", "Distribuciones simétricas"],
+				["Mediana", "Valor central", "Poco", "Ingresos, precios, tiempos"],
+				["Moda", "Valor más frecuente", "Nada", "Categorías y conteos"],
+				["Desviación estándar", "Dispersión promedio", "Mucho", "Comparar variabilidad"],
+				["Rango intercuartílico", "Ancho del 50 % central", "Poco", "Datos con colas largas"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: describir una tabla"
+		},
+		{
+			"type": "p",
+			"md": "Instala con `pip install pandas numpy`; pandas trae las medidas en métodos de Series y en dos resúmenes de DataFrame. `describe()` devuelve conteo, media, desviación, mínimo, cuartiles y máximo de cada columna numérica, y `value_counts()` cuenta categorías. `numeric_only=True` omite las columnas de texto."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "resumen.py",
+			"code": "import pandas as pd\n\ndf.describe()\ndf[\"monto\"].mean()\ndf[\"monto\"].median()\ndf[\"monto\"].std()\ndf[\"monto\"].quantile([0.25, 0.5, 0.75])\ndf[\"sede\"].value_counts(normalize=True)\ndf.corr(numeric_only=True)",
+			"highlight": [3, 7, 8, 10]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`describe()` incluye `count`, que revela cuántos valores no nulos entraron en cada cálculo.",
+				"`value_counts(normalize=True)` devuelve proporciones en lugar de conteos.",
+				"`corr()` calcula Pearson por defecto; `method=\"spearman\"` usa rangos.",
+				"`groupby(...).agg([\"mean\", \"median\", \"std\"])` compara segmentos de una vez.",
+				"`nunique()` y `isna().sum()` completan el perfil antes de concluir nada."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: tres centros para ocho notas"
+		},
+		{
+			"type": "p",
+			"md": "Ocho estudiantes obtuvieron 12, 14, 15, 11, 18, 13, 16 y 15. Calcula los tres centros y compáralos antes de mirar cualquier gráfico."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "centros.py",
+			"code": "import pandas as pd\n\nnotas = pd.Series([12, 14, 15, 11, 18, 13, 16, 15])\n\nprint(notas.mean())\nprint(notas.median())\nprint(notas.mode().tolist())\nprint(notas.max() - notas.min())",
+			"highlight": [5, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "La media es 14.25, porque la suma es 114 y hay ocho datos. La mediana es 14.5: al ordenar quedan 11, 12, 13, 14, 15, 15, 16 y 18, y el promedio de los dos centrales es 14.5. La moda es 15, el único valor repetido, y el rango es 7."
+		},
+		{
+			"type": "p",
+			"md": "Que la media sea menor que la mediana indica una cola leve hacia la izquierda: las notas de 11 y 12 pesan más que la de 18. Con ocho datos la diferencia es pequeña, pero comparar ambas cifras detecta asimetrías que un promedio oculta."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: dispersión y correlación"
+		},
+		{
+			"type": "p",
+			"md": "Saber que la nota media es 14.25 no dice si todos sacaron entre 13 y 16 o si la mitad reprobó. Para eso está la dispersión; para saber si las horas acompañan a las notas, la correlación."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "dispersion.py",
+			"code": "import pandas as pd\n\nnotas = pd.Series([12, 14, 15, 11, 18, 13, 16, 15])\nhoras = pd.Series([2, 4, 6, 8, 10])\ncalificaciones = pd.Series([10, 11, 14, 15, 18])\n\nprint(round(notas.std(), 2))\nprint(round(notas.std(ddof=0), 2))\nprint(notas.quantile([0.25, 0.75]).tolist())\nprint(round(horas.corr(calificaciones), 2))",
+			"highlight": [7, 8, 9, 10]
+		},
+		{
+			"type": "p",
+			"md": "La desviación con el criterio de pandas es 2.25; con el de NumPy, 2.11. La diferencia viene del divisor: siete frente a ocho. Los cuartiles son 12.75 y 16.5, así que el rango intercuartílico es 3.75: la mitad central ocupa menos de cuatro puntos."
+		},
+		{
+			"type": "p",
+			"md": "La correlación entre las cinco parejas de horas y calificaciones es 0.99. Pearson mide cuánto se parece la nube de puntos a una recta: vale 1 con relación lineal creciente perfecta, −1 con decreciente perfecta y 0 cuando no hay relación lineal. No dice que estudiar cause la nota, ni detecta relaciones curvas."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un EDA guiado por preguntas"
+		},
+		{
+			"type": "p",
+			"md": "Un EDA sin preguntas es una pared de gráficos. Elige cinco y respóndelas en orden, anotando lo que encuentres; el esquema sirve para cualquier tabla de ventas."
+		},
+		{
+			"type": "table",
+			"head": ["Pregunta", "Operación", "Qué te dice"],
+			"rows": [
+				["¿Cuántos datos y de cuándo son?", "`shape` y fechas mínima y máxima", "Cobertura y huecos"],
+				["¿Faltan valores?", "`isna().sum()`", "Si el resumen usó menos filas"],
+				["¿Cómo se reparte el monto?", "`describe()` e histograma", "Centro, cola y extremos"],
+				["¿Qué segmento aporta más?", "`groupby(...).sum()`", "Concentración del ingreso"],
+				["¿Qué se mueve con el monto?", "`corr(numeric_only=True)`", "Posibles variables explicativas"]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "eda.py",
+			"code": "import pandas as pd\n\npedidos = pd.read_csv(\"pedidos.csv\")\npedidos[\"fecha\"] = pd.to_datetime(pedidos[\"fecha\"])\n\nprint(pedidos[\"fecha\"].min(), pedidos[\"fecha\"].max())\nprint(pedidos.isna().sum().to_dict())\nprint(pedidos[\"monto\"].describe().round(2).to_dict())\nprint(pedidos.groupby(\"sede\")[\"monto\"].agg([\"sum\", \"median\", \"count\"]))\nprint(pedidos.corr(numeric_only=True)[\"monto\"].sort_values(ascending=False))",
+			"highlight": [4, 6, 7, 9, 10]
+		},
+		{
+			"type": "p",
+			"md": "El orden no es casual. Primero compruebas cobertura: con dos semanas de datos, cualquier conclusión mensual es prematura. Después cuentas nulos, que cambian el denominador. Solo entonces comparas segmentos y correlaciones."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la matriz de correlaciones"
+		},
+		{
+			"type": "p",
+			"md": "La matriz resume un cuestionario a 120 estudiantes. Cada celda es la correlación entre dos variables; la diagonal vale 1 porque cada una coincide consigo misma. Solo importan las relaciones claras: con 120 casos, valores por debajo de 0.2 en valor absoluto son débiles."
+		},
+		{
+			"type": "matrix",
+			"title": "Correlaciones del cuestionario (n = 120)",
+			"data": [[1, 0.62, 0.78, -0.15], [0.62, 1, 0.55, -0.08], [0.78, 0.55, 1, -0.22], [-0.15, -0.08, -0.22, 1]],
+			"rowLabels": ["horas estudio", "asistencia", "nota", "horas sueño"],
+			"colLabels": ["horas estudio", "asistencia", "nota", "horas sueño"],
+			"steps": [
+				{
+					"note": "La diagonal es 1 en todas las celdas: una variable consigo misma.",
+					"highlight": [[0, 0], [1, 1], [2, 2], [3, 3]]
+				},
+				{
+					"note": "El valor más alto fuera de la diagonal es 0.78, entre horas de estudio y nota.",
+					"highlight": [[0, 2], [2, 0]]
+				},
+				{
+					"note": "Asistencia y nota correlacionan 0.55; es positiva, pero más débil.",
+					"highlight": [[1, 2], [2, 1]]
+				},
+				{
+					"note": "Las correlaciones con horas de sueño son débiles y negativas: no sostienen ninguna afirmación.",
+					"highlight": [[0, 3], [1, 3], [3, 0], [3, 1], [2, 3], [3, 2]]
+				},
+				{
+					"note": "La matriz es simétrica: la mitad inferior repite la superior, así que un mapa de calor puede mostrar solo un triángulo.",
+					"highlight": [[1, 0], [2, 0], [3, 0]]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Una correlación de 0.78 entre horas de estudio y nota no demuestra que estudiar suba la nota: puede que los estudiantes más motivados estudien más y además rindan mejor. Para acercarte a una relación causal necesitas un experimento o controlar esas variables ocultas."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Media y mediana, paso a paso",
+			"code": "notas = [12, 14, 15, 11, 18, 13, 16, 15]\nn = len(notas)\nmedia = sum(notas) / n\nordenadas = sorted(notas)\nmediana = (ordenadas[3] + ordenadas[4]) / 2\nprint(media, mediana)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Ocho notas sin ordenar. La lista conserva el orden de captura.",
+					"vars": { "notas": "[12, 14, 15, 11, 18, 13, 16, 15]" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`len` cuenta los elementos: hay ocho observaciones.",
+					"vars": { "notas": "[12, 14, 15, 11, 18, 13, 16, 15]", "n": "8" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "La suma es 114, así que la media es 114 / 8 = 14.25.",
+					"vars": {
+						"notas": "[12, 14, 15, 11, 18, 13, 16, 15]",
+						"n": "8",
+						"media": "14.25"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`sorted` devuelve una lista nueva sin modificar la original.",
+					"vars": {
+						"notas": "[12, 14, 15, 11, 18, 13, 16, 15]",
+						"n": "8",
+						"media": "14.25",
+						"ordenadas": "[11, 12, 13, 14, 15, 15, 16, 18]"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Con ocho datos no hay un centro único: se promedian las posiciones 3 y 4, que son 14 y 15.",
+					"vars": {
+						"notas": "[12, 14, 15, 11, 18, 13, 16, 15]",
+						"n": "8",
+						"media": "14.25",
+						"ordenadas": "[11, 12, 13, 14, 15, 15, 16, 18]",
+						"mediana": "14.5"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "La media queda por debajo de la mediana: las notas bajas pesan más que la alta.",
+					"vars": {
+						"notas": "[12, 14, 15, 11, 18, 13, 16, 15]",
+						"n": "8",
+						"media": "14.25",
+						"ordenadas": "[11, 12, 13, 14, 15, 15, 16, 18]",
+						"mediana": "14.5"
+					},
+					"output": "14.25 14.5\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Error", "Ejemplo", "Qué hacer"],
+			"rows": [
+				["Reportar solo la media", "Dos grupos opuestos promedian un valor que nadie tiene", "Añade mediana, cuartiles y gráfico"],
+				["Ignorar los nulos", "`describe` muestra un `count` menor que el total", "Compara `count` con `shape`"],
+				["Confundir desviaciones", "`std()` de pandas no coincide con `numpy.std()`", "Fija `ddof` explícitamente"],
+				["Leer causalidad en una correlación", "Helados y ahogamientos suben en verano", "Busca la variable oculta"],
+				["Extrapolar de una muestra sesgada", "Encuestas solo a clientes activos", "Pregunta quién falta en la tabla"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El sesgo más difícil de ver es el de **supervivencia**: analizas los proyectos que llegaron a publicarse y concluyes que cierto enfoque funciona, sin saber cuántos intentos iguales fracasaron. Ninguna medida lo corrige; solo la pregunta sobre el origen."
+		},
+		{
+			"type": "diff",
+			"title": "Un resumen que no explica nada",
+			"wrong": {
+				"caption": "Solo el promedio",
+				"code": "print(df[\"monto\"].mean())"
+			},
+			"right": {
+				"caption": "Centro, dispersión y tamaño",
+				"code": "print(df[\"monto\"].agg([\"count\", \"mean\", \"median\", \"std\"]))\nprint(df[\"monto\"].quantile([0.25, 0.75]))"
+			},
+			"explain": "Un único promedio no distingue una distribución estrecha de una con dos picos ni revela cuántos nulos quedaron fuera. Cuatro números y dos cuartiles ocupan una línea y evitan la mayoría de las conclusiones falsas."
+		},
+		{
+			"type": "callout",
+			"tone": "danger",
+			"title": "La paradoja de Simpson existe en tu tabla",
+			"md": "Una relación puede invertirse al agrupar. Si cada sede convierte mejor cuanto más gasta en publicidad, pero la sede grande gasta más y convierte peor por otras razones, el agregado puede mostrar una relación negativa. Repite el cálculo por segmento."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe la pregunta antes del cálculo; si no sabes qué harías con la respuesta, no la calcules.",
+				"Informa el tamaño de la muestra junto a cualquier porcentaje o media.",
+				"Reporta mediana y cuartiles cuando la distribución tenga colas largas.",
+				"Grafica antes de resumir: el histograma detecta lo que `describe` esconde.",
+				"No compares promedios de grupos muy distintos sin mirar la dispersión de cada uno.",
+				"Repite el análisis por segmento antes de afirmar una relación global."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "El efecto de un valor extremo",
+			"md": "Con los montos 12, 15, 18, 20, 22, 25, 30 y 95, calcula media, mediana, desviación estándar y rango intercuartílico. Repite el cálculo sin el valor 95 y compara. Explica qué medida describe mejor el gasto típico.",
+			"hint": "Crea una Series y usa `agg([\"mean\", \"median\", \"std\"])`. Para el IQR, resta `quantile(0.75)` menos `quantile(0.25)`.",
+			"solution": {
+				"lang": "python",
+				"caption": "extremo.py",
+				"code": "import pandas as pd\n\nmontos = pd.Series([12, 15, 18, 20, 22, 25, 30, 95])\nsin_extremo = montos[montos < 50]\n\nprint(montos.agg([\"mean\", \"median\", \"std\"]).round(2).to_dict())\nprint(sin_extremo.agg([\"mean\", \"median\", \"std\"]).round(2).to_dict())\n\niqr = montos.quantile(0.75) - montos.quantile(0.25)\nprint(round(iqr, 2))",
+				"explain": "Con el extremo, la media es 29.62 y la mediana 21; sin él, la media baja a 20.29 y la mediana a 20. La mediana se mueve un punto, la media casi diez. El IQR también se reduce, de 11.5 a 7, pero mucho menos: los cuartiles ignoran las colas. Para describir el gasto típico, mediana e IQR son más honestos."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el resumen",
+			"lang": "python",
+			"code": "promedio = df[\"nota\"].___()\nmediana = df[\"nota\"].___()\ndispersion = df[\"nota\"].___(ddof=1)\nprint(promedio, mediana, dispersion)",
+			"answers": ["mean", "median", "std"],
+			"hint": "Los tres nombres son los mismos que usarías en una calculadora estadística. `ddof=1` solo tiene sentido en la medida de dispersión.",
+			"explain": "`mean` calcula el promedio, `median` el valor central y `std` la desviación estándar. Con `ddof=1` divides entre n − 1, el criterio de pandas y de la estadística inferencial cuando trabajas con una muestra."
+		},
+		{
+			"type": "exercise",
+			"title": "Una correlación que un punto destruye",
+			"md": "Calcula la correlación entre horas de estudio 2, 4, 6, 8 y 10 y notas 10, 11, 14, 15 y 18. Después añade el par (10, 8), un estudiante que estudió mucho y rindió mal, y vuelve a calcularla. Explica por qué cambia tanto y qué conclusión puedes sostener.",
+			"hint": "Usa `serie_a.corr(serie_b)`. Compara el número de puntos: cinco observaciones son muy pocas para afirmar una relación estable.",
+			"solution": {
+				"lang": "python",
+				"caption": "correlacion.py",
+				"code": "import pandas as pd\n\nhoras = pd.Series([2, 4, 6, 8, 10])\nnotas = pd.Series([10, 11, 14, 15, 18])\nprint(round(horas.corr(notas), 2))\n\nhoras2 = pd.Series([2, 4, 6, 8, 10, 10])\nnotas2 = pd.Series([10, 11, 14, 15, 18, 8])\nprint(round(horas2.corr(notas2), 2))",
+				"explain": "Con cinco puntos la correlación es 0.99; al añadir uno solo baja a 0.36. Pearson es sensible a cualquier observación que se aleje de la recta, sobre todo con muestras pequeñas. Lo que puedes sostener es que en estos datos la relación es positiva pero frágil, no que estudiar garantice una nota."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, el valor 95 no es un error: es un cliente corporativo legítimo. Por eso no lo elimines del análisis; sepáralo. Reportar «mediana 21, con un caso de 95» describe mejor la realidad que borrar la fila o publicar un promedio de 29.62 que ningún cliente reconoce."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el punto añadido no es un dato malo, es información: alguien estudió diez horas y sacó 8. Su presencia demuestra que la relación no es perfecta y que cinco observaciones no bastan para estimar una pendiente. Con muestras pequeñas, cualquier conclusión sobre causalidad es una hipótesis, no un resultado."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Media, mediana y moda responden a preguntas distintas; compáralas para detectar asimetría.",
+				"La media se desplaza con los extremos; la mediana y el IQR son más robustos.",
+				"`std()` de pandas usa n − 1 y NumPy usa n: fija `ddof` cuando compares.",
+				"Pearson mide relación lineal; Spearman, relación monótona entre rangos.",
+				"Una correlación alta no implica causalidad ni descarta una variable oculta.",
+				"Un EDA se guía por preguntas: cobertura, nulos, forma, segmentos y relaciones.",
+				"El sesgo de selección no se corrige con fórmulas: hay que preguntar quién falta en la tabla."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Diez clientes gastan 10, 10, 10, 10, 10, 10, 10, 10, 10 y 500 soles. ¿Qué medida describe mejor el gasto típico?",
+			"options": [
+				"La media, 59 soles",
+				"La mediana, 10 soles",
+				"El máximo, 500 soles",
+				"La desviación estándar, que resume el centro"
+			],
+			"answer": 1,
+			"explain": "Nueve de cada diez clientes gastan 10 soles, así que 10 es el valor típico. La media sube a 59 por un único cliente y no representa a nadie. La mediana es resistente a ese extremo, y el máximo no es una medida de centro."
+		},
+		{
+			"type": "quiz",
+			"question": "Una correlación de Pearson de −0.85 entre precio y unidades vendidas indica que…",
+			"options": [
+				"Subir el precio causa necesariamente menos ventas",
+				"La relación lineal es fuerte y de sentido inverso en esos datos",
+				"No hay relación entre las variables",
+				"El 85 % de las ventas se explica por el precio"
+			],
+			"answer": 1,
+			"explain": "El signo indica dirección y el valor absoluto, fuerza de la relación lineal. Para afirmar causalidad hace falta un diseño que descarte alternativas, y para hablar de proporción de varianza explicada habría que elevar al cuadrado: 0.72, no 0.85."
+		},
+		{
+			"type": "quiz",
+			"question": "`df[\"monto\"].std()` devuelve 2.25 y `numpy.std(df[\"monto\"])` devuelve 2.11. ¿Por qué?",
+			"options": [
+				"Pandas redondea a dos decimales",
+				"Pandas divide entre n − 1 y NumPy entre n",
+				"NumPy ignora los valores nulos",
+				"Pandas usa la mediana en lugar de la media"
+			],
+			"answer": 1,
+			"explain": "La desviación muestral divide la suma de cuadrados entre n − 1 y la poblacional entre n. Con ocho datos la diferencia es visible. Elige el criterio según lo que representes y pásalo con `ddof` para que dos herramientas no discrepen."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Pandas: estadísticas descriptivas",
+					"url": "https://pandas.pydata.org/docs/user_guide/basics.html#descriptive-statistics",
+					"note": "métodos de resumen y sus parámetros"
+				},
+				{
+					"label": "NumPy: estadística",
+					"url": "https://numpy.org/doc/stable/reference/routines.statistics.html",
+					"note": "funciones y criterio ddof"
+				}
+			]
+		}
+	]
+}

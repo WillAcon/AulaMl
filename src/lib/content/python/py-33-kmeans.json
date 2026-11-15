@@ -1,0 +1,479 @@
+{
+	"id": "py-33-kmeans",
+	"track": "python",
+	"order": 33,
+	"title": "K-Means y aprendizaje no supervisado",
+	"subtitle": "Agrupar datos sin etiquetas: centroides, distancia y el método del codo",
+	"level": "intermedio",
+	"minutes": 38,
+	"tags": ["clustering", "k-means", "no supervisado", "segmentación"],
+	"keywords": [
+		"qué es k-means",
+		"aprendizaje no supervisado",
+		"clustering",
+		"centroides",
+		"distancia euclidiana",
+		"inicialización k-means++",
+		"método del codo",
+		"inercia",
+		"silhouette score",
+		"escalado de variables",
+		"DBSCAN",
+		"segmentación de clientes"
+	],
+	"summary": "Sin etiquetas no hay respuestas que copiar, pero sí estructura que descubrir. Aquí ves cómo K-Means alterna asignaciones y centroides, cómo elegir el número de grupos con la inercia y por qué escalar las variables cambia por completo el resultado.",
+	"objectives": [
+		"Explicar el ciclo asignar-recalcular de K-Means y cuándo termina",
+		"Calcular distancias y asignar puntos a centroides a mano",
+		"Elegir `k` con el método del codo y comprobarlo con la silueta",
+		"Escalar variables antes de agrupar y justificar por qué",
+		"Reconocer las limitaciones de K-Means y cuándo probar otro método"
+	],
+	"prerequisites": [
+		"Fundamentos de Machine Learning",
+		"NumPy: vectores, matrices y vectorización",
+		"Estadística y análisis exploratorio"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Tienes las compras de cientos de clientes y ninguna etiqueta que diga «este es del segmento A». No hay respuestas que copiar, pero sí una pregunta razonable: ¿qué grupos existen por sí solos? Eso es el aprendizaje no supervisado."
+		},
+		{
+			"type": "p",
+			"md": "K-Means es el método más usado para responderla, y también el más malinterpretado. Al terminar esta lección sabrás qué garantiza —y qué no— y podrás mirar un gráfico de grupos sin creer que los colores son la verdad."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es el clustering?"
+		},
+		{
+			"type": "p",
+			"md": "El **clustering** o agrupamiento consiste en repartir ejemplos en grupos de modo que los de un mismo grupo se parezcan entre sí más que a los de otros. No hay etiqueta correcta: el resultado es una **hipótesis de estructura**, no un hecho. Dos ejecuciones con distinto `k` o distinta escala producen agrupaciones distintas, y ninguna es «la verdadera»."
+		},
+		{
+			"type": "p",
+			"md": "K-Means es un algoritmo de clustering **particional**: eliges de antemano cuántos grupos quieres (`k`) y él reparte todos los puntos entre esos grupos, sin dejar ninguno fuera. Cada grupo queda representado por un **centroide**, el punto promedio de sus miembros."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Segmentar clientes**: agrupar por frecuencia de compra y gasto para diseñar campañas distintas.",
+				"**Compresión de color**: reducir una imagen a 16 colores agrupando los píxeles parecidos.",
+				"**Detección de patrones**: encontrar zonas de una ciudad con comportamiento similar de consumo.",
+				"**Preparar datos**: crear una columna de segmento que después alimente un modelo supervisado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El algoritmo alterna dos pasos hasta que nada cambia. Primero **asigna** cada punto al centroide más cercano, normalmente con distancia euclidiana. Después **recalcula** cada centroide como la media de los puntos asignados. Si los centroides se mueven, vuelve a asignar; si no, termina."
+		},
+		{
+			"type": "p",
+			"md": "La **inicialización** importa: dos puntos de partida distintos pueden terminar en agrupaciones distintas. Por eso se usa **k-means++**, que elige centroides iniciales separados entre sí, y se repite el proceso varias veces (`n_init`) quedándose con la solución de menor inercia. La **inercia** es la suma de distancias al cuadrado de cada punto a su centroide: mide qué tan compactos son los grupos."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: KMeans en scikit-learn"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalación",
+			"code": "python -m pip install scikit-learn"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "esquema.py",
+			"code": "from sklearn.cluster import KMeans\n\npuntos = [[1, 1], [2, 1], [1, 2], [6, 5], [7, 6], [6, 6]]\n\nmodelo = KMeans(n_clusters=2, n_init=10, random_state=0)\netiquetas = modelo.fit_predict(puntos)\n\nprint(etiquetas)\nprint(modelo.cluster_centers_.round(2))\nprint(round(modelo.inertia_, 2))",
+			"highlight": [5, 6]
+		},
+		{
+			"type": "p",
+			"md": "`fit_predict` entrena y devuelve la etiqueta de cada punto en una sola llamada. `cluster_centers_` guarda las coordenadas de los centroides y `inertia_` la suma de errores al cuadrado. Las etiquetas son números arbitrarios: el grupo 0 no es «mejor» que el 1, y su numeración puede cambiar entre ejecuciones."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: la distancia decide"
+		},
+		{
+			"type": "p",
+			"md": "Con dos centroides en `(1, 1)` y `(6, 5)`, un punto en `(2, 1)` pertenece al que esté más cerca. La distancia euclidiana se calcula con el teorema de Pitágoras:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "distancias.py",
+			"code": "from math import dist\n\ncentroides = [(1, 1), (6, 5)]\npunto = (2, 1)\n\nfor i, c in enumerate(centroides):\n    print(f\"centroide {i}: {dist(punto, c):.2f}\")",
+			"highlight": [7]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `centroide 0: 1.00` y `centroide 1: 5.66`. La diferencia es enorme, así que la asignación no admite dudas. Cuando dos distancias están muy cerca, el punto cae en una frontera y puede cambiar de grupo con un pequeño movimiento de los centroides."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: puntos y centroides"
+		},
+		{
+			"type": "p",
+			"md": "Seis puntos y dos centroides iniciales. Recorre los pasos para ver cómo los centroides se desplazan hacia el promedio de su grupo:"
+		},
+		{
+			"type": "matrix",
+			"title": "Puntos y centroides en dos dimensiones",
+			"data": [[1, 1], [2, 1], [1, 2], [6, 5], [7, 6], [6, 6], [1, 1], [6, 5]],
+			"rowLabels": ["P1", "P2", "P3", "P4", "P5", "P6", "C1", "C2"],
+			"colLabels": ["x", "y"],
+			"steps": [
+				{
+					"note": "Las seis primeras filas son los datos. Las dos últimas son los centroides, que arrancan sobre dos puntos cualesquiera.",
+					"highlight": [[6, 0], [6, 1], [7, 0], [7, 1]]
+				},
+				{
+					"note": "Cada punto se asigna al centroide más cercano: P1, P2 y P3 quedan con C1.",
+					"highlight": [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1]]
+				},
+				{
+					"note": "P4, P5 y P6 quedan con C2. Los dos grupos tienen tres puntos cada uno.",
+					"highlight": [[3, 0], [3, 1], [4, 0], [4, 1], [5, 0], [5, 1]]
+				},
+				{
+					"note": "C1 se mueve a la media `(1.33, 1.33)` y C2 a `(6.33, 5.67)`. Los puntos no se movieron.",
+					"data": [[1, 1], [2, 1], [1, 2], [6, 5], [7, 6], [6, 6], [1.33, 1.33], [6.33, 5.67]],
+					"highlight": [[6, 0], [6, 1], [7, 0], [7, 1]]
+				},
+				{
+					"note": "Con los centroides nuevos, ningún punto cambia de grupo: el algoritmo convergió y la inercia es `2.67`.",
+					"data": [[1, 1], [2, 1], [1, 2], [6, 5], [7, 6], [6, 6], [1.33, 1.33], [6.33, 5.67]]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los dos grupos están claramente separados, así que cualquier inicialización razonable llega al mismo resultado. En datos reales los grupos se tocan, y ahí la inicialización y la escala sí cambian la respuesta."
+		},
+		{
+			"type": "h",
+			"text": "Traza: cómo se asigna un punto"
+		},
+		{
+			"type": "p",
+			"md": "La asignación es una comparación de distancias. Observa el cálculo interno para el mismo punto `(2, 1)`:"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Asignación de un punto a su centroide",
+			"code": "from math import dist\n\npunto = (2, 1)\ncentroides = [(1, 1), (6, 5)]\n\ndistancias = [dist(punto, c) for c in centroides]\nelegido = distancias.index(min(distancias))\n\nprint(\"distancias:\", [round(d, 2) for d in distancias])\nprint(\"cluster:\", elegido)",
+			"steps": [
+				{
+					"line": 3,
+					"note": "El punto que hay que clasificar tiene coordenadas `(2, 1)`.",
+					"vars": { "punto": "(2, 1)" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Hay dos centroides candidatos, uno por grupo.",
+					"vars": { "punto": "(2, 1)", "centroides": "[(1, 1), (6, 5)]" },
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Se calcula la distancia a cada centroide: `1.0` y `5.66`. El cálculo se hace con la raíz de la suma de diferencias al cuadrado.",
+					"vars": { "punto": "(2, 1)", "centroides": "[(1, 1), (6, 5)]", "distancias": "[1.0, 5.656854249492381]" },
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`min` devuelve `1.0` y `index` encuentra su posición: 0. Esa es la etiqueta del grupo.",
+					"vars": { "punto": "(2, 1)", "centroides": "[(1, 1), (6, 5)]", "distancias": "[1.0, 5.656854249492381]", "elegido": "0" },
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "Se imprimen las distancias redondeadas a dos decimales.",
+					"vars": { "punto": "(2, 1)", "centroides": "[(1, 1), (6, 5)]", "distancias": "[1.0, 5.656854249492381]", "elegido": "0" },
+					"output": "distancias: [1.0, 5.66]\n"
+				},
+				{
+					"line": 10,
+					"note": "El punto queda en el cluster 0. Todo K-Means repite esta comparación para cada punto.",
+					"vars": { "punto": "(2, 1)", "centroides": "[(1, 1), (6, 5)]", "distancias": "[1.0, 5.656854249492381]", "elegido": "0" },
+					"output": "cluster: 0\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: una iteración completa"
+		},
+		{
+			"type": "p",
+			"md": "Este código hace exactamente lo que dibuja la matriz, sin scikit-learn: asigna los seis puntos y recalcula los dos centroides."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "una_iteracion.py",
+			"code": "from math import dist\n\npuntos = [(1, 1), (2, 1), (1, 2), (6, 5), (7, 6), (6, 6)]\ncentroides = [(1, 1), (6, 5)]\n\ngrupos = [[], []]\nfor p in puntos:\n    i = 0 if dist(p, centroides[0]) <= dist(p, centroides[1]) else 1\n    grupos[i].append(p)\n\nnuevos = []\nfor g in grupos:\n    x = sum(p[0] for p in g) / len(g)\n    y = sum(p[1] for p in g) / len(g)\n    nuevos.append((round(x, 2), round(y, 2)))\n\nprint(\"tamaños:\", [len(g) for g in grupos])\nprint(\"centroides:\", nuevos)",
+			"highlight": [8, 12, 13, 14]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `tamaños: [3, 3]` y `centroides: [(1.33, 1.33), (6.33, 5.67)]`. Con esos centroides nuevos ningún punto cambia de grupo, así que el algoritmo se detiene en la iteración siguiente. `n_init` controla cuántas veces se repite todo el proceso con inicializaciones distintas."
+		},
+		{
+			"type": "h",
+			"text": "Cómo elegir k: el codo"
+		},
+		{
+			"type": "p",
+			"md": "K-Means necesita que le digas `k`. Una forma de buscarlo es entrenar con varios valores y mirar la inercia: siempre baja al aumentar `k`, porque más centroides siempre ajustan mejor. Lo útil es encontrar el punto donde la caída deja de ser grande. Para estos seis puntos, la mejor inercia de cada `k` es:"
+		},
+		{
+			"type": "table",
+			"head": ["k", "Inercia", "Lectura"],
+			"rows": [
+				["1", "68.33", "todos los puntos en un solo grupo"],
+				["2", "2.67", "caída enorme: aparecen los dos grupos reales"],
+				["3", "1.83", "mejora pequeña, un grupo se parte en dos"],
+				["4", "1.00", "cada subgrupo se divide otra vez"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El codo está en `k = 2`: pasar de 68.33 a 2.67 es una mejora de otra magnitud, mientras que las siguientes apenas restan una unidad. La **silueta** confirma la lectura con otra pregunta: compara la distancia media dentro del grupo con la del grupo vecino. Va de −1 a 1, y con estos puntos da `0.83`, un valor alto."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "kmeans_sklearn.py",
+			"code": "from sklearn.cluster import KMeans\nfrom sklearn.metrics import silhouette_score\n\npuntos = [[1, 1], [2, 1], [1, 2], [6, 5], [7, 6], [6, 6]]\n\nmodelo = KMeans(n_clusters=2, init=[[1.0, 1.0], [6.0, 5.0]], n_init=1, random_state=0)\nmodelo.fit(puntos)\n\nprint(\"etiquetas:\", modelo.labels_)\nprint(\"centroides:\", modelo.cluster_centers_.round(2))\nprint(\"inercia:\", round(modelo.inertia_, 2))\nprint(\"silueta:\", round(silhouette_score(puntos, modelo.labels_), 2))",
+			"highlight": [6, 9, 10]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `etiquetas: [0 0 0 1 1 1]`, los centroides `[[1.33 1.33] [6.33 5.67]]`, `inercia: 2.67` y `silueta: 0.83`. Pasar `init` como lista fija los centroides de partida y hace el experimento reproducible; en un proyecto real deja `init=\"k-means++\"` y usa `n_init=10`."
+		},
+		{
+			"type": "h",
+			"text": "Escalado: el paso que cambia el resultado"
+		},
+		{
+			"type": "p",
+			"md": "La distancia euclidiana suma diferencias al cuadrado de todas las columnas, así que una variable con números grandes domina. Si comparas ingresos (0 a 100 000) con edad (18 a 80), la distancia la decide el ingreso: la edad es invisible. Escalar con `StandardScaler` pone cada columna en unidades de desviación típica y devuelve el voto a ambas."
+		},
+		{
+			"type": "p",
+			"md": "Encadena el escalado y el modelo en un `Pipeline` para que el tratamiento sea idéntico en entrenamiento y en producción. Y hazlo antes de comparar inercias: los valores de la tabla solo son comparables entre sí si se calcularon con la misma escala."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La inercia no es una métrica absoluta",
+			"md": "La inercia baja cuando aumentas `k`, siempre, incluso con datos sin ninguna estructura. Nunca elijas `k` solo porque la inercia es menor: usa el codo, la silueta o, mejor, una decisión de negocio sobre cuántos segmentos puedes atender."
+		},
+		{
+			"type": "h",
+			"text": "Limitaciones y otros métodos"
+		},
+		{
+			"type": "p",
+			"md": "K-Means supone grupos aproximadamente esféricos, de tamaño parecido y separables por distancia al centro. Falla con formas alargadas, con densidades muy distintas y con ruido: un valor atípico arrastra su centroide. Además, siempre asigna todos los puntos, aunque algunos no pertenezcan a ningún grupo."
+		},
+		{
+			"type": "table",
+			"head": ["Método", "Qué aporta", "Cuándo probarlo"],
+			"rows": [
+				["`KMeans`", "grupos compactos y rápidos", "datos numéricos con grupos redondos"],
+				["`DBSCAN`", "grupos por densidad y puntos de ruido", "formas irregulares y outliers"],
+				["`AgglomerativeClustering`", "jerarquía y dendrograma", "no sabes `k` y quieres explorar"],
+				["`GaussianMixture`", "pertenencia probabilística", "grupos que se solapan"],
+				["`PCA`", "reduce dimensiones antes de agrupar", "muchas columnas correlacionadas"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: segmentar clientes"
+		},
+		{
+			"type": "p",
+			"md": "Imagina dos variables por cliente: visitas al mes y gasto mensual en cientos. Con los seis puntos de la lección, los grupos son «compra ocasional» y «compra frecuente». Un cliente nuevo con 5 visitas y 3 de gasto cae del lado del segundo grupo:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "cliente_nuevo.py",
+			"code": "from math import dist\n\ncentroides = [(1.33, 1.33), (6.33, 5.67)]\nnuevo = (5, 3)\n\nfor i, c in enumerate(centroides):\n    print(i, round(dist(nuevo, c), 2))",
+			"highlight": [6, 7]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `0 4.03` y `1 2.98`: el cliente se asigna al grupo 1. La decisión de negocio empieza justo aquí: ¿qué campaña recibe cada grupo, y qué pasa con quien queda cerca de la frontera? El algoritmo agrupa; la acción la defines tú."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**No escalar**: una columna con números grandes decide todos los grupos.",
+				"**Elegir `k` mirando solo la inercia**: siempre baja al aumentar `k`.",
+				"**Interpretar las etiquetas como categorías reales**: el grupo 0 no existe fuera de tu modelo.",
+				"**Ignorar la inicialización**: con `n_init=1` puedes quedarte en un mínimo local malo.",
+				"**Agrupar variables correlacionadas**: dos columnas que miden lo mismo cuentan doble en la distancia."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escala o normaliza antes de calcular distancias, y documenta qué transformación usaste.",
+				"Prueba varios `k` y guarda la curva de inercia y la silueta de cada uno.",
+				"Repite con varias semillas para comprobar que la solución es estable.",
+				"Describe cada grupo con la media de sus variables originales, no con los centroides escalados.",
+				"Valida el resultado con alguien del negocio: un grupo sin interpretación no se puede usar."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Asigna cuatro puntos",
+			"md": "Con centroides en `(1.5, 1.5)` y `(8.5, 8.5)`, asigna los puntos `(1, 1)`, `(2, 2)`, `(8, 8)` y `(9, 9)` calculando distancias. Imprime la etiqueta y la distancia al centroide elegido con dos decimales.",
+			"hint": "Reutiliza `dist` de `math` y guarda en una lista la distancia menor. El índice de esa distancia es la etiqueta.",
+			"solution": {
+				"lang": "python",
+				"caption": "asignar.py",
+				"code": "from math import dist\n\ncentroides = [(1.5, 1.5), (8.5, 8.5)]\npuntos = [(1, 1), (2, 2), (8, 8), (9, 9)]\n\nfor p in puntos:\n    ds = [dist(p, c) for c in centroides]\n    i = ds.index(min(ds))\n    print(p, \"-> cluster\", i, round(min(ds), 2))",
+				"explain": "La salida es `(1, 1) -> cluster 0 0.71`, `(2, 2) -> cluster 0 0.71`, `(8, 8) -> cluster 1 0.71` y `(9, 9) -> cluster 1 0.71`. Los cuatro puntos están a la misma distancia de su centroide porque el conjunto es simétrico; aun así, la asignación es inequívoca."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Calcula la inercia",
+			"md": "Con los seis puntos de la lección y los centroides exactos `(4/3, 4/3)` y `(19/3, 17/3)`, calcula la inercia sin usar scikit-learn: suma la distancia al cuadrado de cada punto a su centroide. Imprime el resultado redondeado a dos decimales.",
+			"hint": "Asigna cada punto según su coordenada: los tres primeros van al centroide 0. Recuerda que la inercia no lleva raíz.",
+			"solution": {
+				"lang": "python",
+				"caption": "inercia.py",
+				"code": "from math import dist\n\npuntos = [(1, 1), (2, 1), (1, 2), (6, 5), (7, 6), (6, 6)]\ncentroides = [(4 / 3, 4 / 3), (19 / 3, 17 / 3)]\n\ntotal = 0\nfor i, p in enumerate(puntos):\n    c = centroides[0] if i < 3 else centroides[1]\n    total += dist(p, c) ** 2\n\nprint(round(total, 2))",
+				"explain": "Cada grupo aporta `1.3333` y el total es `2.6667`, que redondeado da `2.67`, igual que `modelo.inertia_`. Los centroides exactos son fracciones: con los valores redondeados `1.33` y `6.33` la inercia sería `2.6668`, una diferencia en la cuarta decimal que no cambia el resultado impreso pero sí cualquier cálculo posterior."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el clustering",
+			"lang": "python",
+			"code": "from sklearn.cluster import KMeans\n\nmodelo = KMeans(n_clusters=___, n_init=10, random_state=0)\nmodelo.fit(puntos)\n\nprint(\"etiquetas:\", ___)\nprint(\"inercia:\", round(modelo.inertia_, 2))",
+			"answers": ["2", "modelo.labels_"],
+			"hint": "El número de grupos se pasa en `n_clusters`; las etiquetas quedan guardadas en un atributo con guion bajo final.",
+			"explain": "`n_clusters` fija cuántos grupos quieres y `labels_` devuelve la asignación de cada fila. El guion bajo final indica que el atributo se crea al entrenar, no al construir el objeto."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la simetría hace que todas las distancias mínimas coincidan en `0.71` (`√0.5`). Eso no significa que los grupos sean iguales: significa que los puntos están a la misma distancia de su centro. Si añadieras un punto en `(5, 5)`, quedaría exactamente en la frontera y su asignación dependería del desempate."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la inercia es la suma de cuadrados, no la raíz. Por eso el valor es pequeño: cada punto está a poco más de medio unitario de su centroide. Con datos reales, la inercia carece de unidades interpretables; sirve para comparar soluciones sobre el mismo conjunto y la misma escala."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"El clustering busca estructura sin etiquetas; el resultado es una hipótesis, no una verdad.",
+				"K-Means alterna asignar puntos al centroide más cercano y recalcular la media del grupo.",
+				"La inercia mide compacidad y siempre baja al aumentar `k`.",
+				"El codo señala el `k` donde la mejora deja de compensar; la silueta lo confirma.",
+				"Sin escalar, la variable con números más grandes domina la distancia.",
+				"K-Means supone grupos esféricos y sensibles a los outliers; DBSCAN y los métodos jerárquicos cubren otros casos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace K-Means en el paso de actualización?",
+			"options": [
+				"Mueve cada punto al centro del conjunto",
+				"Recalcula cada centroide como la media de los puntos asignados",
+				"Elimina los puntos más alejados de su centroide",
+				"Aumenta `k` hasta que la inercia sea cero"
+			],
+			"answer": 1,
+			"explain": "Los puntos no se mueven: se reasignan. Lo que cambia es el centroide, que pasa a ser el promedio de su grupo. Después se vuelve a asignar y el ciclo se repite hasta que nada cambia."
+		},
+		{
+			"type": "quiz",
+			"question": "La inercia baja de 68.33 a 2.67 al pasar de `k = 1` a `k = 2`, y a 1.83 con `k = 3`. ¿Qué sugiere el codo?",
+			"options": [
+				"Que conviene usar `k = 3` porque la inercia es menor",
+				"Que `k = 2` captura la estructura principal",
+				"Que el algoritmo falló con `k = 1`",
+				"Que hay que seguir aumentando `k` hasta cero"
+			],
+			"answer": 1,
+			"explain": "La caída grande ocurre entre 1 y 2; de 2 a 3 la mejora es mínima. El codo marca `k = 2`. Elegir siempre el `k` con menor inercia llevaría a un grupo por punto, que no aporta información."
+		},
+		{
+			"type": "quiz",
+			"question": "Agrupas ingresos (0 a 100 000) y edad (18 a 80) sin escalar. ¿Qué ocurre?",
+			"options": [
+				"El ingreso domina la distancia y la edad casi no influye",
+				"K-Means falla con un error de tipos",
+				"La edad domina porque tiene menos valores",
+				"El resultado es idéntico al de los datos escalados"
+			],
+			"answer": 0,
+			"explain": "Las diferencias de ingreso son de miles y las de edad de decenas; al elevarlas al cuadrado, el ingreso aplasta cualquier aporte de la edad. Escalar iguala las escalas y permite que ambas variables cuenten."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "scikit-learn: KMeans",
+					"url": "https://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html",
+					"note": "parámetros, inercia y centroides"
+				},
+				{
+					"label": "scikit-learn: guía de clustering",
+					"url": "https://scikit-learn.org/stable/modules/clustering.html",
+					"note": "comparación visual de los métodos"
+				},
+				{
+					"label": "scikit-learn: silhouette_score",
+					"url": "https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html",
+					"note": "cómo se calcula y cuándo usarlo"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,430 @@
+{
+	"id": "cpp-09-referencias-new-delete",
+	"track": "cpp",
+	"order": 9,
+	"title": "Referencias, new/delete y fugas de memoria",
+	"subtitle": "El alias que no puede ser nulo y el precio de reservar memoria a mano",
+	"level": "intermedio",
+	"minutes": 46,
+	"tags": ["referencias", "memoria", "new", "delete", "fugas"],
+	"keywords": [
+		"qué es una referencia en c++",
+		"referencia vs puntero",
+		"new y delete",
+		"new[] delete[]",
+		"doble delete",
+		"puntero colgante",
+		"fuga de memoria",
+		"memory leak",
+		"dangling pointer",
+		"AddressSanitizer",
+		"cómo liberar memoria en c++",
+		"referencia no puede ser nula"
+	],
+	"summary": "Una referencia es un alias seguro de una variable existente; new y delete te dan control total del heap y, con él, la responsabilidad de liberar. Aquí aprenderás a usar ambos sin fugas, sin dobles liberaciones y sin punteros colgantes.",
+	"objectives": [
+		"Distinguir una referencia de un puntero y elegir cuál usar",
+		"Reservar y liberar un objeto con new y delete",
+		"Emparejar correctamente new[] con delete[]",
+		"Reconocer fugas, dobles liberaciones y punteros colgantes en código propio",
+		"Compilar con AddressSanitizer para localizar errores de memoria"
+	],
+	"prerequisites": ["Memoria, stack, heap y punteros", "Paso por valor, referencia, sobrecarga y recursión"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En la lección anterior viste que un puntero guarda una dirección y que puede ser nulo, reasignarse o perderse. Una **referencia** es la otra cara de esa idea: un nombre alternativo para una variable que ya existe. No guarda una dirección que puedas cambiar, no puede estar vacía y no se puede mover a otro objeto. A cambio, es imposible que apunte a la nada."
+		},
+		{
+			"type": "p",
+			"md": "La segunda mitad de la lección trata del otro extremo: pedir memoria al heap con `new` y devolverla con `delete`. Ese par de operadores es la puerta por la que entran las fugas de memoria, las dobles liberaciones y los punteros colgantes. No los vas a usar a diario en código moderno, pero aparecen en bibliotecas, en entrevistas y en cada error de memoria que tengas que diagnosticar."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una referencia?"
+		},
+		{
+			"type": "p",
+			"md": "Una referencia se declara con `&` después del tipo: `int& r = x;`. A partir de esa línea, `r` y `x` son dos nombres para la misma celda de memoria. Escribir `r = 20` no copia 20 dentro de una variable nueva: escribe 20 en `x`. Leer `r` es leer `x`. No hay indirección visible, no hay `*`, no hay comprobación de nulos."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en una persona con dos nombres: en el registro civil figura como «Ana Pérez» y en casa le dicen «Anita». Son la misma persona; cambiarle la dirección a una afecta a la otra porque no son dos entidades. Con los punteros es distinto: un puntero es una nota con la dirección de una casa, y esa nota puede reescribirse para que señale otra casa."
+		},
+		{
+			"type": "table",
+			"head": ["Aspecto", "Referencia `T&`", "Puntero `T*`"],
+			"rows": [
+				["Inicialización", "Obligatoria al declarar", "Puede quedar sin inicializar (peligroso)"],
+				["Valor nulo", "No existe; siempre referencia a un objeto", "`nullptr` es válido y hay que comprobarlo"],
+				["Reasignación", "`r = b` copia el valor, no cambia de objeto", "`p = &b` cambia el objeto apuntado"],
+				["Sintaxis de acceso", "Directa: `r`", "Con `*` o `->`"],
+				["Aritmética", "No aplica", "`p + 1` avanza un elemento"],
+				["Uso típico", "Parámetros y retornos de funciones", "Estructuras enlazadas y memoria dinámica"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve reservar memoria dinámica?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Tamaño decidido en ejecución**: si el número de filas de una matriz llega por un archivo, no puedes declarar `double datos[n]` con `n` desconocido en tiempo de compilación.",
+				"**Objetos que sobreviven al ámbito**: un bloque creado con `new` sigue vivo cuando la función que lo creó retorna, hasta que alguien lo libere.",
+				"**Estructuras enlazadas**: listas, árboles y grafos necesitan nodos que se crean y destruyen en cualquier orden.",
+				"**Evitar copias grandes**: pasar `const T&` o un puntero a una matriz de un millón de elementos cuesta ocho bytes, no ocho megabytes.",
+				"**Entender el coste real**: cada `new` consulta al asignador, y cada `delete` lo devuelve. Saber esto explica por qué abusar de la memoria dinámica arruina el rendimiento."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning lo verás constantemente: los buffers de un `std::vector` o de un tensor viven en el heap, y las bibliotecas de álgebra lineal reservan y reutilizan bloques para no pagar el coste en cada operación. La diferencia es que esas bibliotecas encapsulan la liberación; cuando lo haces a mano, esa responsabilidad pasa a tu cabeza."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El compilador suele implementar una referencia como un puntero constante que se desreferencia automáticamente. La diferencia es de contrato, no de hardware: el lenguaje garantiza que una referencia siempre está ligada a un objeto válido, así que no genera comprobaciones de nulo. Cuando el compilador puede ver el objeto original, ni siquiera guarda la dirección: usa la variable directamente."
+		},
+		{
+			"type": "p",
+			"md": "`new T(args)` hace dos cosas: pide al asignador un bloque de `sizeof(T)` bytes y construye allí el objeto llamando a su constructor. `delete p` hace las dos inversas: llama al destructor y devuelve el bloque. Si el constructor lanza una excepción, el bloque se libera solo; un destructor que lanza puede terminar el programa. Para arrays, `new T[n]` reserva espacio para `n` objetos, construye cada uno y normalmente guarda el número de elementos en una cabecera oculta; `delete[] p` lee esa cabecera para saber cuántos destructores invocar."
+		},
+		{
+			"type": "p",
+			"md": "Esa cabecera explica el error más común: `delete` sobre un array libera el bloque pero no conoce el número de elementos, así que solo destruye el primero. El resultado es una liberación incompleta o directamente un fallo del asignador. La regla no admite excepciones: cada `new[]` se empareja con `delete[]` y cada `new` con `delete`."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La regla de emparejamiento",
+			"md": "`new` va con `delete`; `new[]` va con `delete[]`. Mezclarlos es **comportamiento indefinido**: puede funcionar en una prueba, fallar en otra y corromper el heap en producción. Los compiladores no lo detectan porque ambos operadores tienen la misma forma."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int x = 10;\n    int& r = x;              // alias: r es x\n    r = 20;\n    std::cout << x << '\\n';  // 20\n\n    int* p = new int(7);     // un entero en el heap\n    std::cout << *p << '\\n'; // 7\n    delete p;                // libera ese entero\n    p = nullptr;\n\n    int* bloque = new int[3]{1, 2, 3};\n    std::cout << bloque[2] << '\\n'; // 3\n    delete[] bloque;         // obligatorio: fue new[]\n    bloque = nullptr;\n\n    return 0;\n}"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`int& r = x;` liga `r` a `x` para siempre. `int& r;` no compila: una referencia debe nacer apuntando a algo.",
+				"`new int(7)` reserva e inicializa con 7. `new int[3]{1, 2, 3}` reserva tres enteros y los inicializa con una lista.",
+				"`delete p;` libera un objeto; `delete[] bloque;` libera un array. Después conviene asignar `nullptr` para que un segundo `delete` sea inofensivo.",
+				"`delete nullptr;` es legal y no hace nada. Por eso poner a `nullptr` tras liberar evita la doble liberación accidental."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: modificar a través de una referencia"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "basico.cpp",
+			"code": "#include <iostream>\n\nvoid duplicar(int& valor) {\n    valor *= 2;          // modifica la variable original\n}\n\nint main() {\n    int a = 5;\n    duplicar(a);\n    std::cout << a << '\\n'; // 10\n\n    int& alias = a;      // otro nombre para a\n    alias += 1;\n    std::cout << a << '\\n'; // 11\n\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "La función recibe `int&`, así que no trabaja con una copia: `valor` es la misma celda que `a`. Por eso `a` termina en 10 sin que la función devuelva nada. En `main`, `alias` tampoco es una copia; `alias += 1` escribe directamente en `a`, que pasa a 11. Observa que en la llamada escribes `duplicar(a)`, sin `&`: el compilador sabe que el parámetro es una referencia."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: un array dinámico y dos funciones"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "intermedio.cpp",
+			"code": "#include <iostream>\n\nvoid escalar(double* datos, int n, double factor) {\n    for (int i = 0; i < n; ++i) {\n        datos[i] *= factor;\n    }\n}\n\ndouble suma(const double* datos, int n) {\n    double total = 0.0;\n    for (int i = 0; i < n; ++i) {\n        total += datos[i];\n    }\n    return total;\n}\n\nint main() {\n    const int n = 4;\n    double* datos = new double[n]{1.0, 2.0, 3.0, 4.0};\n\n    escalar(datos, n, 0.5);\n    std::cout << suma(datos, n) << '\\n'; // 5\n\n    delete[] datos;   // new[] exige delete[]\n    datos = nullptr;\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`escalar` recibe un puntero porque necesita modificar el contenido; `suma` recibe `const double*` porque solo lee, y ese `const` impide que se te escape una escritura por accidente. El array se reserva una vez, se pasa a dos funciones y se libera una sola vez en `main`. Ese patrón —quien reserva es quien libera— es el más fácil de auditar cuando todavía no usas RAII."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: ampliar un array sin perder el original"
+		},
+		{
+			"type": "p",
+			"md": "Los arrays de C++ tienen tamaño fijo. Para «crecer» uno hay que reservar un bloque nuevo, copiar los elementos, liberar el viejo y quedarse con el nuevo puntero. El orden importa: si liberas antes de copiar, lees memoria liberada; si olvidas liberar el viejo, tienes una fuga."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "ampliar.cpp",
+			"code": "#include <iostream>\n\nint* ampliar(const int* origen, int n, int nuevo_tam) {\n    int* nuevo = new int[nuevo_tam]{};   // valor-inicializado a 0\n    for (int i = 0; i < n; ++i) {\n        nuevo[i] = origen[i];\n    }\n    return nuevo;\n}\n\nint main() {\n    int* v = new int[3]{10, 20, 30};\n    int* w = ampliar(v, 3, 5);\n\n    delete[] v;      // el bloque antiguo ya no se usa\n    v = w;\n\n    std::cout << v[0] << ' ' << v[2] << ' ' << v[4] << '\\n'; // 10 30 0\n\n    delete[] v;\n    v = nullptr;\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`new int[nuevo_tam]{}` con llaves vacías inicializa a cero, así que las dos posiciones nuevas valen 0. La copia ocurre antes de liberar `v`; después `w` pasa a ser el dueño y `v` se reasigna. Si `ampliar` fallara a mitad de camino, el bloque nuevo se perdería: ese es exactamente el tipo de problema que `std::vector` resuelve por ti y que verás en la próxima lección."
+		},
+		{
+			"type": "diff",
+			"title": "Fuga por salida anticipada",
+			"wrong": {
+				"caption": "Incorrecto: reserva y luego valida",
+				"code": "int* crear(int n) {\n    int* v = new int[n];\n    if (n <= 0) return nullptr;  // el bloque se pierde\n    return v;\n}"
+			},
+			"right": {
+				"caption": "Correcto: valida antes de reservar",
+				"code": "int* crear(int n) {\n    if (n <= 0) return nullptr;\n    return new int[n];\n}"
+			},
+			"explain": "Cuando la validación va después de `new`, el `return nullptr` abandona la función sin que nadie guarde el puntero al bloque: la memoria queda ocupada hasta que el proceso termina. Valida primero o envuelve el puntero en un objeto que libere al salir."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: referencia y heap paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "Avanza por los pasos y compara dos comportamientos. `r` no crea una celda nueva: es otro nombre para `x`, así que escribir en `r` cambia `x`. En cambio `p` sí ocupa ocho bytes en el stack y guarda la dirección de un bloque del heap, que deja de existir cuando llamas a `delete`."
+		},
+		{
+			"type": "memory",
+			"title": "Alias en el stack y un bloque en el heap",
+			"lang": "cpp",
+			"code": "int x = 10;\nint& r = x;\nr = 20;\nint* p = new int(7);\ndelete p;\np = nullptr;",
+			"steps": [
+				{
+					"note": "`x` reserva 4 bytes en el stack y guarda 10. Todavía no hay nada en el heap.",
+					"stack": [
+						{ "name": "x", "value": "10", "addr": "0x7ffc1000", "type": "int" }
+					],
+					"heap": [],
+					"highlight": ["x"]
+				},
+				{
+					"note": "`r` es un alias: no tiene celda propia ni dirección independiente. Apunta al mismo objeto que `x`.",
+					"stack": [
+						{ "name": "x", "value": "10", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "r", "value": "alias de x", "type": "int&" }
+					],
+					"heap": [],
+					"arrows": [{ "from": "r", "to": "0x7ffc1000", "label": "mismo objeto" }],
+					"highlight": ["x", "r"]
+				},
+				{
+					"note": "`r = 20` escribe 20 en la celda de `x`. No se crea ninguna variable nueva: hay un solo entero con dos nombres.",
+					"stack": [
+						{ "name": "x", "value": "20", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "r", "value": "alias de x", "type": "int&" }
+					],
+					"heap": [],
+					"arrows": [{ "from": "r", "to": "0x7ffc1000", "label": "escribe aquí" }],
+					"highlight": ["x"]
+				},
+				{
+					"note": "`new int(7)` reserva 4 bytes en el heap en 0x5500, escribe 7 y devuelve la dirección. `p` la guarda.",
+					"stack": [
+						{ "name": "x", "value": "20", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "r", "value": "alias de x", "type": "int&" },
+						{ "name": "p", "value": "0x5500", "addr": "0x7ffc1008", "type": "int*" }
+					],
+					"heap": [
+						{ "name": "*p", "value": "7", "addr": "0x5500", "type": "int" }
+					],
+					"arrows": [{ "from": "p", "to": "0x5500" }],
+					"highlight": ["p", "*p"]
+				},
+				{
+					"note": "`delete p` libera el bloque. `p` conserva 0x5500, pero esa dirección ya no pertenece al programa: es un puntero colgante.",
+					"stack": [
+						{ "name": "x", "value": "20", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "r", "value": "alias de x", "type": "int&" },
+						{ "name": "p", "value": "0x5500 (colgante)", "addr": "0x7ffc1008", "type": "int*" }
+					],
+					"heap": [],
+					"highlight": ["p"]
+				},
+				{
+					"note": "`p = nullptr` deja explícito que no apunta a nada. `x` y su alias siguen intactos: liberar el heap no toca el stack.",
+					"stack": [
+						{ "name": "x", "value": "20", "addr": "0x7ffc1000", "type": "int" },
+						{ "name": "r", "value": "alias de x", "type": "int&" },
+						{ "name": "p", "value": "nullptr", "addr": "0x7ffc1008", "type": "int*" }
+					],
+					"heap": [],
+					"highlight": ["p", "x"]
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Fuga de memoria**: cada `new` sin `delete` deja un bloque inaccesible. No falla al momento; el proceso crece hasta que el sistema lo mata. `free(): double free detected` no aparece, simplemente la memoria se agota.",
+				"**Doble liberación**: `delete p; delete p;` corrompe el heap y suele abortar con `free(): double free detected in tcache 2`. Asignar `p = nullptr` entre ambas lo evita porque `delete nullptr` no hace nada.",
+				"**Mezclar `delete` y `delete[]`**: liberar con `delete` un bloque creado con `new[]` produce mensajes como `munmap_chunk(): invalid pointer` o un fallo silencioso. La regla es emparejar siempre.",
+				"**Puntero colgante**: guardas `int* p = new int(5); delete p;` y luego lees `*p`. La dirección sigue escrita en `p`, pero el bloque ya no es tuyo. Puede devolver basura o provocar `Segmentation fault`.",
+				"**Devolver una referencia a una local**: `int& f() { int x = 3; return x; }` devuelve un alias a memoria que desaparece al salir. El compilador avisa con `-Wreturn-local-addr`; hazle caso.",
+				"**Referencia sin inicializar**: `int& r;` no compila. Si necesitas «ninguna referencia», el tipo correcto es un puntero que pueda ser `nullptr`."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Direcciones que no debes leer",
+			"md": "Un puntero colgante no siempre falla al instante: la memoria liberada puede seguir conteniendo el valor anterior. Ese es el motivo por el que estos errores aparecen en la prueba de carga y no en tu máquina. Compila con `-fsanitize=address` y el fallo se reporta en la línea exacta."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Prefiere referencias para parámetros que no pueden faltar y punteros solo cuando «ninguno» sea un valor válido.",
+				"Marca `const T&` en parámetros de solo lectura: evita copias y documenta la intención.",
+				"Escribe `delete` inmediatamente después del último uso y asigna `nullptr` en la línea siguiente.",
+				"Empareja `new[]` con `delete[]` y no mezcles nunca las dos formas.",
+				"Reserva y libera en la misma función siempre que puedas; si no, documenta quién es el dueño del bloque.",
+				"No uses `new` para arrays de tamaño variable: `std::vector` hace lo mismo, crece solo y libera en su destructor.",
+				"Compila con `g++ -std=c++20 -Wall -Wextra -g -fsanitize=address,undefined` mientras aprendes. El coste en velocidad no importa; el diagnóstico, sí."
+			]
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "detectar fugas y accesos inválidos",
+			"code": "g++ -std=c++20 -Wall -Wextra -g -fsanitize=address,undefined fugas.cpp -o fugas\n./fugas\n\n# Salida típica si hay una fuga:\n# ==12345==ERROR: LeakSanitizer: detected memory leaks\n# Direct leak of 12 byte(s) in 1 object(s) allocated from:\n#     #0 0x... in operator new[](unsigned long)\n#     #1 0x... in main fugas.cpp:6"
+		},
+		{
+			"type": "compare",
+			"title": "Liberar memoria: automático frente a manual",
+			"python": {
+				"caption": "lista.py",
+				"code": "datos = [0] * 3\ndatos.append(4)\n# no hay delete: el recolector libera\n# cuando nadie referencia la lista"
+			},
+			"cpp": {
+				"caption": "array.cpp",
+				"code": "int* datos = new int[3]{};\n// ... no crece solo ...\ndelete[] datos;\ndatos = nullptr;"
+			},
+			"note": "Python cuenta referencias y libera cuando el objeto queda inalcanzable. C++ no sabe si un bloque sigue en uso salvo que se lo digas con `delete` o lo envuelvas en un tipo con destructor (RAII). Esa diferencia explica por qué en C++ la propiedad de un puntero debe estar siempre clara."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Intercambiar con referencias",
+			"md": "Escribe `void intercambiar(int& a, int& b)` que intercambie dos enteros. Llámala desde `main` con `x = 3` e `y = 8` y muestra el resultado. Compara la llamada con la versión de punteros de la lección anterior: aquí no hace falta escribir `&` en los argumentos.",
+			"hint": "Dentro de la función, `a` y `b` son los propios enteros, no direcciones. Usa una variable temporal para no perder el primer valor.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "intercambiar_ref.cpp",
+				"code": "#include <iostream>\n\nvoid intercambiar(int& a, int& b) {\n    int temp = a;\n    a = b;\n    b = temp;\n}\n\nint main() {\n    int x = 3;\n    int y = 8;\n    intercambiar(x, y);\n    std::cout << x << ' ' << y << '\\n'; // 8 3\n    return 0;\n}",
+				"explain": "La referencia liga `a` a `x` y `b` a `y`, así que las asignaciones modifican las variables originales. La ventaja sobre los punteros es que no hay `*` ni comprobación de nulo, y el compilador no puede recibir un `nullptr` por accidente."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Media de un array dinámico",
+			"md": "Reserva con `new double[n]` un array de 5 valores `{2.0, 4.0, 6.0, 8.0, 10.0}`, calcula su media con una función que reciba `const double*` y el tamaño, imprime el resultado y libera el bloque con `delete[]`. Al final, deja el puntero en `nullptr`.",
+			"hint": "La media es la suma dividida entre `n`. Usa `double` para la división; si divides dos enteros obtendrás 6 en lugar de 6.0.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "media.cpp",
+				"code": "#include <iostream>\n\ndouble media(const double* datos, int n) {\n    double total = 0.0;\n    for (int i = 0; i < n; ++i) {\n        total += datos[i];\n    }\n    return total / n;\n}\n\nint main() {\n    const int n = 5;\n    double* datos = new double[n]{2.0, 4.0, 6.0, 8.0, 10.0};\n\n    std::cout << media(datos, n) << '\\n'; // 6\n\n    delete[] datos;\n    datos = nullptr;\n    return 0;\n}",
+				"explain": "La suma es 30 y `30 / 5` con `double` da 6. La función recibe `const double*` porque no modifica el array. `delete[]` es obligatorio porque la reserva fue con `new[]`; `nullptr` final evita reutilizar por error una dirección ya liberada."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la reserva y la liberación",
+			"lang": "cpp",
+			"code": "int* p = ___ int(5);\nstd::cout << *p << '\\n';\n___ p;\np = ___;",
+			"answers": ["new", "delete", "nullptr"],
+			"hint": "Reservar un entero usa `new`; liberarlo, `delete`. Después se deja el puntero sin objetivo.",
+			"explain": "`new int(5)` devuelve un puntero a un entero inicializado con 5. `delete p` libera el bloque y `p = nullptr` deja el puntero en un estado comprobable, de modo que un `delete` repetido no haga nada."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la clave es que la referencia no copia: `intercambiar(x, y)` liga los parámetros a las variables originales y las modificaciones se ven en `main`. Si hubieras declarado `int a, int b` por valor, el intercambio habría ocurrido en copias y `x` seguiría siendo 3. En el segundo, el detalle importante no es la media sino la propiedad: el array se reserva una vez, se pasa como `const` a quien solo lee y se libera exactamente una vez con la forma correcta. Ese trío —reservar, usar sin copiar, liberar— es el esqueleto de toda gestión manual de memoria."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una referencia es un alias obligatorio, no nulo y no reasignable; un puntero es una dirección que puede cambiar y puede ser nula.",
+				"`r = b` sobre una referencia copia el valor; no cambia a qué objeto se refiere.",
+				"`new` reserva y construye; `delete` destruye y libera. `new[]` y `delete[]` son un par inseparable.",
+				"Tras `delete`, el puntero sigue guardando la dirección: es colgante hasta que lo pones a `nullptr`.",
+				"Cada `new` sin su `delete` es una fuga; cada `delete` repetido, una corrupción del heap.",
+				"Las herramientas de saneado (`-fsanitize=address`) convierten errores silenciosos en informes con línea exacta.",
+				"El siguiente paso es dejar que el compilador libere por ti: RAII y punteros inteligentes."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Tras `int a = 1; int b = 2; int& r = a; r = b;`, ¿cuánto valen `a` y `b`?",
+			"options": ["`a` vale 2 y `b` vale 2", "`a` vale 1 y `b` vale 2", "`r` pasa a referenciar `b`", "No compila: una referencia no se puede reasignar"],
+			"answer": 0,
+			"explain": "`r = b` no cambia la ligadura: asigna el valor de `b` (2) al objeto referenciado por `r`, que es `a`. Por eso `a` pasa a 2. Para cambiar de objeto haría falta un puntero."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué ocurre con `int* p = new int[10]; delete p;`?",
+			"options": ["Se liberan los 10 enteros correctamente", "Se libera el bloque pero es comportamiento indefinido: faltó `delete[]`", "No compila porque `delete` no acepta punteros a array", "Solo se libera el primer entero y el resto se reutiliza"],
+			"answer": 1,
+			"explain": "El compilador acepta ambas formas porque el tipo es `int*`, pero `delete` no conoce el número de elementos que guarda la cabecera de `new[]`. El resultado es comportamiento indefinido, a menudo un aborto del asignador."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál de estas situaciones describe un puntero colgante?",
+			"options": [
+				"Un puntero inicializado a `nullptr`",
+				"Un puntero que apunta a un bloque ya liberado con `delete`",
+				"Una referencia que dejó de usarse",
+				"Un puntero que apunta al primer elemento de un array"
+			],
+			"answer": 1,
+			"explain": "Al liberar el bloque, la dirección guardada deja de ser válida aunque el número siga escrito. Desreferenciarla es comportamiento indefinido; asignar `nullptr` convierte el error en algo detectable."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · Referencias",
+					"url": "https://en.cppreference.com/w/cpp/language/reference",
+					"note": "reglas del lenguaje"
+				},
+				{
+					"label": "cppreference · new",
+					"url": "https://en.cppreference.com/w/cpp/language/new",
+					"note": "reserva y construcción"
+				},
+				{
+					"label": "cppreference · delete",
+					"url": "https://en.cppreference.com/w/cpp/language/delete",
+					"note": "liberación y emparejamiento"
+				}
+			]
+		}
+	]
+}

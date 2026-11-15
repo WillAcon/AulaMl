@@ -1,0 +1,561 @@
+{
+	"id": "py-19-iteradores-generadores",
+	"track": "python",
+	"order": 19,
+	"title": "Iteradores y generadores",
+	"subtitle": "Producir valores uno a uno, gastar memoria constante y entender qué hace realmente un bucle for",
+	"level": "intermedio",
+	"minutes": 38,
+	"tags": [
+		"iteradores",
+		"generadores",
+		"yield",
+		"memoria",
+		"lazy"
+	],
+	"keywords": [
+		"qué es un iterador",
+		"diferencia iterable iterador",
+		"iter next python",
+		"StopIteration",
+		"yield python",
+		"generadores",
+		"yield from",
+		"evaluación perezosa",
+		"lazy evaluation",
+		"memoria generadores",
+		"generator expression",
+		"datos grandes python"
+	],
+	"summary": "Un bucle for no recorre listas: recorre iteradores. Entender el protocolo iter/next y escribir generadores con yield te permite procesar archivos enormes con memoria constante, construir pipelines de datos y leer código que antes parecía magia.",
+	"objectives": [
+		"Explicar el protocolo de iteración y qué hace el for por dentro",
+		"Distinguir iterable, iterador y generador",
+		"Escribir generadores con yield y encadenarlos con yield from",
+		"Reconocer cuándo un generador ahorra memoria y cuándo no conviene",
+		"Corregir los errores típicos: generador agotado, indexar o pedir len"
+	],
+	"prerequisites": [
+		"Bucles: while, for y control de iteraciones",
+		"Funciones"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Escribes `for x in datos` y funciona con una lista, con un texto, con un archivo y con el resultado de `range`. Esa uniformidad no es casualidad: todos esos objetos cumplen el mismo contrato, el **protocolo de iteración**. Cuando lo entiendes, dejas de memorizar trucos y empiezas a construir tus propias fuentes de datos."
+		},
+		{
+			"type": "p",
+			"md": "Los **generadores** son la forma más corta de cumplir ese contrato: una función normal con `yield` que produce valores a demanda en lugar de calcularlos todos de golpe. Con ellos puedes recorrer un archivo de diez gigabytes usando la misma memoria que uno de diez líneas."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un iterador?"
+		},
+		{
+			"type": "p",
+			"md": "Un **iterable** es un objeto que sabe fabricar un iterador: una lista, una tupla, un `str`, un `dict`, un archivo abierto. Un **iterador** es un objeto que sabe hacer dos cosas: devolver el siguiente elemento y avisar cuando no quedan. Además recuerda por dónde va, porque guarda su posición."
+		},
+		{
+			"type": "p",
+			"md": "La diferencia importa. La lista es el álbum completo de fotos; el iterador es tu dedo señalando una foto. Puedes tener dos dedos en el mismo álbum, cada uno en una posición distinta, y avanzar uno sin mover el otro. Por eso dos bucles `for` sobre la misma lista no se estorban, pero dos bucles sobre el mismo **generador** sí: el generador es el dedo, no el álbum."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve trabajar con iteradores?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Memoria constante**: procesar un archivo o una consulta de base de datos línea a línea sin cargarla entera.",
+				"**Flujos infinitos o sin fin conocido**: lecturas de un sensor, precios en tiempo real, resultados paginados de una API.",
+				"**Pipelines**: una etapa filtra, otra transforma, otra suma; cada una pide solo lo que necesita a la anterior.",
+				"**Código más corto**: `sum(x * x for x in datos)` expresa la intención sin crear una lista intermedia.",
+				"**Machine Learning**: los `DataLoader` de PyTorch y `tf.data` generan lotes a demanda; por debajo usan esta misma idea de pereza."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Pereza no significa lentitud",
+			"md": "Un generador no calcula nada hasta que se lo piden. Eso ahorra memoria y evita trabajo inútil: si solo necesitas los cinco primeros resultados de un millón, `islice` los obtiene y el resto nunca se calcula. A cambio, cada elemento cuesta una llamada más que recorrer una lista ya construida."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? El protocolo de iteración"
+		},
+		{
+			"type": "p",
+			"md": "Todo empieza con dos métodos especiales. `__iter__` devuelve un iterador; `__next__` devuelve el siguiente valor o lanza `StopIteration` cuando se acaba. Un `for` es azúcar sintáctico sobre esas dos llamadas:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Lo que el for hace de verdad",
+			"code": "datos = [10, 20]\n\niterador = iter(datos)          # llama a datos.__iter__()\nwhile True:\n    try:\n        valor = next(iterador)  # llama a iterador.__next__()\n    except StopIteration:\n        break                    # fin limpio, sin error visible\n    print(valor)",
+			"highlight": [
+				3,
+				6,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "Nunca ves ese `except` porque el `for` lo captura por ti: `StopIteration` no es un fallo, es la señal de «no hay más». Si la excepción escapara de un bucle, el programa terminaría con traza; dentro del `for`, simplemente se sale."
+		},
+		{
+			"type": "p",
+			"md": "Un generador es un iterador fabricado por Python. Cuando llamas a una función que contiene `yield`, el cuerpo **no se ejecuta**: se crea un objeto generador que guarda la función, el punto de inicio y un marco de pila propio, con sus variables locales. Cada `next()` avanza hasta el siguiente `yield`, entrega el valor y **congela** el marco: las variables locales siguen vivas y la próxima llamada continúa en la línea siguiente al `yield`, no desde el principio."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: iter, next, yield y yield from"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Las cuatro piezas del tema",
+			"code": "def tres_valores():\n    yield 1\n    yield 2\n    yield 3\n\ng = tres_valores()      # no ejecuta nada del cuerpo\nprint(next(g))          # 1\nprint(next(g))          # 2\n\nfor valor in g:\n    print(valor)        # 3 (continúa donde iba)\n\n# yield from delega en otro iterable\ndef con_encabezado(filas):\n    yield \"producto,unidades\"\n    yield from filas",
+			"highlight": [
+				2,
+				8,
+				16
+			]
+		},
+		{
+			"type": "p",
+			"md": "`yield from` recorre el iterable indicado y va cediendo cada valor como si lo hicieras tú con un bucle, pero además propaga el final y los valores enviados con `send()`. Es la forma idiomática de encadenar generadores o de aplanar una estructura anidada."
+		},
+		{
+			"type": "p",
+			"md": "Las **expresiones generadoras** son la versión de una línea: `(x * x for x in range(10))`. Se parecen a las comprensiones de lista, pero cambian los corchetes por paréntesis y producen un generador en vez de una lista. Cuando son el único argumento de una función puedes omitir el paréntesis: `sum(x * x for x in datos)`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: contar hacia atrás"
+		},
+		{
+			"type": "p",
+			"md": "Una función con `yield` que produce una secuencia y termina sola cuando el `while` deja de cumplirse."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "cuenta_atras.py",
+			"code": "def cuenta_atras(inicio):\n    while inicio > 0:\n        yield inicio      # cede el valor y se suspende aquí\n        inicio -= 1       # se ejecuta al pedir el siguiente\n\nfor n in cuenta_atras(3):\n    print(n, end=\" \")\nprint(\"¡Despegue!\")",
+			"highlight": [
+				3,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `3 2 1 ¡Despegue!`. Fíjate en el orden: `yield inicio` entrega el valor y deja la función pausada **antes** de restar. Cuando el bucle pide el siguiente número, la ejecución continúa en `inicio -= 1`, vuelve a comprobar la condición y cede otra vez. Cuando `inicio` llega a 0, el `while` termina, la función acaba y el `for` recibe `StopIteration`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: el protocolo a mano"
+		},
+		{
+			"type": "p",
+			"md": "Antes de usar generadores conviene manejar el protocolo directamente, porque es lo que verás en trazas de error y en código de bibliotecas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "protocolo.py",
+			"code": "numeros = iter([10, 20])\nprint(type(numeros).__name__)\nprint(next(numeros))\nprint(next(numeros))\n\ntry:\n    next(numeros)\nexcept StopIteration:\n    print(\"StopIteration: no quedan elementos\")",
+			"highlight": [
+				1,
+				4,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "`iter` sobre una lista devuelve un `list_iterator`; sobre un generador devuelve el propio generador, porque ya es un iterador. Agotado el segundo elemento, el tercer `next` lanza `StopIteration`. En código real casi nunca llamas a `next` a mano: usas `for`, `sum`, `max`, `any` o `zip`, que lo hacen por ti y capturan el final."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: procesar datos grandes sin cargarlos"
+		},
+		{
+			"type": "p",
+			"md": "Supón un CSV con millones de ventas. Cargarlo con `read()` o con `list(...)` multiplica el uso de memoria; un pipeline de generadores lo recorre una vez y mantiene solo el total. Aquí el archivo se simula con `io.StringIO`, pero el código es idéntico si le pasas un archivo abierto."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pipeline_ventas.py",
+			"code": "import csv\nimport io\n\ntexto = \"producto,unidades\\n\" + \"\".join(f\"p{i},{i}\\n\" for i in range(1, 7))\ndatos = io.StringIO(texto)   # en un caso real: with open(\"ventas.csv\") as datos\n\ndef filas(archivo):\n    \"\"\"Convierte cada línea del CSV en una tupla con tipos.\"\"\"\n    for fila in csv.DictReader(archivo):\n        yield fila[\"producto\"], int(fila[\"unidades\"])\n\ndef mayores(pares, minimo):\n    \"\"\"Deja pasar solo los pares que cumplen el umbral.\"\"\"\n    for nombre, unidades in pares:\n        if unidades >= minimo:\n            yield nombre, unidades\n\ntotal = 0\nfor nombre, unidades in mayores(filas(datos), 4):\n    total += unidades\n    print(nombre, unidades)\n\nprint(\"Total:\", total)",
+			"highlight": [
+				8,
+				9,
+				13,
+				14,
+				19
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `p4 4`, `p5 5`, `p6 6` y `Total: 15`. Ninguna etapa construye una lista: `filas` pide una línea al lector de CSV, la convierte, la cede; `mayores` la acepta o la descarta; el bucle suma. Si el archivo tuviera un millón de filas, el consumo sería el mismo, porque en ningún momento existen todas a la vez."
+		},
+		{
+			"type": "p",
+			"md": "La diferencia de tamaño es fácil de medir con `sys.getsizeof`, aunque el número exacto depende de la versión de Python:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "memoria.py",
+			"code": "import sys\n\nlista = [x * x for x in range(100_000)]\ngenerador = (x * x for x in range(100_000))\n\nprint(f\"lista: {sys.getsizeof(lista) / 1024:.0f} KB\")\nprint(f\"generador: {sys.getsizeof(generador)} bytes\")",
+			"highlight": [
+				3,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "Verás cientos de kilobytes frente a poco más de cien bytes. Ojo: `getsizeof` no cuenta los objetos referenciados, así que la lista real ocupa bastante más. La conclusión se mantiene: la lista crece con los datos y el generador no."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: un generador suspendido"
+		},
+		{
+			"type": "p",
+			"md": "Avanza paso a paso y observa cómo el marco del generador se congela en el `yield` y se reanuda justo después, mientras el bucle del módulo espera el valor."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Quién tiene el control en cada momento",
+			"code": "def contar_hasta(n):\n    i = 1\n    while i <= n:\n        yield i\n        i += 1\n\nfor valor in contar_hasta(2):\n    print(valor)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "`def` crea la función y guarda su código. El cuerpo no se ejecuta: todavía no hay ningún valor.",
+					"vars": {},
+					"frames": [],
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`contar_hasta(2)` crea el generador. El `for` llama a `next()`: el cuerpo arranca, asigna `i = 1`, comprueba la condición y llega al `yield`, que cede el control con el valor 1.",
+					"vars": {
+						"valor": "1"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"valor": "1"
+							}
+						},
+						{
+							"name": "contar_hasta",
+							"vars": {
+								"n": "2",
+								"i": "1"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "El bucle ya tiene el valor. `print` lo escribe mientras el generador sigue pausado en el `yield`.",
+					"vars": {
+						"valor": "1"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"valor": "1"
+							}
+						},
+						{
+							"name": "contar_hasta",
+							"vars": {
+								"n": "2",
+								"i": "1"
+							}
+						}
+					],
+					"output": "1\n"
+				},
+				{
+					"line": 5,
+					"note": "Al pedir el siguiente valor, la ejecución se reanuda **después** del `yield`: `i` pasa a 2, la condición sigue siendo cierta y el `yield` cede 2.",
+					"vars": {
+						"valor": "2"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"valor": "2"
+							}
+						},
+						{
+							"name": "contar_hasta",
+							"vars": {
+								"n": "2",
+								"i": "2"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "Se imprime el segundo valor. El generador vuelve a quedar suspendido.",
+					"vars": {
+						"valor": "2"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"valor": "2"
+							}
+						},
+						{
+							"name": "contar_hasta",
+							"vars": {
+								"n": "2",
+								"i": "2"
+							}
+						}
+					],
+					"output": "2\n"
+				},
+				{
+					"line": 3,
+					"note": "El `for` pide otro valor: el generador reanuda, suma 1 (`i = 3`), evalúa `3 <= 2` y es falso, así que la función termina. Python lanza `StopIteration` y el `for` sale sin imprimir nada más ni mostrar error.",
+					"vars": {
+						"valor": "2"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"valor": "2"
+							}
+						},
+						{
+							"name": "contar_hasta",
+							"vars": {
+								"n": "2",
+								"i": "3"
+							}
+						}
+					],
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"El segundo `for` no imprime nada",
+					"El generador ya se agotó: es de un solo uso",
+					"Recréalo con `contar_hasta(3)` o guarda `list(...)` si necesitas varios recorridos"
+				],
+				[
+					"`TypeError: 'generator' object is not subscriptable`",
+					"Intentas `g[0]` como si fuera una lista",
+					"Usa `next(g)` o materialízalo con `list(g)`"
+				],
+				[
+					"`TypeError: object of type 'generator' has no len()`",
+					"Un generador no conoce su longitud de antemano",
+					"Cuenta con `sum(1 for _ in g)` o pide el total por otro camino"
+				],
+				[
+					"`TypeError: 'NoneType' object is not iterable`",
+					"La función no tiene `yield`: devuelve `None`",
+					"Añade el `yield` o devuelve una lista"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Reutilizar un generador que ya se consumió",
+			"wrong": {
+				"caption": "El segundo recorrido está vacío",
+				"code": "g = (x * 2 for x in range(3))\nprint(list(g))   # [0, 2, 4]\nprint(list(g))   # []  el generador ya terminó"
+			},
+			"right": {
+				"caption": "Una fábrica, dos recorridos",
+				"code": "def dobles(n):\n    for x in range(n):\n        yield x * 2\n\nprint(list(dobles(3)))   # [0, 2, 4]\nprint(list(dobles(3)))   # [0, 2, 4]"
+			},
+			"explain": "Un generador es un iterador, no una colección: al agotarse se cierra y no se reinicia. Si necesitas recorrer varias veces, crea un generador nuevo cada vez (una función que lo fabrique) o guarda los resultados en una lista, aceptando el coste de memoria."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Cuidado con los generadores infinitos",
+			"md": "`while True: yield ...` es válido y útil, pero `list(infinito)` o un `for` sin `break` nunca terminan. Combínalos con `itertools.islice`, `zip` contra una secuencia finita o una condición de salida explícita. Si el programa se queda colgado sin error, sospecha de un generador sin fin."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Nombra los generadores como lo que producen (`filas`, `lecturas`, `ventas_de`), no como lo que hacen.",
+				"Documenta con una línea qué produce cada `yield` y si puede ser infinito.",
+				"Prefiere expresiones generadoras en llamadas como `sum(...)` o `any(...)`; evita el `list(...)` intermedio.",
+				"Devuelve siempre un generador nuevo desde una función: no compartas el objeto entre partes del programa.",
+				"No mutiles una lista mientras la recorres; si necesitas modificarla, itera sobre una copia.",
+				"Mide antes de optimizar: para 1 000 elementos una lista es más simple y suele ir algo más rápido."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Sensor infinito con límite",
+			"md": "Escribe un generador `lecturas(inicio)` que produzca temperaturas sin fin, subiendo 1.5 grados en cada paso, y usa `itertools.islice` para imprimir solo las cinco primeras. Comprueba que el generador no se calcula hasta que se pide cada valor.",
+			"hint": "Dentro del generador usa `while True:` y un `yield` por vuelta. `islice(iterable, n)` se detiene después de `n` elementos sin agotar la fuente.",
+			"solution": {
+				"lang": "python",
+				"caption": "sensor.py",
+				"code": "from itertools import islice\n\ndef lecturas(inicio):\n    valor = inicio\n    while True:\n        yield round(valor, 1)\n        valor += 1.5\n\nfor lectura in islice(lecturas(20.0), 5):\n    print(lectura)",
+				"explain": "El generador nunca termina por sí solo: es `islice` quien corta tras cinco valores. La variable `valor` vive en el marco congelado del generador, así que conserva el acumulado entre llamadas. Sin `islice` ni un `break`, el `for` no acabaría nunca."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Pipeline de tres etapas",
+			"md": "Parte de una lista de diccionarios de ventas con `producto`, `sede`, `unidades` y `precio`. Construye tres generadores encadenados: uno filtra por sede, otro calcula el importe de cada venta y otro acumula el total. Imprime los pares de la sede `Lima` y el total de esa sede.",
+			"hint": "Cada etapa recibe un iterable y hace `for` sobre él cediendo resultados. La última puede ser una función normal que consuma el generador con un acumulador.",
+			"solution": {
+				"lang": "python",
+				"caption": "pipeline.py",
+				"code": "ventas = [\n    {\"producto\": \"teclado\", \"sede\": \"Lima\", \"unidades\": 3, \"precio\": 120.0},\n    {\"producto\": \"mouse\", \"sede\": \"Lima\", \"unidades\": 5, \"precio\": 45.5},\n    {\"producto\": \"monitor\", \"sede\": \"Cusco\", \"unidades\": 1, \"precio\": 900.0},\n]\n\ndef de_sede(registros, sede):\n    for registro in registros:\n        if registro[\"sede\"] == sede:\n            yield registro\n\ndef importes(registros):\n    for registro in registros:\n        yield registro[\"producto\"], round(registro[\"unidades\"] * registro[\"precio\"], 2)\n\ndef total(pares):\n    suma = 0.0\n    for _, monto in pares:\n        suma += monto\n    return suma\n\nprint(list(importes(de_sede(ventas, \"Lima\"))))\nprint(total(importes(de_sede(ventas, \"Lima\"))))",
+				"explain": "Cada etapa es independiente y podría probarse por separado. `de_sede` no copia la lista: descarta el monitor al vuelo. `importes` transforma y `total` reduce. Como el pipeline se recorre dos veces, se construye dos veces; si se construyera una sola vez, la segunda impresión daría 0.0."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el generador de pares",
+			"lang": "python",
+			"code": "def pares(limite):\n    n = 0\n    while n <= limite:\n        ___ n          # cede el valor y se suspende\n        n += 2\n\nfor valor in pares(4):\n    print(___)",
+			"answers": [
+				"yield",
+				"valor"
+			],
+			"hint": "La palabra que convierte una función en generador es `yield`. En el bucle, imprime la variable que recibe cada valor.",
+			"explain": "`yield n` cede 0, luego 2 y luego 4; al incrementarse a 6 la condición falla y el generador termina. La salida es `0`, `2`, `4`, una por línea."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el sensor, la clave es que `while True` no es un error: el generador está diseñado para no terminar, y la responsabilidad de cortar pasa al consumidor. `islice` pide exactamente cinco valores y deja el generador suspendido; si después lo reutilizaras, continuaría por la sexta lectura. Esa semántica de «una sola secuencia, un solo avance» es la que hay que tener clara."
+		},
+		{
+			"type": "p",
+			"md": "En el pipeline, el detalle importante está en la última línea: `total(importes(de_sede(ventas, \"Lima\")))` crea un pipeline nuevo, porque el anterior ya se consumió en el `print`. Si guardaras `pipeline = importes(de_sede(ventas, \"Lima\"))` y lo pasaras dos veces, el segundo resultado sería `0.0`. Esta es la razón por la que los generadores se envuelven en funciones: la función es la fábrica, el generador es el producto."
+		},
+		{
+			"type": "p",
+			"md": "Una alternativa más compacta para el total sería `sum(monto for _, monto in importes(...))`, que sustituye la función `total` por una expresión generadora. Es correcto y más corto; la versión con función se lee mejor cuando la lógica de reducción crece."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un iterable fabrica iteradores con `__iter__`; un iterador avanza con `__next__` y termina con `StopIteration`.",
+				"El `for` es `iter()` + `next()` repetido + captura de `StopIteration`.",
+				"Una función con `yield` devuelve un generador; su cuerpo no corre hasta el primer `next()`.",
+				"`yield` entrega un valor y congela el marco: las variables locales sobreviven entre llamadas.",
+				"Los generadores gastan memoria constante y sirven para archivos grandes y flujos infinitos.",
+				"Son de un solo uso: agotados, hay que crear otro o materializar con `list()`.",
+				"`yield from` delega en otro iterable y encadena etapas de un pipeline."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace exactamente `yield valor` dentro de una función?",
+			"options": [
+				"Devuelve el valor y termina la función para siempre",
+				"Entrega el valor, suspende la función y conserva su estado para continuar después",
+				"Guarda el valor en una lista interna que se devuelve al final",
+				"Reinicia la función desde la primera línea en cada llamada"
+			],
+			"answer": 1,
+			"explain": "`yield` cede el control al consumidor y congela el marco de la función, con sus variables locales intactas. El siguiente `next()` reanuda en la línea siguiente al `yield`. `return` sí terminaría la función."
+		},
+		{
+			"type": "quiz",
+			"question": "Tienes `g = (x for x in range(3))` y ejecutas `list(g)` dos veces. ¿Qué obtienes?",
+			"options": [
+				"`[0, 1, 2]` las dos veces",
+				"`[0, 1, 2]` y luego `[]`",
+				"`[0, 1, 2]` y luego un `TypeError`",
+				"`[]` las dos veces, porque el generador es perezoso"
+			],
+			"answer": 1,
+			"explain": "El generador es un iterador de un solo uso. La primera `list` lo agota y la segunda lo encuentra cerrado, así que devuelve una lista vacía sin lanzar error."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál de estas estructuras mantiene un uso de memoria constante al recorrer un millón de registros?",
+			"options": [
+				"Una lista construida con `[fila for fila in archivo]`",
+				"Un diccionario que acumula todas las filas por clave",
+				"Un generador que produce una fila cada vez",
+				"Una tupla con todas las filas convertidas antes de recorrer"
+			],
+			"answer": 2,
+			"explain": "Solo el generador evita tener todas las filas a la vez. La lista, la tupla y el diccionario crecen con el número de registros y pueden agotar la memoria."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "Tipos iteradores en Python",
+					"url": "https://docs.python.org/es/3/library/stdtypes.html#iterator-types",
+					"note": "protocolo `__iter__` y `__next__`"
+				},
+				{
+					"label": "Generadores (expresión yield)",
+					"url": "https://docs.python.org/es/3/reference/expressions.html#yieldexpr",
+					"note": "semántica de `yield` y `send`"
+				},
+				{
+					"label": "itertools",
+					"url": "https://docs.python.org/es/3/library/itertools.html",
+					"note": "islice, chain, groupby y compañía"
+				}
+			]
+		}
+	]
+}

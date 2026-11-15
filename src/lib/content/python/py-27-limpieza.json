@@ -1,0 +1,456 @@
+{
+	"id": "py-27-limpieza",
+	"track": "python",
+	"order": 27,
+	"title": "Limpieza de datos",
+	"subtitle": "Nulos, duplicados, tipos y valores extremos: decidir con criterio y dejar constancia",
+	"level": "intermedio",
+	"minutes": 42,
+	"tags": ["limpieza", "nulos", "duplicados", "outliers"],
+	"keywords": [
+		"limpieza de datos",
+		"valores nulos",
+		"dropna fillna",
+		"duplicados",
+		"valores atípicos",
+		"outliers IQR",
+		"convertir tipos",
+		"fechas pandas",
+		"normalizar texto",
+		"pipeline de limpieza",
+		"calidad de datos"
+	],
+	"summary": "Limpiar datos es decidir qué hacer con lo que falta, lo que sobra y lo que no encaja, y dejar registro de cada decisión. Aprenderás a perfilar un archivo, tratar nulos y duplicados, corregir tipos y fechas, detectar valores extremos y empaquetar todo en un pipeline que puedas repetir.",
+	"objectives": [
+		"Perfilar una tabla y cuantificar nulos, duplicados y tipos incorrectos",
+		"Elegir entre eliminar, imputar o marcar valores ausentes según el contexto",
+		"Convertir columnas de texto a números, fechas y categorías sin perder datos",
+		"Detectar valores extremos con el rango intercuartílico y decidir qué hacer con ellos",
+		"Escribir una función de limpieza reproducible que registre sus decisiones"
+	],
+	"prerequisites": ["Pandas: Series y DataFrames"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Abres el archivo de pedidos del mes y encuentras tres problemas en la primera pantalla: una fecha escrita como texto, un monto vacío y dos filas que parecen la misma compra. Nada de eso impide que pandas cargue la tabla, y ahí está el peligro: el programa sigue adelante y produce un promedio que nadie debería creer."
+		},
+		{
+			"type": "p",
+			"md": "Limpiar no es borrar filas hasta que el código deje de quejarse. Es **decidir** qué representa cada hueco, qué filas son duplicados reales y qué valores son errores de captura, y anotar esas decisiones para que otro pueda revisarlas."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la limpieza de datos?"
+		},
+		{
+			"type": "p",
+			"md": "La **limpieza de datos** es el conjunto de operaciones que convierten una tabla cruda en una tabla utilizable: tipos correctos, identificadores sin repetir, fechas comparables, texto con un formato uniforme y valores ausentes tratados de forma explícita. No es un paso estético; cada transformación cambia lo que el análisis puede afirmar."
+		},
+		{
+			"type": "p",
+			"md": "La idea que ordena todo el proceso es la **unidad de observación**. Antes de tocar nada, decide qué representa una fila: un pedido, un cliente, un día de ventas. Si una fila es un pedido, dos pedidos idénticos en monto y fecha pueden ser legítimos; si es un cliente, el mismo nombre dos veces es un problema. Sin esa respuesta, `drop_duplicates` es una apuesta."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Limpiar sin mirar los datos es maquillar",
+			"md": "Cada operación de limpieza elimina información. Si borras el 30 % de las filas porque tienen un nulo en una columna secundaria, el informe describirá a otro conjunto de clientes. Cuenta siempre cuántas filas entran y cuántas salen, y guarda ese número junto al resultado."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Evitar conclusiones falsas**: un promedio calculado sobre montos en texto o con ceros de relleno no mide lo que crees.",
+				"**Preparar Machine Learning**: los modelos no aceptan `NaN` ni fechas como texto, y una categoría escrita de tres formas distintas se convierte en tres columnas inútiles.",
+				"**Unir tablas**: si una clave tiene espacios o mayúsculas inconsistentes, el `merge` pierde filas en silencio.",
+				"**Cumplir reglas de negocio**: montos negativos, edades de 200 años o correos sin arroba son errores que hay que aislar.",
+				"**Repetir el análisis**: un pipeline escrito permite volver a limpiar el archivo del mes siguiente sin empezar de cero."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Pandas representa lo ausente con `NaN` en columnas numéricas y con `None` o `NaT` en texto y fechas. Para contar y tratar huecos de forma uniforme existen `isna`, `dropna` y `fillna`, que reconocen todas esas formas. Un detalle importante: `NaN` nunca es igual a sí mismo, así que `df[df[\"monto\"] == np.nan]` devuelve una tabla vacía; hay que preguntar con `isna()`."
+		},
+		{
+			"type": "p",
+			"md": "No todas las ausencias significan lo mismo. Un monto vacío porque el cliente no pagó es distinto de un monto vacío porque el sistema no lo registró. La estadística distingue tres casos: ausencia totalmente aleatoria, ausencia explicada por otra variable y ausencia ligada al propio valor. Solo en el primer caso imputar la media es defendible; en los otros, conviene añadir una columna que marque el hueco antes de rellenarlo."
+		},
+		{
+			"type": "p",
+			"md": "El orden de las operaciones también importa, y casi siempre es el mismo: normalizar texto, convertir tipos, tratar duplicados, decidir nulos, revisar extremos y verificar. Si deduplicas antes de normalizar, `\"Lima \"` y `\"lima\"` seguirán siendo dos clientes distintos. Si imputas antes de convertir a número, el relleno se calculó sobre texto y no representa ninguna cantidad."
+		},
+		{
+			"type": "table",
+			"head": ["Problema", "Herramienta", "Qué comprobar antes"],
+			"rows": [
+				["Huecos aislados", "`dropna(subset=[...])`", "¿Cuántas filas se pierden y de qué columna?"],
+				["Huecos con valor de relleno", "`fillna(valor)`", "¿La media o mediana se calculó antes de imputar?"],
+				["Filas repetidas", "`drop_duplicates(subset=[...])`", "¿Qué columnas identifican una observación?"],
+				["Texto inconsistente", "`.str.strip().str.lower()`", "¿Hay tildes, guiones o abreviaturas?"],
+				["Extremos", "`quantile` y `clip`", "¿Es un error de captura o un caso real?"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: las operaciones esenciales"
+		},
+		{
+			"type": "p",
+			"md": "La limpieza cabe en un puñado de métodos de pandas, que se instala con `pip install pandas`. La clave está en el argumento que los hace específicos: `subset` decide qué columnas cuentan para un duplicado o un nulo."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "operaciones.py",
+			"code": "import pandas as pd\n\n# Nulos: contar, eliminar por columna clave, rellenar\ndf.isna().sum()\ndf = df.dropna(subset=[\"monto\"])\ndf[\"ciudad\"] = df[\"ciudad\"].fillna(\"Sin dato\")\n\n# Duplicados: detectar y conservar el primero\ndf.duplicated(subset=[\"pedido\"]).sum()\ndf = df.drop_duplicates(subset=[\"pedido\"], keep=\"first\")\n\n# Tipos y fechas\ndf[\"monto\"] = pd.to_numeric(df[\"monto\"], errors=\"coerce\")\ndf[\"fecha\"] = pd.to_datetime(df[\"fecha\"], errors=\"coerce\", dayfirst=True)\n\n# Texto\ndf[\"ciudad\"] = df[\"ciudad\"].str.strip().str.title()",
+			"highlight": [5, 6, 10, 11, 14, 15, 18]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "errors=\"coerce\" convierte lo imposible en nulo",
+			"md": "Sin ese argumento, `to_numeric` lanza una excepción al primer texto raro y detiene el programa. Con `coerce`, el valor problemático se convierte en `NaN` y puedes contarlo, revisarlo y decidir. Es la forma de que un error de datos no detenga el informe, pero exige mirar cuántos valores se perdieron."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: perfilar antes de tocar"
+		},
+		{
+			"type": "p",
+			"md": "El primer paso siempre es medir. Este DataFrame pequeño imita lo que suele traer un archivo exportado: un monto vacío, una fila repetida y una fecha en texto."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "perfil.py",
+			"code": "import pandas as pd\n\ndf = pd.DataFrame({\n    \"cliente\": [\"A\", \"B\", \"C\", \"A\"],\n    \"monto\": [120.0, None, 95.0, 120.0],\n    \"fecha\": [\"2026-01-05\", \"2026-01-07\", \"2026-02-11\", \"2026-01-05\"],\n})\n\nprint(df.shape)\nprint(df.isna().sum().to_dict())\nprint(df.duplicated().sum())\nprint(df[\"fecha\"].dtype)",
+			"highlight": [9, 10, 11, 12]
+		},
+		{
+			"type": "p",
+			"md": "`shape` devuelve `(4, 3)`: cuatro filas y tres columnas. `isna().sum()` cuenta un único nulo, en `monto`. `duplicated()` marca una fila como repetida, la última, porque es idéntica a la primera. Y `dtype` de la fecha es `object`, es decir texto: aunque parezca una fecha, pandas no puede ordenarla ni calcular diferencias con ella."
+		},
+		{
+			"type": "p",
+			"md": "Con esos cuatro números ya tienes el diagnóstico. Lo que sigue no es una receta automática: cada línea responde a una pregunta concreta sobre este archivo, no sobre los archivos en general."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: tipos, texto y nulos"
+		},
+		{
+			"type": "p",
+			"md": "Ahora corrige el archivo anterior. Primero convierte, después normaliza, luego decide qué hacer con el hueco y por último elimina la fila repetida. Observa que el orden no es casual."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "limpiar_archivo.py",
+			"code": "import pandas as pd\n\ndf[\"fecha\"] = pd.to_datetime(df[\"fecha\"], errors=\"coerce\")\ndf[\"cliente\"] = df[\"cliente\"].str.strip().str.upper()\ndf[\"monto\"] = df[\"monto\"].fillna(df[\"monto\"].median())\ndf = df.drop_duplicates(subset=[\"cliente\", \"fecha\"], keep=\"first\")\n\nprint(df[\"monto\"].tolist())\nprint(df[\"monto\"].sum())\nprint(df.shape)",
+			"highlight": [3, 4, 5, 6]
+		},
+		{
+			"type": "p",
+			"md": "La mediana de 120 y 95 es 107.5, así que el hueco se rellena con ese valor. Tras eliminar la fila repetida de A quedan tres filas con montos `[120.0, 107.5, 95.0]` y un total de `322.5`. La fecha ya es de tipo `datetime64`, lo que permite agrupar por mes sin trucos de texto."
+		},
+		{
+			"type": "p",
+			"md": "Hay una decisión discutible en la línea 5: imputar la mediana supone que el pedido de B valía algo parecido a los demás. Si el monto faltante fuera el total de una compra grande, esa suposición sería falsa y el total quedaría subestimado. Imputar siempre es una hipótesis; lo mínimo es escribirla."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un pipeline que deja rastro"
+		},
+		{
+			"type": "p",
+			"md": "Un informe se repite cada mes. En lugar de recordar las decisiones, escríbelas en una función que reciba la tabla, devuelva una nueva y añada cada decisión a una lista de registro. Así el número final viaja con su explicación."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pipeline.py",
+			"code": "import pandas as pd\n\ndef limpiar(df, registro):\n    df = df.copy()\n    df[\"ciudad\"] = df[\"ciudad\"].str.strip().str.title()\n    nulos = int(df[\"ciudad\"].isna().sum())\n    df[\"ciudad\"] = df[\"ciudad\"].fillna(\"Sin dato\")\n    registro.append(f\"ciudad: {nulos} nulos imputados\")\n\n    antes = len(df)\n    df = df.drop_duplicates(subset=[\"pedido\"], keep=\"first\")\n    registro.append(f\"duplicados: {antes - len(df)} filas eliminadas\")\n    return df\n\nregistro = []\npedidos = pd.read_csv(\"pedidos.csv\")\nlimpio = limpiar(pedidos, registro)\nprint(limpio.shape)\nprint(registro)",
+			"highlight": [5, 6, 7, 12, 13]
+		},
+		{
+			"type": "p",
+			"md": "Con seis pedidos donde una ciudad está vacía y dos filas repiten el mismo identificador, el resultado tiene cinco filas y el registro contiene dos líneas: un nulo imputado y una fila eliminada. La función no imprime nada por dentro; devuelve el resultado y deja que quien la llama decida qué mostrar. Esa separación permite probarla con datos pequeños y reutilizarla en el informe del mes siguiente."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: un valor extremo en la tabla"
+		},
+		{
+			"type": "p",
+			"md": "La matriz muestra el gasto mensual de cinco clientes. A simple vista hay una celda que no encaja: 4200 soles en enero del cliente C, cuando todos los demás montos están entre 95 y 210. Ese es el tipo de valor que arrastra una media y arruina un gráfico de barras."
+		},
+		{
+			"type": "matrix",
+			"title": "Gasto mensual por cliente (soles)",
+			"data": [[120, 135, 128], [95, 110, 102], [4200, 130, 125], [210, 198, 205], [150, 160, 155]],
+			"rowLabels": ["cliente A", "cliente B", "cliente C", "cliente D", "cliente E"],
+			"colLabels": ["Ene", "Feb", "Mar"],
+			"steps": [
+				{
+					"note": "Quince montos. El de C en enero rompe el patrón del resto.",
+					"highlight": [[2, 0]]
+				},
+				{
+					"note": "Con los quince valores, Q1 = 122.5, Q3 = 179 e IQR = 56.5. El límite superior es 179 + 1.5 × 56.5 = 263.75.",
+					"highlight": [[2, 0]]
+				},
+				{
+					"note": "Solo 4200 queda fuera del límite: los montos de 210 y 205 son altos, pero normales.",
+					"highlight": [[3, 0], [3, 2]]
+				},
+				{
+					"note": "Tras recortar con `clip(upper=263.75)`, esa celda pasa a 263.75 y deja de dominar la escala.",
+					"data": [[120, 135, 128], [95, 110, 102], [263.75, 130, 125], [210, 198, 205], [150, 160, 155]],
+					"highlight": [[2, 0]]
+				},
+				{
+					"note": "El total baja de 6223 a 2286.75: una sola celda explicaba el 63 % de la suma.",
+					"highlight": [[2, 0]]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Antes de recortar, pregúntate qué es ese 4200. Si fue una compra corporativa real, recortarla borra información valiosa; si fue un cero de más al digitar, corregirlo es obligatorio. La regla del rango intercuartílico solo señala candidatos, no decide por ti."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Convertir, normalizar, rellenar",
+			"code": "import pandas as pd\n\ndf = pd.DataFrame({\"monto\": [\"120\", \"95\", None, \"4200\"], \"ciudad\": [\"Lima\", \"lima \", \"Arequipa\", None]})\ndf[\"monto\"] = pd.to_numeric(df[\"monto\"], errors=\"coerce\")\ndf[\"ciudad\"] = df[\"ciudad\"].str.strip().str.title()\ndf[\"ciudad\"] = df[\"ciudad\"].fillna(\"Sin dato\")\nprint(df[\"monto\"].median())",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se carga pandas con el alias habitual.",
+					"vars": { "pd": "módulo pandas" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Los montos llegan como texto y uno es `None`; la ciudad `\"lima \"` trae un espacio final.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "monto: ['120', '95', None, '4200']; ciudad: ['Lima', 'lima ', 'Arequipa', None]"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`to_numeric` convierte los textos en números y transforma el `None` en `NaN` en vez de fallar.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "monto: [120.0, 95.0, NaN, 4200.0]"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`strip` quita el espacio y `title` deja la inicial en mayúscula. El nulo sigue siendo nulo.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "ciudad: ['Lima', 'Lima', 'Arequipa', NaN]"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "El hueco de ciudad se rellena con una categoría explícita, no con la moda ni con una cadena vacía.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "ciudad: ['Lima', 'Lima', 'Arequipa', 'Sin dato']"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "La mediana de 120, 95 y 4200 es 120: el valor extremo no la mueve como movería la media.",
+					"vars": {
+						"pd": "módulo pandas",
+						"df": "monto: [120.0, 95.0, NaN, 4200.0]; ciudad: [Lima, Lima, Arequipa, Sin dato]"
+					},
+					"output": "120.0\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Síntoma", "Causa", "Solución"],
+			"rows": [
+				["`fillna` no cambia la tabla", "No asignaste el resultado", "`df[\"x\"] = df[\"x\"].fillna(v)`"],
+				["`SettingWithCopyWarning`", "Escribes sobre una selección", "Trabaja con `.copy()` o con `.loc`"],
+				["Quedan duplicados tras limpiar", "Espacios o mayúsculas distintas", "Normaliza el texto antes de deduplicar"],
+				["`ValueError: Cannot mask with non-boolean array...`", "`str.contains` encuentra nulos", "Añade `na=False`"],
+				["Las fechas se ordenan mal", "Se leyeron como texto o con formato ambiguo", "Usa `parse_dates` y, si hace falta, `dayfirst=True`"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El error que más caro sale no produce ninguna excepción: eliminar filas de más. `dropna()` sin argumentos borra toda fila con al menos un hueco en cualquier columna, incluidas las que no usas para el análisis."
+		},
+		{
+			"type": "diff",
+			"title": "Eliminar nulos sin matar el informe",
+			"wrong": {
+				"caption": "Borra demasiado",
+				"code": "df = df.dropna()\nprint(len(df))"
+			},
+			"right": {
+				"caption": "Decide qué columna importa",
+				"code": "df = df.dropna(subset=[\"monto\"])\nprint(len(df))"
+			},
+			"explain": "Sin `subset`, cualquier nulo en cualquier columna elimina la fila, aunque ese campo sea opcional. Con `subset` decides qué dato es imprescindible y conservas el resto. Antes de ejecutarlo, compara el número de filas con el original."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Perfila primero: `shape`, `dtypes`, `isna().sum()` y `duplicated().sum()` antes de transformar.",
+				"Normaliza el texto antes de deduplicar o de unir tablas; los espacios invisibles rompen las claves.",
+				"Prefiere `fillna` con un valor explicable y documentado antes que con la media por defecto.",
+				"Separa «valor ausente» de «valor cero»: un monto desconocido no es un cliente que no gastó.",
+				"Antes de recortar extremos, cuéntalos y míralos uno por uno; muchos son la parte interesante del negocio.",
+				"Devuelve siempre tablas nuevas y anota filas de entrada y de salida en cada paso."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Diagnóstico y limpieza mínima",
+			"md": "Con una tabla de seis pedidos donde `ciudad` tiene dos nulos y hay una fila repetida, muestra cuántas filas, nulos y duplicados hay. Después normaliza `ciudad` con `strip` y `title`, rellena los nulos con `\"Sin dato\"` y elimina los duplicados por la columna `pedido`. Comprueba que quedan cinco filas y ningún nulo.",
+			"hint": "Cuenta los nulos con `isna().sum().sum()` y los duplicados con `duplicated().sum()`. Para quedarte con la primera aparición usa `keep=\"first\"`.",
+			"solution": {
+				"lang": "python",
+				"caption": "diagnostico.py",
+				"code": "import pandas as pd\n\npedidos = pd.DataFrame({\n    \"pedido\": [1, 2, 3, 4, 5, 5],\n    \"ciudad\": [\"lima \", None, None, \"Arequipa\", \"cusco\", \"cusco\"],\n    \"monto\": [120, 95, 210, 80, 150, 150],\n})\n\nprint(len(pedidos), pedidos.isna().sum().sum(), pedidos.duplicated().sum())\n\npedidos[\"ciudad\"] = pedidos[\"ciudad\"].str.strip().str.title()\npedidos[\"ciudad\"] = pedidos[\"ciudad\"].fillna(\"Sin dato\")\npedidos = pedidos.drop_duplicates(subset=[\"pedido\"], keep=\"first\")\n\nprint(len(pedidos), pedidos.isna().sum().sum())",
+				"explain": "El diagnóstico da 6 filas, 2 nulos y 1 duplicado. Tras normalizar, `\"lima \"` queda como `\"Lima\"` y los dos huecos pasan a `\"Sin dato\"`. Al deduplicar por `pedido` se elimina la segunda fila del pedido 5 y quedan 5 filas sin nulos. El total de montos es 655, sin contar la fila repetida."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la limpieza",
+			"lang": "python",
+			"code": "df[\"ciudad\"] = df[\"ciudad\"].str.strip().str.___()\ndf[\"monto\"] = df[\"monto\"].fillna(df[\"monto\"].___())\ndf = df.___(subset=[\"pedido\"])",
+			"answers": ["title", "median", "drop_duplicates"],
+			"hint": "El método que pone la inicial en mayúscula es el mismo que usarías con un título. Para el relleno, elige una medida que no se deje arrastrar por los extremos.",
+			"explain": "`title` deja `\"lima\"` como `\"Lima\"`. `median` rellena con la mediana, más robusta que la media cuando hay valores extremos. `drop_duplicates` con `subset` elimina las filas que repiten el identificador."
+		},
+		{
+			"type": "exercise",
+			"title": "Detectar extremos con el rango intercuartílico",
+			"md": "Usa los quince montos de la matriz: 120, 135, 128, 95, 110, 102, 4200, 130, 125, 210, 198, 205, 150, 160 y 155. Calcula el primer cuartil, el tercero, el rango intercuartílico y el límite superior. Recorta los valores por encima de ese límite con `clip` y compara el total antes y después.",
+			"hint": "`quantile(0.25)` y `quantile(0.75)` usan interpolación lineal por defecto. `clip(upper=limite)` no elimina filas: cambia el valor de las que se pasan.",
+			"solution": {
+				"lang": "python",
+				"caption": "extremos.py",
+				"code": "import pandas as pd\n\nmontos = pd.Series([120, 135, 128, 95, 110, 102, 4200, 130, 125, 210, 198, 205, 150, 160, 155])\n\nq1 = montos.quantile(0.25)\nq3 = montos.quantile(0.75)\niqr = q3 - q1\nlimite = q3 + 1.5 * iqr\n\nrecortado = montos.clip(upper=limite)\nprint(q1, q3, iqr, limite)\nprint(montos.sum(), recortado.sum())",
+				"explain": "Q1 vale 122.5 y Q3 vale 179, así que el IQR es 56.5 y el límite superior 263.75. Solo 4200 lo supera. El total original es 6223 y el recortado 2286.75, porque el valor extremo aportaba casi dos tercios de la suma. Recortar es reversible si guardas el original: nunca sobrescribas la columna sin conservar una copia."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, el orden importa. Deduplicar por `pedido` funciona porque el identificador es un número, pero si la clave fuera el nombre del cliente, `\"Ana Pérez\"` y `\"ana perez\"` pasarían como dos clientes distintos. Normalizar antes de comparar cierra ese hueco y deja categorías comparables."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el IQR no dice que 4200 sea un error, solo que es atípico respecto al resto. La decisión depende del negocio: una venta corporativa se conserva y se analiza aparte; un cero de más se corrige con el valor original. En ambos casos el paso obligatorio es el mismo: mirar el valor, no solo el número que devuelve la fórmula."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Limpiar es decidir y documentar, no borrar filas hasta que el código no proteste.",
+				"Perfila con `shape`, `dtypes`, `isna().sum()` y `duplicated().sum()` antes de transformar.",
+				"`dropna(subset=...)` elimina solo cuando falta un dato imprescindible; sin `subset` borra de más.",
+				"`fillna` imputa, y toda imputación es una hipótesis que debe quedar escrita.",
+				"Normaliza texto antes de deduplicar o unir: espacios y mayúsculas crean duplicados falsos.",
+				"El IQR señala candidatos a extremo; la decisión de recortar o conservar es del negocio.",
+				"Un pipeline en funciones con registro permite repetir el informe y auditar cada cambio."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace `df.dropna()` sin argumentos?",
+			"options": [
+				"Elimina las columnas que tienen algún nulo",
+				"Elimina toda fila que tenga al menos un nulo en cualquier columna",
+				"Rellena los nulos con la media de cada columna",
+				"Elimina solo los nulos de las columnas numéricas"
+			],
+			"answer": 1,
+			"explain": "Sin `subset`, cualquier hueco en cualquier columna descarta la fila completa. Por eso conviene indicar las columnas imprescindibles y comparar cuántas filas quedan frente al original."
+		},
+		{
+			"type": "quiz",
+			"question": "Tienes `df[\"monto\"].fillna(0)` sin asignar el resultado. ¿Qué ocurre?",
+			"options": [
+				"La columna queda rellena con ceros",
+				"Se modifica el DataFrame original en memoria",
+				"Se crea una Series nueva y `df` no cambia",
+				"Pandas lanza un `ValueError`"
+			],
+			"answer": 2,
+			"explain": "Los métodos de pandas devuelven objetos nuevos. Si no guardas el resultado con `df[\"monto\"] = ...`, el relleno se pierde. Es el mismo patrón que ya viste con los métodos de los strings."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué conviene normalizar el texto antes de eliminar duplicados?",
+			"options": [
+				"Porque `drop_duplicates` falla con mayúsculas",
+				"Porque `\"Lima \"` y `\"lima\"` se consideran valores distintos y el duplicado sobrevive",
+				"Porque así la tabla ocupa menos memoria",
+				"Porque `title` elimina también los valores nulos"
+			],
+			"answer": 1,
+			"explain": "La comparación es exacta, carácter a carácter. Un espacio final o una mayúscula distinta hacen que dos filas que describen lo mismo no se detecten como duplicadas. Normalizar primero y deduplicar después evita ese hueco."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Pandas: datos faltantes",
+					"url": "https://pandas.pydata.org/docs/user_guide/missing_data.html",
+					"note": "criterios y métodos para nulos"
+				},
+				{
+					"label": "Pandas: texto",
+					"url": "https://pandas.pydata.org/docs/user_guide/text.html",
+					"note": "accesor .str y limpieza de cadenas"
+				}
+			]
+		}
+	]
+}

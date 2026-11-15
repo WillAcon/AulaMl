@@ -1,0 +1,781 @@
+{
+	"id": "py-31-regresion",
+	"track": "python",
+	"order": 31,
+	"title": "Regresión lineal y logística",
+	"subtitle": "Ajustar una recta, medir su error y convertirla en una probabilidad",
+	"level": "intermedio",
+	"minutes": 50,
+	"tags": [
+		"regresión",
+		"scikit-learn",
+		"gradiente",
+		"clasificación"
+	],
+	"keywords": [
+		"regresión lineal",
+		"regresión logística",
+		"mínimos cuadrados",
+		"gradiente descendente",
+		"error cuadrático medio",
+		"MAE",
+		"función sigmoide",
+		"clasificación binaria",
+		"interpretar coeficientes",
+		"LinearRegression",
+		"LogisticRegression",
+		"instalar scikit-learn"
+	],
+	"summary": "La regresión es el primer modelo que conviene entender de verdad: una recta que minimiza el error al cuadrado. Aquí la ajustas a mano, la comparas con scikit-learn, aprendes qué significan MSE, MAE y R², y das el salto a la regresión logística para clasificar.",
+	"objectives": [
+		"Ajustar una recta por mínimos cuadrados y explicar qué minimiza",
+		"Calcular MSE, MAE y R² e interpretar cada cifra en sus unidades",
+		"Entrenar modelos con LinearRegression y LogisticRegression de scikit-learn",
+		"Explicar cómo la función sigmoide convierte una puntuación en probabilidad",
+		"Leer los coeficientes de un modelo sin confundir asociación con causalidad"
+	],
+	"prerequisites": [
+		"Fundamentos de Machine Learning",
+		"NumPy: vectores, matrices y vectorización",
+		"Estadística y análisis exploratorio"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Tienes las horas de estudio de varios estudiantes y sus notas. Quieres responder dos preguntas distintas: «¿cuánto sacará alguien que estudie 4 horas?» y «¿aprobará?». La primera pide un número; la segunda, una decisión. La regresión lineal y la logística resuelven cada una."
+		},
+		{
+			"type": "p",
+			"md": "Las dos son primas: construyen una combinación de las entradas, `w · x + b`, y solo cambian lo que hacen con el resultado. Entender esa base te sirve para casi todo lo que viene después, incluidas las redes neuronales."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una regresión?"
+		},
+		{
+			"type": "p",
+			"md": "Una **regresión** es un modelo que predice una cantidad a partir de una o más características. En la **lineal**, la predicción es una recta (o un plano, con varias entradas): `ŷ = w₁x₁ + w₂x₂ + … + b`. Los pesos `w` dicen cuánto pesa cada característica y `b` es el valor base cuando todas valen cero."
+		},
+		{
+			"type": "p",
+			"md": "La **regresión logística** usa la misma combinación, pero le aplica la función sigmoide para comprimir el resultado entre 0 y 1. Ese número se interpreta como la probabilidad de pertenecer a la clase positiva, así que sirve para clasificación binaria: aprobó o no, spam o no, abandona o no."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Precios y demanda**: estimar cuánto costará un departamento o cuántas unidades se venderán el próximo mes.",
+				"**Riesgo de crédito**: estimar la probabilidad de que un cliente no pague.",
+				"**Medicina**: relacionar dosis y respuesta, o probabilidad de complicación según variables clínicas.",
+				"**Línea base de cualquier proyecto**: antes de probar un modelo complejo, la regresión dice cuánto se puede explicar con una relación simple."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? La recta y la pérdida"
+		},
+		{
+			"type": "p",
+			"md": "Con una sola entrada, el modelo es `ŷ = w x + b`. Para cada punto, el **residuo** es `y - ŷ`: cuánto se aleja la recta del dato real. Los **mínimos cuadrados** eligen `w` y `b` de modo que la suma de los residuos al cuadrado sea la menor posible. Elevar al cuadrado evita que los errores positivos y negativos se cancelen."
+		},
+		{
+			"type": "p",
+			"md": "Con muchas entradas no hay fórmula tan cómoda y se usa **gradiente descendente**: calculas la pendiente de la pérdida respecto a cada peso, das un paso pequeño en dirección contraria y repites. El tamaño del paso es la **tasa de aprendizaje**; si es enorme, el modelo diverge; si es diminuta, tarda una eternidad."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: dos modelos, una misma API"
+		},
+		{
+			"type": "p",
+			"md": "scikit-learn unifica todo en tres llamadas: crear, `fit` y `predict`. Instálalo una vez en tu entorno virtual:"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalación",
+			"code": "python3 -m venv .venv\nsource .venv/bin/activate   # Windows: .venv\\Scripts\\activate\npython -m pip install scikit-learn"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "el_mismo_esquema.py",
+			"code": "from sklearn.linear_model import LinearRegression, LogisticRegression\n\nX = [[1], [2], [3], [7], [8], [9]]\nnotas = [2.8, 3.4, 4.1, 6.9, 8.2, 9.0]   # regresión: una nota\naprobo = [0, 0, 0, 1, 1, 1]              # clasificación: una categoría\n\nlineal = LinearRegression().fit(X, notas)\nlogistica = LogisticRegression().fit(X, aprobo)\n\nprint(\"nota estimada a las 4 h:\", round(lineal.predict([[4]])[0], 2))\nprint(\"clase predicha a las 8 h:\", logistica.predict([[8]])[0])"
+		},
+		{
+			"type": "p",
+			"md": "`LinearRegression` produce valores sin límite. `LogisticRegression` expone `predict_proba`, que devuelve dos columnas: probabilidad de la clase 0 y de la clase 1. El método `predict` aplica un umbral de 0.5 y devuelve ya la etiqueta."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: una recta que predice"
+		},
+		{
+			"type": "p",
+			"md": "Supón que ya ajustaste el modelo y obtuviste `w = 0.6` y `b = 2.2`. Predecir es sustituir:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "predecir.py",
+			"code": "def predecir(horas):\n    return 2.2 + 0.6 * horas\n\nfor h in [1, 3, 5]:\n    print(h, \"->\", round(predecir(h), 2))",
+			"highlight": [
+				1,
+				2
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `1 -> 2.8`, `3 -> 4.0` y `5 -> 5.2`. Cada hora adicional suma 0.6 unidades a la predicción; con cero horas, el modelo parte de 2.2. Cuando la relación es curvada, una recta se queda corta por definición, y ahí conviene añadir términos cuadráticos o cambiar de modelo."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: datos, predicciones y residuos"
+		},
+		{
+			"type": "p",
+			"md": "Estos cinco puntos tienen una relación casi lineal. La cuarta columna muestra el residuo de cada uno; fíjate en que los positivos y los negativos se compensan."
+		},
+		{
+			"type": "matrix",
+			"title": "Datos, predicción y residuo con ŷ = 2.2 + 0.6x",
+			"data": [
+				[
+					1,
+					2,
+					2.8,
+					-0.8
+				],
+				[
+					2,
+					4,
+					3.4,
+					0.6
+				],
+				[
+					3,
+					5,
+					4.0,
+					1.0
+				],
+				[
+					4,
+					4,
+					4.6,
+					-0.6
+				],
+				[
+					5,
+					5,
+					5.2,
+					-0.2
+				]
+			],
+			"rowLabels": [
+				"p1",
+				"p2",
+				"p3",
+				"p4",
+				"p5"
+			],
+			"colLabels": [
+				"x",
+				"y real",
+				"ŷ",
+				"y − ŷ"
+			],
+			"steps": [
+				{
+					"note": "En `x = 1` la recta predice `2.8` y el valor real es `2`: el residuo es `-0.8`.",
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							0,
+							1
+						],
+						[
+							0,
+							2
+						],
+						[
+							0,
+							3
+						]
+					]
+				},
+				{
+					"note": "En `x = 2` predice `3.4` frente a `4`: residuo `+0.6`, la recta se queda corta.",
+					"highlight": [
+						[
+							1,
+							0
+						],
+						[
+							1,
+							1
+						],
+						[
+							1,
+							2
+						],
+						[
+							1,
+							3
+						]
+					]
+				},
+				{
+					"note": "En `x = 3` predice `4.0` frente a `5`: el error es `+1.0`, el mayor del conjunto.",
+					"highlight": [
+						[
+							2,
+							0
+						],
+						[
+							2,
+							1
+						],
+						[
+							2,
+							2
+						],
+						[
+							2,
+							3
+						]
+					]
+				},
+				{
+					"note": "En `x = 4` predice `4.6` frente a `4`: residuo `-0.6`.",
+					"highlight": [
+						[
+							3,
+							0
+						],
+						[
+							3,
+							1
+						],
+						[
+							3,
+							2
+						],
+						[
+							3,
+							3
+						]
+					]
+				},
+				{
+					"note": "En `x = 5` predice `5.2` frente a `5`: residuo `-0.2`. La suma de residuos es casi cero.",
+					"highlight": [
+						[
+							4,
+							0
+						],
+						[
+							4,
+							1
+						],
+						[
+							4,
+							2
+						],
+						[
+							4,
+							3
+						]
+					]
+				},
+				{
+					"note": "Los cuadrados suman `0.64 + 0.36 + 1.0 + 0.36 + 0.04 = 2.4`; entre 5 puntos, el MSE es `0.48`."
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Observa el patrón: la recta sobreestima en los extremos y subestima en el centro. Eso indica que la relación real tiene curvatura. Ningún ajuste de `w` y `b` elimina ese patrón; solo un modelo con más flexibilidad puede."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: mínimos cuadrados a mano"
+		},
+		{
+			"type": "p",
+			"md": "Con una entrada, los mínimos cuadrados tienen fórmula cerrada: `w = Σ(xᵢ − x̄)(yᵢ − ȳ) / Σ(xᵢ − x̄)²` y `b = ȳ − w x̄`. Aplícala a `x = [1, 2, 3, 4, 5]` e `y = [2, 4, 5, 4, 5]`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "minimos_cuadrados.py",
+			"code": "x = [1, 2, 3, 4, 5]\ny = [2, 4, 5, 4, 5]\n\nn = len(x)\nmedia_x = sum(x) / n\nmedia_y = sum(y) / n\n\nsxy = sum((xi - media_x) * (yi - media_y) for xi, yi in zip(x, y))\nsxx = sum((xi - media_x) ** 2 for xi in x)\n\npendiente = sxy / sxx\nintercepto = media_y - pendiente * media_x\n\nprint(\"pendiente:\", round(pendiente, 2))\nprint(\"intercepto:\", round(intercepto, 2))",
+			"highlight": [
+				9,
+				10,
+				12,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "La media de `x` es 3 y la de `y` es 4. El numerador vale 6, el denominador 10, así que `w = 0.6`. El intercepto es `4 − 0.6 · 3 = 2.2`, justo los valores que usamos arriba. La salida lo confirma: `pendiente: 0.6` e `intercepto: 2.2`."
+		},
+		{
+			"type": "h",
+			"text": "Traza: un paso de gradiente descendente"
+		},
+		{
+			"type": "p",
+			"md": "Cuando no hay fórmula cerrada, el modelo se ajusta por pasos. Con dos puntos (`x = [1, 2]`, `y = [3, 4]`), tasa `0.1` y pesos iniciales en cero, observa cómo se mueven `w` y `b` en la primera iteración:"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Un paso de gradiente descendente",
+			"code": "x = [1, 2]\ny = [3, 4]\nw, b = 0.0, 0.0\nlr = 0.1\n\nfor paso in range(2):\n    pred = [w * xi + b for xi in x]\n    error = [p - yi for p, yi in zip(pred, y)]\n    grad_w = 2 * sum(e * xi for e, xi in zip(error, x)) / len(x)\n    grad_b = 2 * sum(error) / len(x)\n    w = w - lr * grad_w\n    b = b - lr * grad_b\n    print(paso, round(w, 2), round(b, 2))",
+			"steps": [
+				{
+					"line": 3,
+					"note": "El modelo arranca plano: `w = 0` y `b = 0`. Todas sus predicciones serán cero.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "0.0",
+						"b": "0.0",
+						"lr": "0.1"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "Con los pesos en cero, las dos predicciones son `0`. El modelo todavía no sabe nada.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "0.0",
+						"b": "0.0",
+						"lr": "0.1",
+						"paso": "0",
+						"pred": "[0.0, 0.0]"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "El error se mide como predicción menos real: `[0-3, 0-4] = [-3.0, -4.0]`. Ambos negativos: el modelo se queda corto.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "0.0",
+						"b": "0.0",
+						"lr": "0.1",
+						"paso": "0",
+						"pred": "[0.0, 0.0]",
+						"error": "[-3.0, -4.0]"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "Gradiente de `w`: `2 · ((-3)·1 + (-4)·2) / 2 = -11.0`. Es negativo, así que el peso debe crecer.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "0.0",
+						"b": "0.0",
+						"lr": "0.1",
+						"paso": "0",
+						"pred": "[0.0, 0.0]",
+						"error": "[-3.0, -4.0]",
+						"grad_w": "-11.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "Gradiente de `b`: `2 · (-3 + -4) / 2 = -7.0`.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "0.0",
+						"b": "0.0",
+						"lr": "0.1",
+						"paso": "0",
+						"pred": "[0.0, 0.0]",
+						"error": "[-3.0, -4.0]",
+						"grad_w": "-11.0",
+						"grad_b": "-7.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "Se resta el gradiente multiplicado por la tasa: `0 - 0.1 · (-11) = 1.1`. La recta empieza a inclinarse.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "1.1",
+						"b": "0.0",
+						"lr": "0.1",
+						"paso": "0",
+						"pred": "[0.0, 0.0]",
+						"error": "[-3.0, -4.0]",
+						"grad_w": "-11.0",
+						"grad_b": "-7.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 12,
+					"note": "El intercepto sube a `0.7`. Ya hay una recta con pendiente positiva y altura.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "1.1",
+						"b": "0.7",
+						"lr": "0.1",
+						"paso": "0",
+						"pred": "[0.0, 0.0]",
+						"error": "[-3.0, -4.0]",
+						"grad_w": "-11.0",
+						"grad_b": "-7.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 13,
+					"note": "Primera iteración terminada: `0 1.1 0.7`. La segunda imprime `1 1.44 0.93`: los pesos se acercan a la recta `y = x + 2`.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "1.1",
+						"b": "0.7",
+						"lr": "0.1",
+						"paso": "0",
+						"pred": "[0.0, 0.0]",
+						"error": "[-3.0, -4.0]",
+						"grad_w": "-11.0",
+						"grad_b": "-7.0"
+					},
+					"output": "0 1.1 0.7\n"
+				},
+				{
+					"line": 13,
+					"note": "Segunda iteración: con `w = 1.1` y `b = 0.7`, los errores se reducen a `[-1.2, -1.1]` y el gradiente también. El resultado es `1 1.44 0.93`. Repetir este ciclo cientos de veces es entrenar.",
+					"vars": {
+						"x": "[1, 2]",
+						"y": "[3, 4]",
+						"w": "1.44",
+						"b": "0.93",
+						"lr": "0.1",
+						"paso": "1",
+						"pred": "[1.8, 2.9]",
+						"error": "[-1.2, -1.1]",
+						"grad_w": "-3.4",
+						"grad_b": "-2.3"
+					},
+					"output": "1 1.44 0.93\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "La recta perfecta para esos dos puntos es `y = x + 2`: pendiente 1, intercepto 2. El gradiente no la alcanza de golpe porque cada paso es pequeño: hacen falta unas quinientas iteraciones para llegar a `w = 1.0` y `b ≈ 2.0`. Esa lentitud es el precio de no usar la fórmula cerrada."
+		},
+		{
+			"type": "h",
+			"text": "Las métricas y qué significa cada una"
+		},
+		{
+			"type": "p",
+			"md": "Un error solo es útil si sabes en qué unidades está y qué castiga. Estas cuatro cifras resumen el mismo ajuste desde ángulos distintos:"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Métrica",
+				"Fórmula",
+				"Unidades",
+				"Qué castiga"
+			],
+			"rows": [
+				[
+					"MSE",
+					"media de `(y − ŷ)²`",
+					"unidades²",
+					"los errores grandes"
+				],
+				[
+					"RMSE",
+					"raíz del MSE",
+					"las de `y`",
+					"los errores grandes"
+				],
+				[
+					"MAE",
+					"media de `|y − ŷ|`",
+					"las de `y`",
+					"todos por igual"
+				],
+				[
+					"R²",
+					"`1 − SSE / SST`",
+					"sin unidades",
+					"la proporción explicada"
+				]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "metricas.py",
+			"code": "x = [1, 2, 3, 4, 5]\ny = [2, 4, 5, 4, 5]\n\nw, b = 0.6, 2.2\npred = [w * xi + b for xi in x]\nerrores = [yi - pi for yi, pi in zip(y, pred)]\n\nmse = sum(e ** 2 for e in errores) / len(y)\nmae = sum(abs(e) for e in errores) / len(y)\nsst = sum((yi - sum(y) / len(y)) ** 2 for yi in y)\nr2 = 1 - sum(e ** 2 for e in errores) / sst\n\nprint(\"MSE:\", round(mse, 2))\nprint(\"MAE:\", round(mae, 2))\nprint(\"R2:\", round(r2, 2))",
+			"highlight": [
+				8,
+				9,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `MSE: 0.48`, `MAE: 0.64` y `R2: 0.6`. La raíz del MSE vale `0.69`: el error típico es de dos tercios de unidad. El R² de 0.6 dice que la recta explica el 60 % de la variación de `y`; el 40 % restante se debe al patrón curvo que la recta no puede seguir."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "R² no siempre es «mejor cuanto más alto»",
+			"md": "Un R² alto en entrenamiento no garantiza nada en datos nuevos, y un R² bajo puede ser normal en fenómenos ruidosos. Compáralo siempre con el de un baseline y con el de tu conjunto de prueba."
+		},
+		{
+			"type": "h",
+			"text": "Regresión logística: del número a la probabilidad"
+		},
+		{
+			"type": "p",
+			"md": "Para clasificar, la recta sola no sirve: puede devolver `-3` o `7`, valores que no son probabilidades. La **sigmoide** los comprime: `σ(z) = 1 / (1 + e^(−z))`. Con `z = 0` da 0.5; los valores grandes se acercan a 1 y los muy negativos, a 0."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "sigmoide.py",
+			"code": "from math import exp\n\ndef sigmoide(z):\n    return 1 / (1 + exp(-z))\n\nfor z in [-2, 0, 1, 2]:\n    print(z, \"->\", round(sigmoide(z), 3))",
+			"highlight": [
+				3,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `-2 -> 0.119`, `0 -> 0.5`, `1 -> 0.731` y `2 -> 0.881`. El umbral habitual es 0.5, que corresponde a `z = 0`: si la combinación de entradas es positiva, el modelo se inclina por la clase 1. Cambiar el umbral cambia el equilibrio entre falsos positivos y falsos negativos, y es una decisión de negocio, no del algoritmo."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: clasificar con una probabilidad"
+		},
+		{
+			"type": "p",
+			"md": "Seis estudiantes: tres que estudiaron 1, 2 y 3 horas no aprobaron; tres que estudiaron 7, 8 y 9 sí. El modelo debe aprender esa frontera."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "logistica.py",
+			"code": "from sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import accuracy_score\n\nX = [[1], [2], [3], [7], [8], [9]]\ny = [0, 0, 0, 1, 1, 1]\n\nmodelo = LogisticRegression()\nmodelo.fit(X, y)\n\nprint(\"predicciones:\", modelo.predict([[1], [2], [8]]))\nprint(\"exactitud:\", accuracy_score(y, modelo.predict(X)))",
+			"highlight": [
+				7,
+				8
+			]
+		},
+		{
+			"type": "p",
+			"md": "El modelo imprime `predicciones: [0 0 1]` y `exactitud: 1.0`: acierta los seis casos de entrenamiento. Esa exactitud perfecta no es un trofeo, porque los datos son trivialmente separables. La prueba real es cómo se comporta con estudiantes de 4, 5 o 6 horas, justo en la zona ambigua, y para eso necesitas un conjunto reservado."
+		},
+		{
+			"type": "h",
+			"text": "Cómo se leen los coeficientes"
+		},
+		{
+			"type": "p",
+			"md": "En regresión lineal, un coeficiente de `0.6` significa que una unidad más de esa característica suma `0.6` a la predicción, **si todo lo demás se mantiene igual**. Ese «si todo lo demás se mantiene» es la parte que se olvida: si dos variables se mueven juntas, el modelo reparte el peso entre ellas de forma inestable."
+		},
+		{
+			"type": "p",
+			"md": "En logística el coeficiente vive en escala de **log-odds**. Un coeficiente de `0.7` multiplica las probabilidades a favor por `e^0.7 ≈ 2.01`: duplica el apoyo a la clase positiva por cada unidad. La dirección sí se lee directamente: signo positivo empuja hacia la clase 1."
+		},
+		{
+			"type": "compare",
+			"title": "La misma predicción en dos niveles",
+			"python": {
+				"caption": "prediccion.py",
+				"code": "X = [1, 2, 3]\nw, b = 0.6, 2.2\ny_hat = [round(w * x + b, 2) for x in X]\nprint(y_hat)  # [2.8, 3.4, 4.0]"
+			},
+			"cpp": {
+				"caption": "prediccion.cpp",
+				"code": "#include <iostream>\n#include <vector>\n\nint main() {\n    const std::vector<int> x = {1, 2, 3};\n    const double w = 0.6, b = 2.2;\n    for (int xi : x) {\n        std::cout << w * xi + b << '\\n';\n    }\n}"
+			},
+			"note": "En Python la comprensión oculta el bucle y redondea; en C++ el bucle es explícito y el tipo de cada variable está declarado. scikit-learn añade otra capa: ni siquiera escribes la multiplicación, solo llamas a `predict`."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Usar R² para comparar modelos con distinta escala**: el R² depende de la varianza de `y`; entre datasets distintos no es comparable.",
+				"**Interpretar un coeficiente como causa**: un peso alto indica asociación dentro del modelo, no que cambiar esa variable cambie el resultado.",
+				"**Ajustar sin dividir**: el MSE de entrenamiento siempre es optimista.",
+				"**Ignorar la escala**: una tasa de aprendizaje razonable con variables normalizadas puede divergir con variables en miles.",
+				"**Leer `predict_proba` como certeza**: una probabilidad de 0.9 no significa que el caso sea positivo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Grafica los residuos: un patrón en forma de curva delata que la recta no basta.",
+				"Normaliza las entradas antes de usar gradiente descendente o regularización.",
+				"Informa MSE y MAE juntos; el segundo es más fácil de explicar a quien decide.",
+				"Evalúa la clasificación con exactitud, pero también con precisión y recall si las clases están desbalanceadas.",
+				"Guarda el umbral elegido y el motivo: forma parte del modelo, no es un detalle."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Evalúa una recta dada",
+			"md": "Para los puntos `(1, 3)`, `(2, 4)` y `(3, 8)`, calcula las predicciones del modelo `ŷ = 2x + 1`, los residuos, el MSE y el MAE. Imprime los tres residuos y las dos métricas redondeadas a dos decimales.",
+			"hint": "Las predicciones son 3, 5 y 7. Un residuo es `y - ŷ`; el MSE promedia los cuadrados y el MAE, los valores absolutos.",
+			"solution": {
+				"lang": "python",
+				"caption": "evaluar_recta.py",
+				"code": "datos = [(1, 3), (2, 4), (3, 8)]\npred = [2 * x + 1 for x, _ in datos]\nresiduos = [y - p for (_, y), p in zip(datos, pred)]\n\nmse = sum(r ** 2 for r in residuos) / len(residuos)\nmae = sum(abs(r) for r in residuos) / len(residuos)\n\nprint(\"residuos:\", residuos)\nprint(\"MSE:\", round(mse, 2))\nprint(\"MAE:\", round(mae, 2))",
+				"explain": "Las predicciones son 3, 5 y 7, así que los residuos son `[0, -1, 1]`. El MSE vale `(0 + 1 + 1) / 3 = 0.67` y el MAE también `2 / 3 = 0.67`. Coinciden porque todos los errores valen uno como mucho; con un error grande, el MSE se dispararía y el MAE no."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "De la puntuación a la decisión",
+			"md": "Escribe una función `sigmoide(z)` y clasifica con umbral 0.5 los valores `z = -1`, `0` y `3`. Imprime la probabilidad redondeada a tres decimales y la decisión «aprueba» o «no aprueba».",
+			"hint": "Compara la probabilidad con 0.5, no con 1. La función `exp` está en el módulo `math`.",
+			"solution": {
+				"lang": "python",
+				"caption": "decision.py",
+				"code": "from math import exp\n\ndef sigmoide(z):\n    return 1 / (1 + exp(-z))\n\nfor z in [-1, 0, 3]:\n    p = sigmoide(z)\n    print(round(p, 3), \"aprueba\" if p >= 0.5 else \"no aprueba\")",
+				"explain": "La salida es `0.269 no aprueba`, `0.5 aprueba` y `0.953 aprueba`. En `z = 0` la probabilidad es exactamente 0.5 y el umbral decide el empate hacia la clase positiva. Bajar el umbral a 0.3 haría aprobar también el primer caso: el modelo no cambió, cambió la política."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa las métricas",
+			"lang": "python",
+			"code": "errores = [yi - pi for yi, pi in zip(y, pred)]\n\nmse = sum(e ** 2 for e in errores) / ___\nmae = sum(abs(e) for e in errores) / len(errores)\n\nprint(\"MSE:\", round(___, 2))\nprint(\"MAE:\", round(mae, 2))",
+			"answers": [
+				"len(errores)",
+				"mse"
+			],
+			"hint": "El promedio divide entre la cantidad de errores; la segunda impresión debe mostrar el MSE.",
+			"explain": "Sin dividir entre `len(errores)` obtendrías la suma de cuadrados, que crece con el número de filas y no sirve para comparar. `mse` es la variable calculada en la línea anterior."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, el residuo `0` del primer punto no significa que el modelo sea perfecto: solo acierta ahí. El MSE y el MAE coinciden porque ningún error supera una unidad; con un residuo de 5, el MSE subiría a `(0 + 1 + 25) / 3 = 8.67` mientras el MAE quedaría en `2.0`."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la sigmoide nunca llega a 0 ni a 1: solo se acerca. Por eso una probabilidad de 0.953 no es una promesa. La decisión final depende del umbral, y ese umbral debe elegirse mirando el coste de cada tipo de error, no copiando el 0.5 por costumbre."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"La regresión lineal predice `ŷ = w · x + b`; los mínimos cuadrados minimizan la suma de residuos al cuadrado.",
+				"El gradiente descendente actualiza los pesos en dirección contraria a la pendiente, con pasos de tamaño `lr`.",
+				"El MSE está en unidades al cuadrado, el MAE y el RMSE en las de `y`, y el R² no tiene unidades.",
+				"La sigmoide convierte cualquier puntuación en una probabilidad entre 0 y 1.",
+				"En logística, un coeficiente positivo empuja hacia la clase 1 y `e^w` es el factor de cambio en las probabilidades.",
+				"Un coeficiente describe asociación dentro del modelo; no demuestra causalidad."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué eligen los mínimos cuadrados al ajustar una recta?",
+			"options": [
+				"Los pesos que hacen pasar la recta por el mayor número de puntos",
+				"Los pesos que minimizan la suma de los residuos al cuadrado",
+				"Los pesos que maximizan el R² del conjunto de prueba",
+				"Los pesos que hacen cero la media de `y`"
+			],
+			"answer": 1,
+			"explain": "La recta no tiene que pasar por ningún punto: minimiza la suma de `(y − ŷ)²`. Esa suma tiene solución cerrada cuando hay una sola característica."
+		},
+		{
+			"type": "quiz",
+			"question": "Un modelo tiene MSE = 0.48 y MAE = 0.64. ¿Qué indica la diferencia?",
+			"options": [
+				"Que hay un error de cálculo, porque el MSE nunca puede ser menor",
+				"Que los errores son pequeños y el MSE amplifica los pocos grandes",
+				"Que el modelo acierta el 48 % de las veces",
+				"Que el R² es necesariamente negativo"
+			],
+			"answer": 1,
+			"explain": "Con errores menores que 1, elevarlos al cuadrado los hace más pequeños; el MAE queda por encima. Si hubiera un error de 5, el MSE crecería mucho más que el MAE. Comparar ambas cifras revela si hay outliers."
+		},
+		{
+			"type": "quiz",
+			"question": "En una regresión logística con umbral 0.5, un caso recibe probabilidad 0.62. ¿Qué ocurre?",
+			"options": [
+				"Se clasifica como clase 1, pero con incertidumbre",
+				"Se clasifica como clase 0 porque no llega a 1",
+				"El modelo está mal ajustado y hay que reentrenarlo",
+				"Se descarta el caso por ambiguo"
+			],
+			"answer": 0,
+			"explain": "0.62 supera el umbral, así que la etiqueta predicha es 1. La probabilidad expresa confianza, no certeza: un 38 % de los casos parecidos podrían pertenecer a la otra clase."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "scikit-learn: LinearRegression",
+					"url": "https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html",
+					"note": "parámetros y atributos del modelo"
+				},
+				{
+					"label": "scikit-learn: LogisticRegression",
+					"url": "https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html",
+					"note": "regularización, solver y probabilidades"
+				},
+				{
+					"label": "scikit-learn: métricas de regresión",
+					"url": "https://scikit-learn.org/stable/modules/model_evaluation.html#regression-metrics",
+					"note": "todas las métricas y sus fórmulas"
+				}
+			]
+		}
+	]
+}

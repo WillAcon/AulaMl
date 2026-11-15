@@ -1,0 +1,629 @@
+{
+	"id": "py-25-numpy",
+	"track": "python",
+	"order": 25,
+	"title": "NumPy: vectores, matrices y vectorización",
+	"subtitle": "Cambiar bucles por operaciones sobre arreglos completos, con control de formas y tipos",
+	"level": "intermedio",
+	"minutes": 48,
+	"tags": [
+		"numpy",
+		"ndarray",
+		"vectorización",
+		"broadcasting",
+		"álgebra lineal"
+	],
+	"keywords": [
+		"qué es numpy",
+		"ndarray shape dtype",
+		"crear array numpy",
+		"indexado numpy",
+		"slicing numpy",
+		"broadcasting numpy",
+		"vectorización",
+		"numpy vs listas",
+		"producto matricial numpy",
+		"álgebra lineal numpy",
+		"matriz de características",
+		"por qué numpy es rápido"
+	],
+	"summary": "NumPy sustituye listas y bucles por un arreglo con forma, tipo y operaciones completas. Aprenderás a crear ndarrays, indexarlos, aplicar broadcasting y multiplicar matrices para preparar datos y evaluar modelos sin escribir un solo for.",
+	"objectives": [
+		"Crear ndarrays y leer shape, ndim y dtype",
+		"Indexar, cortar y filtrar con máscaras booleanas",
+		"Explicar el broadcasting y predecir la forma del resultado",
+		"Sustituir bucles por operaciones vectorizadas",
+		"Resolver un cálculo de álgebra lineal con @ y comprender su coste"
+	],
+	"prerequisites": [
+		"Listas y tuplas",
+		"Recorridos y comprensiones"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Una lista de Python guarda objetos dispersos: cada número es un objeto con su tipo, su contador de referencias y su dirección. Cómodo para casi todo, caro para calcular. **NumPy** cambia el modelo: un `ndarray` guarda los números uno detrás de otro en memoria, todos del mismo tipo, y opera sobre bloques enteros con código compilado."
+		},
+		{
+			"type": "p",
+			"md": "Ese cambio parece menor y no lo es. Es la razón por la que una multiplicación de matrices de mil por mil tarda milisegundos en NumPy y segundos en Python puro, y la razón por la que Pandas, scikit-learn, PyTorch y casi todo el ecosistema de datos hablan en `ndarray` por debajo."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un ndarray?"
+		},
+		{
+			"type": "p",
+			"md": "Un **ndarray** es un arreglo de N dimensiones con un tipo homogéneo. Un vector es un ndarray de forma `(n,)`; una matriz, de forma `(filas, columnas)`; una imagen en color, de forma `(alto, ancho, 3)`. La **forma** (`shape`) es una tupla con el tamaño de cada eje, y el **tipo** (`dtype`) describe cómo se guarda cada número: `int64`, `float64`, `bool`."
+		},
+		{
+			"type": "p",
+			"md": "La forma es lo primero que debes mirar. Un error de formas produce resultados silenciosamente equivocados o un `ValueError`, y casi siempre se detecta imprimiendo `X.shape` antes de operar. En Machine Learning, `X` suele ser `(n_muestras, n_características)`: cada fila es un ejemplo y cada columna una variable."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve NumPy?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Preparar datos**: matrices de características, normalización por columnas, máscaras para descartar valores atípicos.",
+				"**Álgebra lineal**: producto matricial, transpuesta, inversa, autovalores; la base de la regresión y de las redes neuronales.",
+				"**Procesar señales e imágenes**: recortar, redimensionar, aplicar umbrales a millones de píxeles a la vez.",
+				"**Simular y muestrear**: generar distribuciones con un generador reproducible y operar sobre lotes completos.",
+				"**Servir de puente**: Pandas, Matplotlib y PyTorch aceptan o devuelven ndarrays sin fricción."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? Búfer, forma y vistas"
+		},
+		{
+			"type": "p",
+			"md": "Un ndarray tiene dos partes: un **búfer** contiguo de bytes y unos **metadatos** (`shape`, `dtype`, `strides`). Los *strides* indican cuántos bytes hay que saltar para avanzar una posición en cada eje. Con esa información, NumPy puede interpretar el mismo búfer como una matriz de 3 × 3 o como un vector de 9 elementos sin copiar nada."
+		},
+		{
+			"type": "p",
+			"md": "De ahí nace la diferencia entre **vista** y **copia**. Un corte como `X[:, 0]` devuelve una vista: comparte el búfer y modificar la vista modifica `X`. `X[:, 0].copy()` crea memoria nueva. Entender esto evita el bug más silencioso de NumPy: cambiar una columna «temporal» y descubrir que el dataset original ya no es el mismo."
+		},
+		{
+			"type": "p",
+			"md": "La **vectorización** significa que el bucle existe, pero está escrito en C dentro de NumPy. Tú describes la operación sobre el arreglo completo y NumPy recorre los elementos con menos comprobaciones de tipo y mejor uso de la caché. En muchas operaciones también libera el GIL, aunque el paralelismo entre núcleos depende de la biblioteca de álgebra lineal que haya debajo."
+		},
+		{
+			"type": "p",
+			"md": "El **broadcasting** es la regla que permite operar formas distintas. Se alinean las dimensiones por la derecha y cada eje debe coincidir o valer 1. Por eso una matriz `(3, 2)` menos un vector `(2,)` funciona: el vector se estira sobre las tres filas. Una matriz `(3, 2)` menos un vector `(3,)` falla, porque 2 y 3 no coinciden y ninguno vale 1."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Estirar no es copiar",
+			"md": "El broadcasting no replica el vector en memoria: NumPy ajusta los strides para leer el mismo valor varias veces. Por eso `X - media` no gasta el doble de memoria y por eso el resultado sí es un arreglo nuevo, con la forma combinada."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: crear, consultar y operar"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Creación y atributos básicos",
+			"code": "import numpy as np\n\na = np.array([1, 2, 3])          # desde una lista\nb = np.zeros((2, 3))             # 2 filas, 3 columnas de ceros\nc = np.ones(3)                   # tres unos\nd = np.arange(0, 10, 2)          # 0, 2, 4, 6, 8\ne = np.linspace(0, 1, 5)         # 5 valores entre 0 y 1\nf = np.eye(3)                    # identidad 3 x 3\n\nprint(a.shape, a.dtype, a.ndim)\nprint(a * 2 + 1)\nprint(a.reshape(3, 1).shape)",
+			"highlight": [
+				3,
+				4,
+				10,
+				11,
+				12
+			]
+		},
+		{
+			"type": "p",
+			"md": "`a.shape` es `(3,)`, `a.dtype` es `int64` en un equipo de 64 bits y `a.ndim` es 1. `a * 2 + 1` produce `[3 5 7]` sin bucle: primero multiplica cada elemento y después suma uno a cada uno. `reshape` no cambia los datos, solo los metadatos: el mismo búfer pasa a leerse como tres filas de un elemento."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Función",
+				"Qué crea"
+			],
+			"rows": [
+				[
+					"`np.array(lista)`",
+					"Un arreglo con los datos y el tipo inferido"
+				],
+				[
+					"`np.zeros((f, c))`",
+					"Ceros con la forma indicada, útil para reservar"
+				],
+				[
+					"`np.arange(inicio, fin, paso)`",
+					"Secuencia como `range`, pero como ndarray"
+				],
+				[
+					"`np.linspace(inicio, fin, n)`",
+					"`n` valores equiespaciados, extremos incluidos"
+				],
+				[
+					"`np.eye(n)`",
+					"Matriz identidad de tamaño n"
+				],
+				[
+					"`X.reshape(f, c)`",
+					"Misma datos vistos con otra forma"
+				]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: operar sobre un vector completo"
+		},
+		{
+			"type": "p",
+			"md": "Cuatro ventas diarias. Con una lista escribirías una comprensión o un `for`; con un ndarray escribes la operación tal como la piensas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ventas.py",
+			"code": "import numpy as np\n\nventas = np.array([120.0, 80.0, 150.0, 90.0])\nprint(ventas.shape, ventas.dtype)\nprint(ventas.sum())\nprint(ventas * 1.18)\nprint(ventas.mean())",
+			"highlight": [
+				3,
+				4,
+				5,
+				6
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `(4,) float64`, `440.0`, `[141.6 94.4 177. 106.2]` y `110.0`. El `* 1.18` se aplica a los cuatro valores a la vez; no hay bucle visible porque está dentro de NumPy. `sum` y `mean` son métodos del arreglo y tampoco construyen listas intermedias."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: filas, columnas y máscaras"
+		},
+		{
+			"type": "p",
+			"md": "Con una matriz de tres muestras y tres características, `X[1]` selecciona una fila, `X[:, 2]` una columna y `X[X[:, 1] > 25]` las filas que cumplen una condición. La coma separa ejes: antes de la coma, filas; después, columnas. El `:` significa «todas»."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "indexado.py",
+			"code": "import numpy as np\n\nX = np.array([\n    [1.0, 20.0, 5.0],\n    [2.0, 30.0, 3.0],\n    [3.0, 40.0, 7.0],\n])\nprint(X[1])                    # fila 1\nprint(X[:, 2])                 # columna 2\nprint(X[0, :2])                # fila 0, primeras dos columnas\nprint(X[X[:, 1] > 25])         # filas con la segunda columna > 25\nprint(X[1:, 1:].shape)         # submatriz desde la fila 1 y columna 1",
+			"highlight": [
+				8,
+				9,
+				11,
+				12
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los resultados son `[2. 30. 3.]`, `[5. 3. 7.]`, `[1. 20.]`, las dos últimas filas completas y `(2, 2)`. La máscara `X[:, 1] > 25` produce `[False, True, True]`, un arreglo de booleanos que al indexar deja pasar solo las filas donde es `True`. No necesitas `if` ni acumuladores."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: estandarizar características y predecir"
+		},
+		{
+			"type": "p",
+			"md": "Estandarizar es restar la media de cada columna y dividir entre su desviación. Es el primer paso de muchos modelos, y con broadcasting se escribe en dos líneas aunque haya un millón de filas. Después, un producto matricial evalúa un modelo lineal."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "modelo.py",
+			"code": "import numpy as np\n\nX = np.array([\n    [1.0, 20.0, 5.0],\n    [2.0, 30.0, 3.0],\n    [3.0, 40.0, 7.0],\n])\n\nmedia = X.mean(axis=0)\ndesviacion = X.std(axis=0)\nZ = (X - media) / desviacion\n\npesos = np.array([1.5, -0.5, 2.0])\nsesgo = 0.3\npred = Z @ pesos + sesgo\n\nprint(np.round(media, 2))\nprint(np.round(desviacion, 2))\nprint(Z.shape, pesos.shape)\nprint(np.round(pred, 2))",
+			"highlight": [
+				9,
+				10,
+				11,
+				15
+			]
+		},
+		{
+			"type": "p",
+			"md": "`axis=0` significa «a lo largo de las filas», es decir, una media por columna. La salida muestra medias `[2. 30. 5.]`, desviaciones `[0.82 8.16 1.63]`, formas `(3, 3)` y `(3,)`, y predicciones `[-0.92 -2.15 3.97]`. El operador `@` es el producto matricial: `(3, 3) @ (3,)` devuelve `(3,)`, una predicción por muestra."
+		},
+		{
+			"type": "p",
+			"md": "Ojo con `std`: NumPy usa por defecto la desviación poblacional (`ddof=0`). Si tu curso de estadística usa la muestral, pasa `ddof=1` y los números cambiarán. Ninguna de las dos está mal; son definiciones distintas, y mezclarlas entre entrenamiento y producción desplaza las predicciones."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la matriz de características X"
+		},
+		{
+			"type": "p",
+			"md": "Recorre los pasos. La misma matriz se lee de tres maneras: completa, por columnas o por filas. Fíjate en la forma del resultado cuando seleccionas una columna y cuando seleccionas una fila."
+		},
+		{
+			"type": "matrix",
+			"title": "Matriz de características X",
+			"data": [
+				[
+					1.0,
+					20.0,
+					5.0
+				],
+				[
+					2.0,
+					30.0,
+					3.0
+				],
+				[
+					3.0,
+					40.0,
+					7.0
+				]
+			],
+			"rowLabels": [
+				"muestra 0",
+				"muestra 1",
+				"muestra 2"
+			],
+			"colLabels": [
+				"x1",
+				"x2",
+				"x3"
+			],
+			"steps": [
+				{
+					"note": "`X` tiene shape `(3, 3)`: tres muestras (filas) y tres características (columnas).",
+					"highlight": []
+				},
+				{
+					"note": "`X[:, 1]` toma la columna de índice 1: 20, 30 y 40. El resultado tiene shape `(3,)`, no `(3, 1)`.",
+					"highlight": [
+						[
+							0,
+							1
+						],
+						[
+							1,
+							1
+						],
+						[
+							2,
+							1
+						]
+					]
+				},
+				{
+					"note": "`X[1]` toma la fila de índice 1 completa: un vector de tres valores.",
+					"highlight": [
+						[
+							1,
+							0
+						],
+						[
+							1,
+							1
+						],
+						[
+							1,
+							2
+						]
+					]
+				},
+				{
+					"note": "`X - X.mean(axis=0)` centra cada columna: las medias pasan a 0 y los valores se vuelven negativos o positivos alrededor de ella.",
+					"data": [
+						[
+							-1.0,
+							-10.0,
+							0.0
+						],
+						[
+							0.0,
+							0.0,
+							-2.0
+						],
+						[
+							1.0,
+							10.0,
+							2.0
+						]
+					],
+					"highlight": []
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Esta traza muestra por qué `(3, 2) - (2,)` funciona. La media tiene dos valores, uno por columna; el broadcasting la aplica a las tres filas sin copiarla."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Centrar una matriz con un vector",
+			"code": "import numpy as np\n\nX = np.array([[1.0, 20.0], [2.0, 30.0], [3.0, 40.0]])\nmedia = X.mean(axis=0)\nprint(media)\ncentrada = X - media\nprint(centrada)\nprint(centrada.shape)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se importa NumPy con el alias habitual `np`.",
+					"vars": {
+						"np": "<module 'numpy'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`np.array` copia los datos a un búfer contiguo de `float64` y les da forma `(3, 2)`.",
+					"vars": {
+						"np": "<module 'numpy'>",
+						"X": "ndarray (3, 2)"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`mean(axis=0)` recorre las filas de cada columna y devuelve un vector de dos medias, con shape `(2,)`.",
+					"vars": {
+						"np": "<module 'numpy'>",
+						"X": "ndarray (3, 2)",
+						"media": "array([ 2., 30.])"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`print` muestra el vector con el formato de NumPy: dos flotantes entre corchetes.",
+					"vars": {
+						"np": "<module 'numpy'>",
+						"X": "ndarray (3, 2)",
+						"media": "array([ 2., 30.])"
+					},
+					"output": "[ 2. 30.]\n"
+				},
+				{
+					"line": 6,
+					"note": "Al restar, las dimensiones se alinean por la derecha: 2 con 2 coincide, y el eje de 3 se estira. El resultado es un arreglo nuevo de shape `(3, 2)`.",
+					"vars": {
+						"np": "<module 'numpy'>",
+						"X": "ndarray (3, 2)",
+						"media": "array([ 2., 30.])",
+						"centrada": "ndarray (3, 2)"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "Cada fila queda restada por su media de columna: la primera pierde 2 y 30, la segunda ya estaba en la media y la tercera gana 1 y 10.",
+					"vars": {
+						"np": "<module 'numpy'>",
+						"X": "ndarray (3, 2)",
+						"media": "array([ 2., 30.])",
+						"centrada": "ndarray (3, 2)"
+					},
+					"output": "[[ -1. -10.]\n [  0.   0.]\n [  1.  10.]]\n"
+				},
+				{
+					"line": 8,
+					"note": "La forma confirma que el broadcasting no añadió dimensiones: sigue habiendo tres filas y dos columnas.",
+					"vars": {
+						"np": "<module 'numpy'>",
+						"X": "ndarray (3, 2)",
+						"media": "array([ 2., 30.])",
+						"centrada": "ndarray (3, 2)"
+					},
+					"output": "(3, 2)\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`ValueError: operands could not be broadcast together with shapes (3,) (2,)`",
+					"Las formas no coinciden ni tienen un eje de tamaño 1",
+					"Revisa `shape`; quizá falta `reshape(-1, 1)` o una transpuesta"
+				],
+				[
+					"`ValueError: matmul: Input operand 1 has a mismatch in its core dimension 0`",
+					"El número de columnas de la izquierda no coincide con las filas de la derecha",
+					"Ajusta con `.T` o revisa el orden de `@`"
+				],
+				[
+					"`IndexError: index 3 is out of bounds for axis 0 with size 3`",
+					"Pediste la cuarta fila de una matriz de tres",
+					"Revisa el índice: NumPy empieza en 0"
+				],
+				[
+					"Cambiar una columna altera toda la matriz",
+					"El corte devolvió una vista, no una copia",
+					"Usa `.copy()` si vas a modificar"
+				],
+				[
+					"Un decimal se guarda truncado",
+					"El dtype es entero y NumPy convierte sin avisar",
+					"Crea el arreglo con `dtype=float`"
+				],
+				[
+					"El resultado es correcto pero lentísimo",
+					"Hay un `for` de Python recorriendo un ndarray",
+					"Reescribe la operación de forma vectorizada"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El corte que modifica el original",
+			"wrong": {
+				"caption": "Vista compartida",
+				"code": "X = np.array([[1, 2], [3, 4]])\ncol = X[:, 0]\ncol[0] = 99\nprint(X)\n# [[99  2]\n#  [ 3  4]]"
+			},
+			"right": {
+				"caption": "Copia independiente",
+				"code": "X = np.array([[1, 2], [3, 4]])\ncol = X[:, 0].copy()\ncol[0] = 99\nprint(X)\n# [[1 2]\n#  [3 4]]"
+			},
+			"explain": "El indexado básico devuelve vistas: `col` apunta al mismo búfer que `X`, así que escribir en ella escribe en el original. `.copy()` reserva memoria nueva. La indexación avanzada con una lista o una máscara, en cambio, sí devuelve copia; por eso conviene saber qué operación tienes delante."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "NumPy no viene con Python",
+			"md": "Instálalo dentro del entorno virtual del proyecto con `pip install numpy`. Si trabajas en el navegador, el botón «Probar» no lo cargará por defecto: ejecuta estos ejemplos en tu equipo. Comprueba la versión con `np.__version__` cuando un resultado no coincida con un tutorial antiguo."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Imprime `shape` antes de operar y compárala con la que esperabas; el error se detecta antes de entrenar.",
+				"Vectoriza: si escribes un `for` sobre un ndarray, probablemente haya una operación equivalente.",
+				"Usa `@` para producto matricial y reserva `*` para elemento a elemento; confundirlos no siempre da error.",
+				"Trabaja con `float64` por defecto y baja a `float32` solo cuando la memoria sea el límite y hayas medido el efecto.",
+				"Reserva con `np.zeros` y rellena por índices en lugar de concatenar en un bucle: crecer un arreglo es caro.",
+				"Fija la semilla con `np.random.default_rng(42)` para que un resultado se pueda reproducir.",
+				"Documenta el significado de cada eje: `axis=0` no es «filas» por casualidad, es la dirección en la que se reduce."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Analizar notas sin bucles",
+			"md": "Crea un ndarray con las notas `10, 14, 18, 8, 16`. Calcula la media, la nota máxima y cuántas aprueban con umbral 13 usando una máscara booleana. Después suma 2 puntos solo a las desaprobadas, sin usar `for`, y muestra el arreglo corregido. Comprueba que las formas se mantienen.",
+			"hint": "`(notas >= 13).sum()` cuenta los `True`. `np.where(condicion, valor_si_true, valor_si_false)` aplica el ajuste a la vez.",
+			"solution": {
+				"lang": "python",
+				"caption": "notas.py",
+				"code": "import numpy as np\n\nnotas = np.array([10.0, 14.0, 18.0, 8.0, 16.0])\nprint(notas.mean())\nprint(notas.max())\nprint((notas >= 13).sum())\ncorregidas = np.where(notas < 13, notas + 2, notas)\nprint(corregidas)",
+				"explain": "La media es 13.2, el máximo 18.0 y aprueban 3. `notas >= 13` devuelve `[False, True, True, False, True]`, y sumar booleanos cuenta los `True`. `np.where` recorre el arreglo una vez y elige entre las dos ramas: las notas 10 y 8 pasan a 12 y 10. Ningún bucle en Python."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Centrar y predecir con producto matricial",
+			"md": "Parte de una matriz `X` de 3 × 2, réstale la media de cada columna con broadcasting y calcula `y = Xc @ w + b` con `w = [0.5, -1.0]` y `b = 2.0`. Imprime la matriz centrada, las predicciones y su forma. Verifica a mano la primera predicción.",
+			"hint": "La media por columna es `X.mean(axis=0)`. El producto `(3, 2) @ (2,)` devuelve `(3,)`; el sesgo se suma con broadcasting.",
+			"solution": {
+				"lang": "python",
+				"caption": "prediccion.py",
+				"code": "import numpy as np\n\nX = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])\nw = np.array([0.5, -1.0])\nb = 2.0\n\nXc = X - X.mean(axis=0)\ny = Xc @ w + b\nprint(np.round(Xc, 2))\nprint(y)\nprint(y.shape)",
+				"explain": "La media es `[3. 4.]`, así que `Xc` queda `[[-2. -2.], [0. 0.], [2. 2.]]`. La primera predicción es `-2*0.5 + (-2)*(-1) + 2 = 3.0`; el vector completo es `[3. 2. 1.]` y su forma `(3,)`. Centrar antes de predecir deja el sesgo como el valor base del modelo."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el análisis de una matriz",
+			"lang": "python",
+			"code": "import numpy as np\n\nX = np.array([[1, 2], [3, 4], [5, 6]])\nprint(X.___)\nprint(X[:, ___])\nprint(X.___(axis=0))",
+			"answers": [
+				"shape",
+				"1",
+				"mean"
+			],
+			"hint": "La forma se consulta con `shape`. La segunda columna es el índice 1. La media por columna usa `axis=0`.",
+			"explain": "`X.shape` devuelve `(3, 2)`, `X[:, 1]` devuelve `[2 4 6]` y `X.mean(axis=0)` devuelve `[2. 4.]`. Los tres resultados confirman la orientación: tres filas y dos columnas, con la reducción recorriendo las filas."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la tentación es recorrer las notas y aplicar un `if`. La versión vectorizada expresa la misma regla sin estado intermedio: la máscara responde «¿aprueba?», el `sum` cuenta, y `np.where` decide. El detalle que suele fallar es el tipo: si el arreglo fuera entero, asignar `10.5` a una posición guardaría `10` sin avisar. Si necesitas decimales, crea el arreglo con `dtype=float`."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, comprobar la primera fila a mano no es un trámite: es la forma de detectar si centraste por filas en lugar de por columnas. Si hubieras usado `axis=1`, cada fila tendría media 0 y el modelo estaría restando una media que no corresponde a ninguna característica. Las formas seguirían cuadrando y las predicciones serían basura: por eso se verifica un número concreto, no solo que el código corra."
+		},
+		{
+			"type": "p",
+			"md": "La regla general: las formas se comprueban antes, los valores se comprueban después. `X.shape`, `w.shape` y el resultado esperado te dicen si la operación es posible; una fila calculada a mano te dice si es la operación correcta. NumPy no sabe de qué hablan tus columnas, así que esa parte del contrato la pones tú."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un ndarray es un búfer homogéneo con forma, tipo y strides; no una lista de objetos.",
+				"`shape` es la primera cosa que se revisa; `(n,)` es un vector y `(f, c)` una matriz.",
+				"El indexado básico y el slicing devuelven vistas; `.copy()` reserva memoria nueva.",
+				"Las máscaras booleanas filtran filas sin escribir un bucle.",
+				"El broadcasting alinea dimensiones por la derecha y estira los ejes de tamaño 1.",
+				"`*` multiplica elemento a elemento; `@` hace producto matricial.",
+				"La vectorización mueve el bucle a C: menos código y mucho más rendimiento."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es el `shape` de `np.array([[1, 2, 3], [4, 5, 6]])`?",
+			"options": [
+				"`(6,)`",
+				"`(2, 3)`",
+				"`(3, 2)`",
+				"`(2, 3, 1)`"
+			],
+			"answer": 1,
+			"explain": "La lista exterior tiene dos elementos (filas) y cada uno tiene tres (columnas). El shape se lee de fuera hacia dentro: `(2, 3)`. `(6,)` sería un vector plano y `(3, 2)` una matriz traspuesta."
+		},
+		{
+			"type": "quiz",
+			"question": "`X` tiene shape `(4, 3)` y `media` tiene shape `(3,)`. ¿Qué hace `X - media`?",
+			"options": [
+				"Falla, porque las formas no son iguales",
+				"Resta la media a cada fila, columna a columna, y devuelve `(4, 3)`",
+				"Resta la media solo a la primera fila",
+				"Devuelve un vector `(3,)` con la media de cada fila"
+			],
+			"answer": 1,
+			"explain": "Las dimensiones se alinean por la derecha: 3 con 3 coincide y el eje 4 se estira. El resultado conserva la forma de la matriz. Falla si el vector fuera `(4,)`, porque 3 y 4 no coinciden."
+		},
+		{
+			"type": "quiz",
+			"question": "Modificas `col = X[:, 0]` con `col[0] = 99`. ¿Qué pasa con `X`?",
+			"options": [
+				"Nada: el corte creó una copia",
+				"Cambia también `X[0, 0]`, porque `col` es una vista",
+				"Se lanza un error por modificar una vista",
+				"Cambia toda la primera fila de `X`"
+			],
+			"answer": 1,
+			"explain": "El slicing básico devuelve una vista que comparte el búfer. Escribir en `col` escribe en la primera columna de `X`. Para evitarlo, `X[:, 0].copy()`. La indexación con máscaras o listas sí devuelve copia."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "NumPy: guía de inicio",
+					"url": "https://numpy.org/doc/stable/user/absolute_beginners.html",
+					"note": "ndarray, creación e indexado"
+				},
+				{
+					"label": "Broadcasting",
+					"url": "https://numpy.org/doc/stable/user/basics.broadcasting.html",
+					"note": "reglas de alineación de formas"
+				},
+				{
+					"label": "Álgebra lineal",
+					"url": "https://numpy.org/doc/stable/reference/routines.linalg.html",
+					"note": "producto matricial, inversa y descomposiciones"
+				}
+			]
+		}
+	]
+}

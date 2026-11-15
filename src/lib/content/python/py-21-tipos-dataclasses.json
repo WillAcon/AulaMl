@@ -1,0 +1,592 @@
+{
+	"id": "py-21-tipos-dataclasses",
+	"track": "python",
+	"order": 21,
+	"title": "Type hints y dataclasses",
+	"subtitle": "Anotar tipos para que el editor y mypy te avisen antes de ejecutar, y generar clases de datos sin repetir código",
+	"level": "intermedio",
+	"minutes": 38,
+	"tags": [
+		"tipos",
+		"type hints",
+		"dataclasses",
+		"mypy",
+		"typing"
+	],
+	"keywords": [
+		"type hints python",
+		"anotaciones de tipo",
+		"Optional Union",
+		"list float python",
+		"mypy",
+		"dataclass",
+		"field default_factory",
+		"frozen dataclass",
+		"order dataclass",
+		"validar dataclass",
+		"__post_init__",
+		"cuándo usar type hints"
+	],
+	"summary": "Anotar tipos no cambia lo que hace el programa al ejecutarse: cambia lo que puedes saber antes de ejecutarlo. Aprenderás a anotar funciones y estructuras, a leer los avisos de mypy, y a usar dataclasses para crear clases de datos con __init__, __repr__ y comparación sin escribirlos a mano.",
+	"objectives": [
+		"Anotar variables, funciones y contenedores con la sintaxis de Python 3.9",
+		"Distinguir Optional, Union y los tipos genéricos como list[float]",
+		"Explicar qué comprueba mypy y qué no comprueba Python en tiempo de ejecución",
+		"Crear dataclasses con field, frozen, orden y validación en __post_init__",
+		"Decidir cuándo merece la pena tipar y cuándo es ruido"
+	],
+	"prerequisites": [
+		"Clases y objetos",
+		"Composición y diseño de clases"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Cuando una función recibe `datos` y devuelve `resultado`, el nombre no te dice si `datos` es una lista de diccionarios, un `DataFrame` o una ruta. Tienes que leer el cuerpo entero para averiguarlo. Las **anotaciones de tipo** existen para responder esa pregunta en la firma, antes de ejecutar nada."
+		},
+		{
+			"type": "p",
+			"md": "Python no las usa para ejecutar: son información para personas, editores y herramientas como `mypy`. Combinadas con **dataclasses**, convierten una clase de datos de treinta líneas de `__init__` y `__repr__` en cinco declaraciones."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una anotación de tipo?"
+		},
+		{
+			"type": "p",
+			"md": "Una anotación es una expresión que escribes junto a un nombre o a un parámetro para declarar qué tipo esperas. `nombre: str` dice que `nombre` debería contener un texto; `-> float` dice que la función devuelve un número decimal. El intérprete **evalúa** la anotación al definir la función y la guarda en `__annotations__`, pero no la comprueba."
+		},
+		{
+			"type": "p",
+			"md": "Esa distinción es la clave de todo el tema. Python sigue siendo dinámico: `Venta(\"teclado\", \"tres\", 120.0)` se ejecuta sin quejarse aunque `unidades` deba ser `int`. Lo que cambia es que tu editor subraya el error y `mypy` lo reporta **antes** de que llegue a producción."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve tipar?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Documentar sin comentarios**: la firma dice qué entra y qué sale, y el editor lo muestra al pasar el ratón.",
+				"**Detectar errores antes**: mypy encuentra llamadas con argumentos cambiados, `None` inesperados y retornos incoherentes.",
+				"**Autocompletado real**: si el editor sabe que `venta` es una `Venta`, te ofrece sus atributos y métodos.",
+				"**Refactorizar con red**: al renombrar o cambiar una firma, las herramientas encuentran los usos incompatibles.",
+				"**Diseñar mejor**: obliga a decidir qué representa cada dato y qué puede ser `None`."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Tipado gradual, no obligatorio",
+			"md": "Puedes anotar solo las funciones públicas de un módulo y dejar el resto sin anotar: mypy acepta código parcialmente tipado. En un proyecto nuevo conviene tipar desde el principio; en uno viejo, empieza por las fronteras (entrada y salida de datos) y no por todo a la vez."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Al definir una función, Python evalúa las anotaciones y las acumula en el diccionario `__annotations__` de la función. Las de una clase van a `Clase.__annotations__`. Nada más ocurre en tiempo de ejecución: no hay conversión, no hay validación, no hay penalización apreciable."
+		},
+		{
+			"type": "p",
+			"md": "`mypy` es un **analizador estático**: lee el código sin ejecutarlo, construye el árbol de tipos y comprueba compatibilidades. Por eso puede avisar de una rama que nunca se ejecuta en tus pruebas. Es más estricto cuanto más código anotado encuentra; en zonas sin anotar asume `Any` y deja pasar casi todo, que es justo el agujero que el tipado gradual intenta cerrar poco a poco."
+		},
+		{
+			"type": "p",
+			"md": "Una anotación puede ser cualquier expresión que se evalúe a un tipo: `int`, `str`, `list[float]`, `dict[str, int]`, `Optional[float]`. Desde Python 3.9 los contenedores de la biblioteca estándar admiten la sintaxis con corchetes (`list[int]`); antes había que importar `List` de `typing`. En 3.10 llegó `X | None` como forma corta de `Optional[X]`."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: variables, funciones y contenedores"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "anotaciones.py",
+			"code": "from typing import Dict, List, Optional, Union\n\n# Variables\nprecios: List[float] = [120.0, 45.5]\ncatalogo: Dict[str, float] = {\"teclado\": 120.0}\nnota: Optional[float] = None          # float o None\nidentificador: Union[int, str] = \"A-12\"\n\ndef total(precios: List[float], descuento: float = 0.0) -> float:\n    return round(sum(precios) * (1 - descuento), 2)\n\nprint(total(precios, 0.1))\nprint(total.__annotations__)",
+			"highlight": [
+				4,
+				5,
+				6,
+				9
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Anotación",
+				"Significa",
+				"Ejemplo de valor válido"
+			],
+			"rows": [
+				[
+					"`int`",
+					"Número entero",
+					"`3`"
+				],
+				[
+					"`Optional[float]`",
+					"Un `float` o `None`",
+					"`None`, `2.5`"
+				],
+				[
+					"`Union[int, str]`",
+					"Entero o texto",
+					"`7`, `\"A-12\"`"
+				],
+				[
+					"`list[float]`",
+					"Lista de decimales",
+					"`[1.0, 2.5]`"
+				],
+				[
+					"`dict[str, int]`",
+					"Diccionario texto → entero",
+					"`{\"a\": 1}`"
+				],
+				[
+					"`Any`",
+					"Cualquier cosa; desactiva la comprobación",
+					"`None`, `42`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "`Optional[float]` no significa «parámetro opcional»: significa «puede ser un float o `None`». Un parámetro con valor por defecto es otra cosa. Confundir ambas es habitual y lleva a funciones que devuelven `None` sin que el llamador lo espere."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: anotar una función"
+		},
+		{
+			"type": "p",
+			"md": "Tres anotaciones bastan para que la función se explique sola: dos parámetros y el retorno."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "igv.py",
+			"code": "def precio_con_igv(precio: float, tasa: float = 0.18) -> float:\n    \"\"\"Devuelve el precio con el impuesto aplicado.\"\"\"\n    return round(precio * (1 + tasa), 2)\n\nprint(precio_con_igv(120.0))\nprint(precio_con_igv(120.0, 0.0))\nprint(precio_con_igv.__annotations__)",
+			"highlight": [
+				1,
+				5,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `141.6`, `120.0` y un diccionario con las tres anotaciones. La función no se comporta distinto por estar anotada: `precio_con_igv(\"120\")` daría `TypeError: can't multiply sequence by non-int of type 'float'` igual que antes. La anotación es un contrato declarado, no una aduana."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: cuando falta un dato"
+		},
+		{
+			"type": "p",
+			"md": "El caso más frecuente en datos reales: una función que busca algo y puede no encontrarlo. La anotación correcta es `Optional[...]`, y quien la llama está obligado a contemplar el `None`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "buscar.py",
+			"code": "from typing import Dict, Optional\n\ndef buscar_precio(catalogo: Dict[str, float], nombre: str) -> Optional[float]:\n    \"\"\"Devuelve el precio o None si el producto no está en el catálogo.\"\"\"\n    return catalogo.get(nombre)\n\ncatalogo = {\"teclado\": 120.0, \"mouse\": 45.5}\n\nfor producto in [\"teclado\", \"monitor\"]:\n    precio = buscar_precio(catalogo, producto)\n    if precio is None:\n        print(f\"{producto}: sin precio\")\n    else:\n        print(f\"{producto}: {precio:.2f}\")",
+			"highlight": [
+				3,
+				12,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `teclado: 120.00` y `monitor: sin precio`. La comprobación `if precio is None` no es paranoia: es la consecuencia directa de la anotación. mypy, de hecho, se queja si usas `precio * 2` antes de descartar el `None`."
+		},
+		{
+			"type": "h",
+			"text": "Dataclasses: datos con estructura"
+		},
+		{
+			"type": "p",
+			"md": "Una `@dataclass` es una clase cuyos campos se declaran con anotaciones. El decorador genera por ti `__init__`, `__repr__` y `__eq__` a partir de esos campos. Lo que antes era un `__init__` con cinco asignaciones y un `__repr__` manual ahora son cinco líneas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "venta.py",
+			"code": "from dataclasses import dataclass, field\nfrom typing import List\n\n@dataclass\nclass Venta:\n    producto: str\n    unidades: int\n    precio: float\n    etiquetas: List[str] = field(default_factory=list)\n\n    def total(self) -> float:\n        return round(self.unidades * self.precio, 2)\n\nv = Venta(\"teclado\", 3, 120.0)\nv.etiquetas.append(\"oferta\")\nprint(v)\nprint(v.total())",
+			"highlight": [
+				5,
+				9,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Venta(producto='teclado', unidades=3, precio=120.0, etiquetas=['oferta'])` y `360.0`. `field(default_factory=list)` es obligatorio para valores mutables: escribir `etiquetas: List[str] = []` lanza `ValueError: mutable default <class 'list'> for field etiquetas is not allowed: use default_factory`, porque esa única lista se compartiría entre todas las instancias."
+		},
+		{
+			"type": "p",
+			"md": "Con `frozen=True` la instancia es inmutable —asignar un campo lanza `FrozenInstanceError`— y se vuelve hashable, así que puede ir en un `set` o usarse como clave. Con `order=True` se generan las comparaciones `<`, `<=`, `>` y `>=` comparando los campos en el orden en que los declaraste."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "punto.py",
+			"code": "from dataclasses import dataclass\n\n@dataclass(frozen=True, order=True)\nclass Punto:\n    x: float\n    y: float\n\np = Punto(2, 3)\nprint(p == Punto(2, 3))\nprint(Punto(1, 2) < Punto(2, 0))\n\ntry:\n    p.x = 5\nexcept Exception as error:\n    print(type(error).__name__, \"->\", error)",
+			"highlight": [
+				3,
+				9,
+				10
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `True`, `True` y `FrozenInstanceError -> cannot assign to field 'x'`. La comparación `Punto(1, 2) < Punto(2, 0)` compara primero `x` y solo mira `y` si empatan, como una tupla. Si necesitas un orden distinto, escribe tus propios métodos en lugar de `order=True`."
+		},
+		{
+			"type": "p",
+			"md": "Las dataclasses **no validan** por sí solas: comprueban tipos solo si tú lo pides. Para reglas de negocio usa `__post_init__`, que se ejecuta al final del `__init__` generado:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "rango.py",
+			"code": "from dataclasses import dataclass\n\n@dataclass\nclass Rango:\n    minimo: int\n    maximo: int\n\n    def __post_init__(self) -> None:\n        if self.minimo > self.maximo:\n            raise ValueError(f\"rango inválido: {self.minimo} > {self.maximo}\")\n\nprint(Rango(1, 5))\n\ntry:\n    Rango(9, 2)\nexcept ValueError as error:\n    print(\"ValueError:\", error)",
+			"highlight": [
+				8,
+				9,
+				10
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: tipar un pipeline de datos"
+		},
+		{
+			"type": "p",
+			"md": "Una tienda recibe filas de un CSV como diccionarios de texto. El pipeline tiene tres etapas: convertir cada fila en un objeto `Venta` validado, agregar por sede y devolver un resumen. Las anotaciones hacen visibles los contratos entre etapas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pipeline_tipado.py",
+			"code": "from dataclasses import dataclass, field\nfrom typing import Dict, Iterable, List\n\n@dataclass(frozen=True)\nclass Venta:\n    producto: str\n    sede: str\n    unidades: int\n    precio: float\n\n    @property\n    def importe(self) -> float:\n        return round(self.unidades * self.precio, 2)\n\n@dataclass\nclass Resumen:\n    por_sede: Dict[str, float] = field(default_factory=dict)\n\n    def agregar(self, venta: Venta) -> None:\n        previo = self.por_sede.get(venta.sede, 0.0)\n        self.por_sede[venta.sede] = round(previo + venta.importe, 2)\n\ndef cargar(filas: Iterable[Dict[str, str]]) -> List[Venta]:\n    \"\"\"Convierte texto del CSV en objetos validados.\"\"\"\n    return [\n        Venta(fila[\"producto\"], fila[\"sede\"], int(fila[\"unidades\"]), float(fila[\"precio\"]))\n        for fila in filas\n    ]\n\ndef resumir(ventas: Iterable[Venta]) -> Resumen:\n    resumen = Resumen()\n    for venta in ventas:\n        resumen.agregar(venta)\n    return resumen\n\nfilas = [\n    {\"producto\": \"teclado\", \"sede\": \"Lima\", \"unidades\": \"3\", \"precio\": \"120.0\"},\n    {\"producto\": \"monitor\", \"sede\": \"Lima\", \"unidades\": \"1\", \"precio\": \"900.0\"},\n    {\"producto\": \"mouse\", \"sede\": \"Arequipa\", \"unidades\": \"5\", \"precio\": \"45.5\"},\n]\n\nprint(resumir(cargar(filas)))",
+			"highlight": [
+				4,
+				12,
+				18,
+				25,
+				32
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Resumen(por_sede={'Lima': 1260.0, 'Arequipa': 227.5})`. Cada frontera está declarada: `cargar` recibe texto y devuelve `Venta`; `resumir` recibe `Venta` y devuelve `Resumen`. Si alguien cambia `unidades` a texto dentro de `Venta`, mypy lo detecta en `importe` sin ejecutar el programa."
+		},
+		{
+			"type": "p",
+			"md": "`Iterable` es más flexible que `List`: acepta listas, generadores o cualquier cosa que se pueda recorrer. Declarar el parámetro como `List` obligaría a quien llama a construir una lista completa, justo lo que la lección anterior evitaba."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué genera @dataclass"
+		},
+		{
+			"type": "p",
+			"md": "Observa el momento en que el decorador lee las anotaciones y crea los métodos, y cómo el `__init__` generado asigna los campos."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "De anotaciones a objeto",
+			"code": "from dataclasses import dataclass\n\n@dataclass\nclass Venta:\n    producto: str\n    unidades: int\n    precio: float\n\n    def total(self) -> float:\n        return self.unidades * self.precio\n\nv = Venta(\"teclado\", 3, 120.0)\nprint(v.total())",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se importa el decorador `dataclass`. Todavía no hay ninguna clase.",
+					"vars": {},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Al definir la clase, `@dataclass` lee `Venta.__annotations__` y genera `__init__`, `__repr__` y `__eq__`. Las anotaciones son la única fuente de verdad de los campos.",
+					"vars": {
+						"Venta": "<class Venta>"
+					},
+					"output": ""
+				},
+				{
+					"line": 12,
+					"note": "La llamada ejecuta el `__init__` generado, que asigna los tres atributos a `self`. El objeto queda construido y su `__repr__` ya sabe mostrarlo.",
+					"vars": {
+						"v": "(todavía sin asignar)"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"v": "(sin asignar)"
+							}
+						},
+						{
+							"name": "__init__",
+							"vars": {
+								"self": "<Venta>",
+								"producto": "\"teclado\"",
+								"unidades": "3",
+								"precio": "120.0"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 13,
+					"note": "`v.total()` entra en el método: `self` es la instancia y los atributos ya están disponibles. La multiplicación da 360.0.",
+					"vars": {
+						"v": "Venta(producto='teclado', unidades=3, precio=120.0)"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"v": "Venta(...)"
+							}
+						},
+						{
+							"name": "total",
+							"vars": {
+								"self": "<Venta>",
+								"unidades": "3",
+								"precio": "120.0"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 13,
+					"note": "El resultado vuelve al `print`, que escribe `360.0`. Las anotaciones no hicieron ninguna conversión: `3` ya era un `int`.",
+					"vars": {
+						"v": "Venta(producto='teclado', unidades=3, precio=120.0)"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"v": "Venta(...)"
+							}
+						}
+					],
+					"output": "360.0\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`error: Incompatible types in assignment (expression has type \"str\", variable has type \"int\")`",
+					"mypy ve que asignas un texto a una variable anotada como entero",
+					"Convierte con `int(...)` o corrige la anotación"
+				],
+				[
+					"`TypeError: Venta.__init__() missing 1 required positional argument: 'precio'`",
+					"Falta un campo obligatorio sin valor por defecto",
+					"Pásalo o dale un valor por defecto en la dataclass"
+				],
+				[
+					"`ValueError: mutable default <class 'list'> for field etiquetas is not allowed`",
+					"Usaste `= []` como valor por defecto",
+					"Usa `field(default_factory=list)`"
+				],
+				[
+					"`FrozenInstanceError: cannot assign to field 'x'`",
+					"La dataclass es `frozen=True`",
+					"Crea una instancia nueva con `dataclasses.replace`"
+				],
+				[
+					"`TypeError: 'type' object is not subscriptable` con `list[int]`",
+					"Estás en Python 3.8 o anterior",
+					"Importa `List` de `typing` o actualiza a 3.9+"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El valor por defecto que se comparte entre objetos",
+			"wrong": {
+				"caption": "Una sola lista para todos",
+				"code": "from dataclasses import dataclass\n\n@dataclass\nclass Curso:\n    nombre: str\n    alumnos: list = []   # ValueError al definir la clase"
+			},
+			"right": {
+				"caption": "Una lista por instancia",
+				"code": "from dataclasses import dataclass, field\n\n@dataclass\nclass Curso:\n    nombre: str\n    alumnos: list = field(default_factory=list)"
+			},
+			"explain": "Un valor por defecto se evalúa una sola vez, al definir la clase. Si fuera una lista, todas las instancias compartirían la misma y `a.alumnos.append(...)` modificaría también `b.alumnos`. `default_factory` llama a la función en cada instancia y evita el problema; la dataclass lo exige para tipos mutables."
+		},
+		{
+			"type": "p",
+			"md": "Recuerda el otro error silencioso: creer que la anotación valida. `Venta(\"teclado\", \"3\", 120.0)` se crea sin protestar y falla más tarde en `total`. Si el dato viene de fuera, la conversión y la validación son tu responsabilidad, no la del intérprete."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas: cuándo tipar y cuánto"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Anota las **fronteras**: parámetros y valores de retorno de las funciones públicas.",
+				"No anotes lo obvio dentro de funciones cortas; el ruido también cansa.",
+				"Prefiere `list[float]` y `dict[str, int]` en Python 3.9+; `X | None` solo desde 3.10.",
+				"Usa `Optional` cuando el `None` sea parte del contrato, y compruébalo antes de operar.",
+				"Ejecuta `mypy modulo.py` en CI para que los tipos no se degraden con el tiempo.",
+				"En dataclasses, `frozen=True` para valores que no deben cambiar y `field` para mutables.",
+				"Valida reglas de negocio en `__post_init__`; el tipado no sustituye a la validación."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Producto inmutable y validado",
+			"md": "Crea una dataclass `Producto` con `nombre: str`, `precio: float` y `stock: int`. Debe ser inmutable, rechazar precios negativos con `ValueError`, ofrecer una propiedad `disponible` que devuelva `True` si hay stock, y un método `con_stock(n)` que devuelva una copia con el stock actualizado. Prueba los tres casos.",
+			"hint": "`frozen=True` impide asignar campos, así que para la copia usa `dataclasses.replace(self, stock=n)`. La validación va en `__post_init__`.",
+			"solution": {
+				"lang": "python",
+				"caption": "producto.py",
+				"code": "from dataclasses import dataclass, replace\n\n@dataclass(frozen=True)\nclass Producto:\n    nombre: str\n    precio: float\n    stock: int = 0\n\n    def __post_init__(self) -> None:\n        if self.precio < 0:\n            raise ValueError(f\"precio inválido: {self.precio}\")\n        if self.stock < 0:\n            raise ValueError(f\"stock inválido: {self.stock}\")\n\n    @property\n    def disponible(self) -> bool:\n        return self.stock > 0\n\n    def con_stock(self, n: int) -> \"Producto\":\n        return replace(self, stock=n)\n\nteclado = Producto(\"teclado\", 120.0, 3)\nprint(teclado, teclado.disponible)\nprint(teclado.con_stock(0).disponible)\n\ntry:\n    Producto(\"monitor\", -1.0, 2)\nexcept ValueError as error:\n    print(\"ValueError:\", error)",
+				"explain": "Al ser `frozen`, ningún método puede modificar `self`: `con_stock` construye otra instancia con `replace`, que copia los campos y cambia solo `stock`. La validación en `__post_init__` se ejecuta también en esa copia, así que un stock negativo se rechaza igual. El retorno se anota como `\"Producto\"` entre comillas porque la clase aún no existe cuando se evalúa la anotación."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Tipar un resumen de notas",
+			"md": "Escribe `promedio(notas: list[float]) -> float` que devuelva `0.0` si la lista está vacía y el promedio redondeado a dos decimales en caso contrario. Añade una dataclass `Estudiante` con nombre y notas, y una función `mejor(estudiantes)` que devuelva el nombre del de mayor promedio o `None` si la lista está vacía.",
+			"hint": "Anota el retorno de `mejor` como `Optional[str]`. Para no dividir entre cero, comprueba `if not notas` al principio de `promedio`.",
+			"solution": {
+				"lang": "python",
+				"caption": "notas.py",
+				"code": "from dataclasses import dataclass, field\nfrom typing import List, Optional\n\ndef promedio(notas: List[float]) -> float:\n    if not notas:\n        return 0.0\n    return round(sum(notas) / len(notas), 2)\n\n@dataclass\nclass Estudiante:\n    nombre: str\n    notas: List[float] = field(default_factory=list)\n\n    @property\n    def promedio(self) -> float:\n        return promedio(self.notas)\n\ndef mejor(estudiantes: List[Estudiante]) -> Optional[str]:\n    if not estudiantes:\n        return None\n    return max(estudiantes, key=lambda e: e.promedio).nombre\n\nclase = [\n    Estudiante(\"Ana\", [18.0, 16.5, 19.0]),\n    Estudiante(\"Luis\", [12.0, 14.0, 13.5]),\n]\nprint(promedio([]))\nprint(clase[0].promedio)\nprint(mejor(clase))\nprint(mejor([]))",
+				"explain": "`promedio` devuelve `0.0` en lugar de lanzar `ZeroDivisionError`, y su anotación promete un `float` siempre. `mejor` devuelve `Optional[str]` porque la lista puede estar vacía: quien la llame debe manejar el `None`. `max` con `key` evita escribir un bucle y comparar a mano."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la dataclass",
+			"lang": "python",
+			"code": "from dataclasses import dataclass, field\n\n@dataclass\nclass Curso:\n    nombre: str\n    notas: ___[float] = field(default_factory=list)\n\n    def promedio(self) -> ___\n        return round(sum(self.notas) / len(self.notas), 2)",
+			"answers": [
+				"list",
+				"float"
+			],
+			"hint": "El contenedor de una secuencia de decimales es `list`. El promedio de varios `float` es otro `float`.",
+			"explain": "`list[float]` declara una lista de decimales y funciona desde Python 3.9. `field(default_factory=list)` crea una lista nueva por instancia. El retorno se anota `float` para que el editor sepa qué tipo devuelve."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En `Producto`, la combinación de `frozen=True` y `replace` es la forma idiomática de tener un objeto inmutable con operaciones que producen versiones nuevas. Si hubieras intentado `self.stock = n` dentro de `con_stock`, la dataclass habría lanzado `FrozenInstanceError` en tiempo de ejecución; mypy, además, lo habría marcado como asignación a un campo de solo lectura."
+		},
+		{
+			"type": "p",
+			"md": "En `notas`, la decisión de devolver `0.0` en lugar de lanzar una excepción es una elección de diseño, no una verdad universal. Si el promedio de una lista vacía debe ser un error, cambia la firma a `float` y lanza `ValueError`; lo importante es que la firma y el comportamiento cuenten la misma historia. Una función que a veces devuelve `None` y a veces un número debe decir `Optional`."
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en el detalle de `\"Producto\"` entre comillas: las anotaciones se evalúan al definir la clase, cuando el nombre todavía no existe en el ámbito del módulo. Las comillas la convierten en una cadena que la herramienta de tipos resuelve después. Otra opción es añadir `from __future__ import annotations` al principio del archivo, que aplaza todas las anotaciones."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Las anotaciones se guardan en `__annotations__` y **no** se comprueban al ejecutar.",
+				"`mypy` analiza el código sin ejecutarlo y avisa de incompatibilidades antes de producción.",
+				"`Optional[X]` es `X` o `None`; no significa «parámetro con valor por defecto».",
+				"Desde Python 3.9 puedes escribir `list[float]` y `dict[str, int]`; `X | None` llega en 3.10.",
+				"`@dataclass` genera `__init__`, `__repr__` y `__eq__` a partir de las anotaciones.",
+				"Usa `field(default_factory=...)` para valores mutables y `__post_init__` para validar.",
+				"`frozen=True` da inmutabilidad y hash; `order=True` genera las comparaciones."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué ocurre en tiempo de ejecución con `def f(x: int) -> str:` si llamas `f(\"hola\")`?",
+			"options": [
+				"Lanza `TypeError` porque `\"hola\"` no es un `int`",
+				"Se ejecuta con normalidad: las anotaciones no se comprueban",
+				"Convierte `\"hola\"` a entero automáticamente",
+				"Lanza `ValueError` al evaluar la anotación"
+			],
+			"answer": 1,
+			"explain": "Python guarda las anotaciones en `__annotations__` y no las verifica. El error lo detectaría mypy en el análisis estático, no el intérprete al ejecutar."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué significa `Optional[float]` en una anotación de retorno?",
+			"options": [
+				"Que el parámetro es opcional y tiene un valor por defecto",
+				"Que la función puede devolver un `float` o `None`",
+				"Que el `float` puede faltar y Python usará `0.0`",
+				"Que la función siempre devuelve `None`"
+			],
+			"answer": 1,
+			"explain": "`Optional[X]` equivale a `Union[X, None]`. Obliga a quien llama a contemplar el `None`. No tiene relación con que un parámetro tenga valor por defecto, que es otra característica distinta."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `alumnos: list = []` falla dentro de una dataclass?",
+			"options": [
+				"Porque `list` no se puede anotar en una dataclass",
+				"Porque el valor por defecto se comparte entre todas las instancias y la dataclass lo prohíbe",
+				"Porque las listas no son hashables",
+				"Porque falta el tipo entre corchetes"
+			],
+			"answer": 1,
+			"explain": "Un valor por defecto se evalúa una sola vez, así que todas las instancias apuntarían a la misma lista. La dataclass lanza `ValueError` y pide `field(default_factory=list)` para crear una lista nueva en cada objeto."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "typing: soporte de type hints",
+					"url": "https://docs.python.org/es/3/library/typing.html",
+					"note": "Optional, Union y genéricos"
+				},
+				{
+					"label": "dataclasses",
+					"url": "https://docs.python.org/es/3/library/dataclasses.html",
+					"note": "field, frozen, order y __post_init__"
+				},
+				{
+					"label": "mypy",
+					"url": "https://mypy.readthedocs.io/en/stable/",
+					"note": "comprobador estático de tipos"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,662 @@
+{
+	"id": "py-34-validacion",
+	"track": "python",
+	"order": 34,
+	"title": "Validación y evaluación de modelos",
+	"subtitle": "Cómo medir si un modelo servirá mañana y no solo si acertó ayer",
+	"level": "avanzado",
+	"minutes": 42,
+	"tags": [
+		"validación",
+		"métricas",
+		"scikit-learn",
+		"fuga de datos"
+	],
+	"keywords": [
+		"train test split",
+		"validación cruzada",
+		"cross_val_score",
+		"matriz de confusión",
+		"precision recall f1",
+		"roc auc",
+		"data leakage",
+		"fuga de datos",
+		"sobreajuste",
+		"accuracy engañosa",
+		"clase desbalanceada",
+		"evaluar modelo sklearn"
+	],
+	"summary": "Entrenar un modelo es la mitad del trabajo; la otra mitad es demostrar que generaliza. Aprenderás a separar train, validación y test, a usar validación cruzada, a leer una matriz de confusión y a calcular accuracy, precision, recall, F1 y ROC-AUC sin engañarte con fugas de datos.",
+	"objectives": [
+		"Separar los datos en entrenamiento, validación y test y justificar cada corte",
+		"Ejecutar validación cruzada estratificada y comparar modelos por media y desviación",
+		"Calcular e interpretar accuracy, precision, recall, F1 y ROC-AUC sobre una matriz de confusión",
+		"Detectar fugas de datos típicas: escalado previo al split, duplicados y variables del futuro",
+		"Elegir la métrica adecuada según el coste real de cada tipo de error"
+	],
+	"prerequisites": [
+		"Regresión lineal y logística",
+		"Árboles de decisión y Random Forest"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un modelo que acierta el 89 % de las veces puede ser peor que otro que acierta el 84 %. La diferencia no está en el porcentaje, sino en **qué errores comete** y en **cómo se midió**. Un clasificador evaluado con los datos que usó para entrenar siempre parece excelente."
+		},
+		{
+			"type": "p",
+			"md": "Esta lección trata de la parte que decide si un modelo llega a producción: la **evaluación**. Verás cómo repartir los datos, cómo medir con varias particiones y por qué una métrica puede mejorar mientras el modelo empeora."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es validar un modelo?"
+		},
+		{
+			"type": "p",
+			"md": "**Validar** es estimar el rendimiento sobre datos que el modelo no ha visto. Un modelo **generaliza** cuando mantiene su calidad en ejemplos nuevos; si solo funciona con los que memorizó, ha hecho **sobreajuste**. La validación es lo que te permite elegir modelo, hiperparámetros y umbral sin contaminar la estimación final."
+		},
+		{
+			"type": "p",
+			"md": "Para eso se usan tres conjuntos con papeles distintos. El de **entrenamiento** ajusta los parámetros. El de **validación** se usa para elegir; puedes mirarlo tantas veces como quieras. El de **test** se reserva para una única medición final y responde a «¿cuánto rendirá?»."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "La pregunta correcta",
+			"md": "No preguntes «¿cuánto acierta?», pregunta «¿cuánto acertará en datos nuevos y qué tipo de error comete?». La segunda pregunta exige una cifra, una matriz y una decisión sobre el umbral."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Elegir un modelo**: comparar regresión logística, bosque aleatorio y boosting con el mismo criterio.",
+				"**Ajustar hiperparámetros**: buscar la profundidad que mejor generaliza, no la que mejor memoriza.",
+				"**Fijar un umbral**: decidir a partir de qué probabilidad un caso se marca como positivo.",
+				"**Estimar el coste real**: traducir falsos positivos y falsos negativos a dinero o riesgo clínico.",
+				"**Detectar problemas**: una brecha entre entrenamiento y validación delata sobreajuste.",
+				"**Comunicar resultados**: una matriz con métricas y desviación es defendible ante otra persona."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "`train_test_split` baraja los índices y devuelve subconjuntos disjuntos. Un reparto habitual es 60 % entrenamiento, 20 % validación y 20 % test. Con clases desbalanceadas, `stratify=y` conserva la proporción de positivos en cada parte; sin él, un corte al azar puede dejar la validación casi sin casos positivos."
+		},
+		{
+			"type": "p",
+			"md": "La **validación cruzada** sustituye un único corte por varios. Con `k=5`, los datos se dividen en cinco bloques y el modelo se entrena cinco veces, cada vez con cuatro y validando con el quinto. Cada observación se valida una vez y obtienes cinco puntajes: su media estima el nivel y su desviación, cuánto depende del reparto."
+		},
+		{
+			"type": "p",
+			"md": "El test se toca una sola vez. Cada consulta para decidir algo lo convierte en validación y su estimación deja de ser limpia. Si necesitas comparar muchas variantes, hazlo con validación cruzada sobre el entrenamiento."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: del split a la validación cruzada"
+		},
+		{
+			"type": "p",
+			"md": "Estas son las piezas de scikit-learn que usarás en casi todos los proyectos. Instálala antes; no viene con Python:"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalación en un entorno virtual",
+			"code": "python3 -m venv .venv\nsource .venv/bin/activate      # Windows: .venv\\Scripts\\activate\npip install scikit-learn numpy"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "esqueleto_evaluacion.py",
+			"code": "from sklearn.datasets import load_breast_cancer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import f1_score\nfrom sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split\n\nX, y = load_breast_cancer(return_X_y=True)\nmodelo = LogisticRegression(max_iter=5000)\n\n# 1. Separar una vez; el test no se vuelve a mirar hasta el final\nX_tr, X_te, y_tr, y_te = train_test_split(\n    X, y, test_size=0.2, stratify=y, random_state=42\n)\n\n# 2. Comparar candidatos con validación cruzada sobre el train\ncorte = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\npuntajes = cross_val_score(modelo, X_tr, y_tr, cv=corte, scoring=\"f1\")\nprint(puntajes.mean().round(3))\n\n# 3. Medir una sola vez en el test\nmodelo.fit(X_tr, y_tr)\nprint(f\"F1 en test: {f1_score(y_te, modelo.predict(X_te)):.3f}\")",
+			"highlight": [
+				10,
+				16,
+				21
+			]
+		},
+		{
+			"type": "p",
+			"md": "`test_size=0.2` deja el 20 % para test y `random_state` fija el barajado. En el paso 2, `modelo` aún no está entrenado con todo el train: `cross_val_score` lo clona y lo entrena en cada partición. En el paso 3 sí lo entrenas completo y mides una vez."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: separar antes de mirar"
+		},
+		{
+			"type": "p",
+			"md": "El conjunto de cáncer de mama de scikit-learn tiene 569 muestras, 30 variables y clases moderadamente desbalanceadas (212 malignos frente a 357 benignos)."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "basico_evaluacion.py",
+			"code": "from sklearn.datasets import load_breast_cancer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.metrics import f1_score\nfrom sklearn.model_selection import train_test_split\n\nX, y = load_breast_cancer(return_X_y=True)\n# 60 % train y un 40 % que luego se parte en dos mitades\nX_tr, X_resto, y_tr, y_resto = train_test_split(\n    X, y, test_size=0.4, stratify=y, random_state=42\n)\nX_va, X_te, y_va, y_te = train_test_split(\n    X_resto, y_resto, test_size=0.5, stratify=y_resto, random_state=42\n)\nprint(X_tr.shape, X_va.shape, X_te.shape)   # (341, 30) (114, 30) (114, 30)\n\nmodelo = LogisticRegression(max_iter=5000).fit(X_tr, y_tr)\nprint(\"val: \", round(f1_score(y_va, modelo.predict(X_va)), 3))\nprint(\"test:\", round(f1_score(y_te, modelo.predict(X_te)), 3))",
+			"highlight": [
+				8,
+				11,
+				16,
+				17
+			]
+		},
+		{
+			"type": "p",
+			"md": "El primer corte reserva el 40 % y el segundo lo divide en dos mitades iguales. `stratify` se aplica en cada paso con las etiquetas disponibles. El F1 de validación sirve para decidir; el de test solo se informa. Verás valores por encima de 0.90 en ambos; si fueran 1.000 exactos, sospecha de fuga de datos."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: comparar dos modelos con validación cruzada"
+		},
+		{
+			"type": "p",
+			"md": "Comparar con un solo corte es frágil: un reparto afortunado hace que el peor modelo parezca el mejor. `cross_validate` calcula varias métricas en una pasada, reutilizando los mismos pliegues."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "comparar_modelos.py",
+			"code": "from sklearn.datasets import load_breast_cancer\nfrom sklearn.ensemble import RandomForestClassifier\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_validate\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nX, y = load_breast_cancer(return_X_y=True)\ncorte = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\n\ncandidatos = {\n    \"logistica\": Pipeline([\n        (\"escalado\", StandardScaler()),\n        (\"modelo\", LogisticRegression(max_iter=1000)),\n    ]),\n    \"bosque\": RandomForestClassifier(n_estimators=300, random_state=42),\n}\n\nfor nombre, modelo in candidatos.items():\n    r = cross_validate(modelo, X, y, cv=corte, scoring=[\"accuracy\", \"f1\", \"roc_auc\"])\n    print(f\"{nombre:10s} f1={r['test_f1'].mean():.3f} ± {r['test_f1'].std():.3f}\")\n    print(f\"{'':10s} auc={r['test_roc_auc'].mean():.3f}\")",
+			"highlight": [
+				19,
+				20,
+				21
+			]
+		},
+		{
+			"type": "p",
+			"md": "La clave es el `Pipeline`: el escalado vive dentro del modelo, así que en cada pliegue se ajusta solo con las cuatro quintas partes de entrenamiento. Si escalaras antes de validar, la media de las variables de validación habría influido en el ajuste y el resultado sería optimista."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: cribado con 500 pacientes"
+		},
+		{
+			"type": "p",
+			"md": "Una clínica evalúa un modelo de cribado sobre 500 pacientes de alto riesgo, de los cuales 120 tienen la enfermedad (24 %). El modelo ya está entrenado y congelado. Reproducimos las etiquetas para que las cifras se puedan comprobar."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "cribado.py",
+			"code": "import numpy as np\nfrom sklearn.metrics import confusion_matrix, f1_score, precision_score, recall_score\n\n# 500 pacientes ya clasificados: 0 = sano, 1 = enfermo\ny_real = np.array([0] * 380 + [1] * 120)\ny_pred = np.array([0] * 350 + [1] * 30 + [0] * 25 + [1] * 95)\n\nmc = confusion_matrix(y_real, y_pred)\nprint(mc)\nprint(f\"precision: {precision_score(y_real, y_pred):.3f}\")\nprint(f\"recall:    {recall_score(y_real, y_pred):.3f}\")\nprint(f\"f1:        {f1_score(y_real, y_pred):.3f}\")",
+			"highlight": [
+				8,
+				9,
+				10,
+				11,
+				12
+			]
+		},
+		{
+			"type": "p",
+			"md": "La matriz sale `[[350, 30], [25, 95]]`: 350 sanos acertados, 30 sanos marcados como enfermos, 25 enfermos no detectados y 95 detectados. La precisión es `95 / 125 = 0.760`, el recall `95 / 120 = 0.792` y el F1 `0.776`. Nada de eso se deduce de la accuracy sola."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Métrica",
+				"Fórmula",
+				"En este caso",
+				"Qué castiga"
+			],
+			"rows": [
+				[
+					"Accuracy",
+					"`(TP + TN) / total`",
+					"`445 / 500 = 0.890`",
+					"Nada: premia la clase mayoritaria"
+				],
+				[
+					"Precision",
+					"`TP / (TP + FP)`",
+					"`95 / 125 = 0.760`",
+					"Las alarmas falsas"
+				],
+				[
+					"Recall",
+					"`TP / (TP + FN)`",
+					"`95 / 120 = 0.792`",
+					"Los casos que se escapan"
+				],
+				[
+					"Especificidad",
+					"`TN / (TN + FP)`",
+					"`350 / 380 = 0.921`",
+					"Marcar enfermo a quien está sano"
+				],
+				[
+					"F1",
+					"`2·P·R / (P + R)`",
+					"`0.776`",
+					"Equilibra precisión y recall"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Un modelo que respondiera «sano» a todo acertaría 380 de 500, un 76 %. El nuestro sube al 89 %, pero pierde 25 enfermos de 120. Si el tratamiento es urgente, ese 20,8 % no detectado es la cifra que importa. Bajando el umbral se detectan más enfermos a costa de más falsos positivos."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la matriz de confusión"
+		},
+		{
+			"type": "p",
+			"md": "La matriz de confusión es la tabla de la que salen todas las métricas de clasificación binaria. Las filas son la realidad y las columnas, la predicción. Recórrela celda por celda: cada posición tiene un nombre y un coste distinto."
+		},
+		{
+			"type": "matrix",
+			"title": "Matriz de confusión de los 500 cribados",
+			"data": [
+				[
+					350,
+					30
+				],
+				[
+					25,
+					95
+				]
+			],
+			"rowLabels": [
+				"Real: sano (0)",
+				"Real: enfermo (1)"
+			],
+			"colLabels": [
+				"Pred.: sano",
+				"Pred.: enfermo"
+			],
+			"steps": [
+				{
+					"note": "**Verdaderos negativos**: 350 personas sanas clasificadas como sanas. Es la celda que infla la accuracy.",
+					"highlight": [
+						[
+							0,
+							0
+						]
+					]
+				},
+				{
+					"note": "**Falsos positivos**: 30 sanos marcados como enfermos. Generan ansiedad, pruebas extra y coste.",
+					"highlight": [
+						[
+							0,
+							1
+						]
+					]
+				},
+				{
+					"note": "**Falsos negativos**: 25 enfermos no detectados. En cribado suele ser el error más caro.",
+					"highlight": [
+						[
+							1,
+							0
+						]
+					]
+				},
+				{
+					"note": "**Verdaderos positivos**: 95 enfermos detectados. Con estas cuatro celdas se calculan todas las métricas.",
+					"highlight": [
+						[
+							1,
+							1
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los falsos negativos son 25 y los falsos positivos 30: cantidades parecidas, gravedad distinta. La matriz no decide por ti; te da los números para decidir con contexto. Cambiar el umbral mueve casos entre columnas, nunca cambia el total."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el cálculo, paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "Las fórmulas se entienden mejor ejecutándolas. Este programa no usa scikit-learn: calcula las métricas a mano desde los mismos conteos, para que veas de dónde sale cada decimal."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "De los conteos a las métricas",
+			"code": "tn, fp, fn, tp = 350, 30, 25, 95\nprecision = tp / (tp + fp)\nrecall = tp / (tp + fn)\nf1 = 2 * precision * recall / (precision + recall)\naccuracy = (tp + tn) / (tn + fp + fn + tp)\nprint(f\"precision={precision:.3f} recall={recall:.3f}\")\nprint(f\"f1={f1:.3f} accuracy={accuracy:.3f}\")",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se desempaquetan las cuatro celdas en el orden estándar de scikit-learn: TN, FP, FN, TP.",
+					"vars": {
+						"tn": "350",
+						"fp": "30",
+						"fn": "25",
+						"tp": "95"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "Precision divide los aciertos positivos entre todas las predicciones positivas: 95 / 125.",
+					"vars": {
+						"tn": "350",
+						"fp": "30",
+						"fn": "25",
+						"tp": "95",
+						"precision": "0.76"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Recall divide los mismos aciertos entre todos los positivos reales: 95 / 120. El denominador cambia y con él la historia.",
+					"vars": {
+						"tn": "350",
+						"fp": "30",
+						"fn": "25",
+						"tp": "95",
+						"precision": "0.76",
+						"recall": "0.7916666666666666"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "La media armónica castiga los extremos: si una de las dos fuera 0, el F1 también lo sería.",
+					"vars": {
+						"tn": "350",
+						"fp": "30",
+						"fn": "25",
+						"tp": "95",
+						"precision": "0.76",
+						"recall": "0.7916666666666666",
+						"f1": "0.7755102040816326"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Accuracy suma todos los aciertos, 350 + 95, y divide entre los 500 casos.",
+					"vars": {
+						"tn": "350",
+						"fp": "30",
+						"fn": "25",
+						"tp": "95",
+						"precision": "0.76",
+						"recall": "0.7916666666666666",
+						"f1": "0.7755102040816326",
+						"accuracy": "0.89"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "El formato `.3f` redondea solo al imprimir; los valores guardados conservan toda la precisión.",
+					"vars": {
+						"tn": "350",
+						"fp": "30",
+						"fn": "25",
+						"tp": "95",
+						"precision": "0.76",
+						"recall": "0.7916666666666666",
+						"f1": "0.7755102040816326",
+						"accuracy": "0.89"
+					},
+					"output": "precision=0.760 recall=0.792\n"
+				},
+				{
+					"line": 7,
+					"note": "Segunda línea: el F1 y la accuracy del mismo modelo, dos lecturas muy distintas.",
+					"vars": {
+						"tn": "350",
+						"fp": "30",
+						"fn": "25",
+						"tp": "95",
+						"precision": "0.76",
+						"recall": "0.7916666666666666",
+						"f1": "0.7755102040816326",
+						"accuracy": "0.89"
+					},
+					"output": "f1=0.776 accuracy=0.890\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "La precisión sale de un denominador de 125 y el recall de uno de 120. Esa diferencia de cinco casos explica por qué no coinciden. Un recall alto con una precisión baja significa que el modelo marca mucho para no dejar escapar nada."
+		},
+		{
+			"type": "h",
+			"text": "ROC-AUC: ordenar antes de decidir"
+		},
+		{
+			"type": "p",
+			"md": "Todo lo anterior depende del umbral. La curva ROC barre todos los umbrales y dibuja la tasa de verdaderos positivos (recall) frente a la de falsos positivos. El **ROC-AUC** mide la capacidad de ordenar: 0.5 es azar y 1.0 es separación perfecta."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "auc.py",
+			"code": "from sklearn.metrics import RocCurveDisplay, roc_auc_score\n\nprob = modelo.predict_proba(X_te)[:, 1]   # probabilidad de la clase positiva\nprint(f\"AUC: {roc_auc_score(y_te, prob):.3f}\")\nRocCurveDisplay.from_predictions(y_te, prob)",
+			"highlight": [
+				3,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "Pasa `prob`, no `pred`. Una AUC de 0.90 significa que, tomando un positivo y un negativo al azar, el modelo da más probabilidad al positivo el 90 % de las veces; no significa que acierte el 90 % ni que sus probabilidades estén calibradas."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Con clases muy desbalanceadas, mira también el PR-AUC",
+			"md": "Con un 1 % de positivos, la curva ROC se ve favorecida porque la tasa de falsos positivos se divide entre muchísimos negativos. La curva precision-recall resume mejor la clase minoritaria: usa `precision_recall_curve` y `average_precision_score`."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Síntoma",
+				"Causa",
+				"Cómo se corrige"
+			],
+			"rows": [
+				[
+					"Accuracy 0.95 y no detecta nada",
+					"Clase positiva minoritaria",
+					"Mira recall, F1 y la matriz"
+				],
+				[
+					"El test rinde peor que la validación",
+					"Se eligió el modelo mirando el test",
+					"Decide con validación cruzada"
+				],
+				[
+					"Los resultados cambian en cada ejecución",
+					"Falta `random_state` o hay fuga",
+					"Fija la semilla y revisa el preprocesado"
+				],
+				[
+					"`ValueError` en `scoring`",
+					"Nombre de métrica mal escrito",
+					"Usa `\"f1\"`, `\"roc_auc\"` o una función"
+				],
+				[
+					"`roc_auc_score` da algo raro",
+					"Le pasaste etiquetas, no probabilidades",
+					"Usa `predict_proba(X)[:, 1]`"
+				],
+				[
+					"Las métricas caen en producción",
+					"El corte no era representativo",
+					"Valida por tiempo o por grupo"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "La fuga de datos más frecuente",
+			"wrong": {
+				"caption": "Escalar antes de separar",
+				"code": "from sklearn.preprocessing import StandardScaler\nfrom sklearn.model_selection import train_test_split\n\nesc = StandardScaler().fit(X)      # ve todo el dataset\nX_esc = esc.transform(X)\nX_tr, X_te, y_tr, y_te = train_test_split(X_esc, y, test_size=0.2)"
+			},
+			"right": {
+				"caption": "Escalar dentro del pipeline",
+				"code": "from sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.model_selection import train_test_split\n\nX_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)\ntuberia = Pipeline([(\"esc\", StandardScaler()), (\"modelo\", modelo)])\ntuberia.fit(X_tr, y_tr)"
+			},
+			"explain": "La media y la desviación del escalado son parámetros aprendidos. Si se calculan con todo el dataset, el test deja de ser invisible: su distribución ya influyó en el modelo. El efecto es pequeño con muchas muestras y enorme con pocas, y siempre invalida la estimación."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Separa el test al principio y no lo mires hasta tener una sola candidata.",
+				"Elige la métrica antes de entrenar, según el coste de cada error.",
+				"Reporta media y desviación: una diferencia menor que la desviación no es una diferencia.",
+				"Usa `Pipeline` para que el preprocesado se ajuste dentro de cada pliegue.",
+				"Con series temporales, valida con `TimeSeriesSplit`: barajar el futuro es fuga.",
+				"Comprueba duplicados antes de separar y documenta datos, semilla y métricas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Leer una matriz ajena",
+			"md": "Un modelo de fraude deja esta matriz sobre 1 000 transacciones: TN 870, FP 40, FN 60, TP 30. Calcula accuracy, precision, recall y F1, y responde qué porcentaje de fraudes se escapa y por qué la accuracy no basta.",
+			"hint": "Los positivos reales son 60 + 30. La precision divide TP entre todas las predicciones positivas.",
+			"solution": {
+				"lang": "python",
+				"caption": "fraude.py",
+				"code": "tn, fp, fn, tp = 870, 40, 60, 30\n\ntotal = tn + fp + fn + tp\naccuracy = (tp + tn) / total\nprecision = tp / (tp + fp)\nrecall = tp / (tp + fn)\nf1 = 2 * precision * recall / (precision + recall)\n\nprint(f\"accuracy:  {accuracy:.3f}\")\nprint(f\"precision: {precision:.3f}\")\nprint(f\"recall:    {recall:.3f}\")\nprint(f\"f1:        {f1:.3f}\")\nprint(f\"se escapa: {fn / (tp + fn):.1%}\")",
+				"explain": "accuracy = 900/1000 = 0.900, precision = 30/70 = 0.4286, recall = 30/90 = 0.3333 y f1 = 0.3529. Se escapan 60 de 90 fraudes, un 66.7 %. La accuracy del 90 % solo refleja que el 87 % de las transacciones son legítimas: un modelo que dijera siempre «no es fraude» obtendría 0.930 y sería inútil."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la validación cruzada",
+			"lang": "python",
+			"code": "from sklearn.model_selection import cross_val_score\n\npuntajes = cross_val_score(modelo, X, y, cv=___, scoring=___)\nprint(puntajes.mean(), puntajes.std())",
+			"answers": [
+				"5",
+				"f1"
+			],
+			"hint": "El número de pliegues es un entero pequeño; la métrica se nombra con la cadena que entiende scikit-learn.",
+			"explain": "`cv=5` crea cinco particiones y `scoring=\"f1\"` pide el F1 de la clase positiva. `cross_val_score` devuelve un array con los cinco puntajes; `mean` y `std` resumen el rendimiento y su estabilidad. Sin `scoring`, un clasificador reporta accuracy por defecto."
+		},
+		{
+			"type": "exercise",
+			"title": "Pipeline sin fugas y decisión razonada",
+			"md": "Con el conjunto de cáncer de mama, construye un `Pipeline` con `StandardScaler` y `LogisticRegression`, evalúalo con 5 pliegues usando F1 y AUC e imprime media y desviación. Explica después qué harías si un falso negativo costara diez veces más que un falso positivo.",
+			"hint": "Usa `cross_validate` con `scoring=[\"f1\", \"roc_auc\"]`. Para la decisión, piensa en bajar el umbral con `predict_proba`.",
+			"solution": {
+				"lang": "python",
+				"caption": "pipeline_cv.py",
+				"code": "from sklearn.datasets import load_breast_cancer\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.model_selection import StratifiedKFold, cross_validate\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nX, y = load_breast_cancer(return_X_y=True)\ntuberia = Pipeline([\n    (\"escalado\", StandardScaler()),\n    (\"modelo\", LogisticRegression(max_iter=1000)),\n])\ncorte = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)\nr = cross_validate(tuberia, X, y, cv=corte, scoring=[\"f1\", \"roc_auc\"])\n\nprint(f\"f1:  {r['test_f1'].mean():.3f} ± {r['test_f1'].std():.3f}\")\nprint(f\"auc: {r['test_roc_auc'].mean():.3f} ± {r['test_roc_auc'].std():.3f}\")",
+				"explain": "El escalado va dentro del pipeline, de modo que cada pliegue aprende su propia media y desviación. Con falsos negativos diez veces más caros, bajaría el umbral: `prob = tuberia.predict_proba(X)[:, 1]` y luego `pred = (prob >= 0.3).astype(int)`. El AUC no cambia al mover el umbral; el recall y el F1 sí, y son las métricas que debes vigilar."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio del fraude, el paso decisivo es separar denominadores. La accuracy divide entre 1 000 transacciones; la precision, entre las 70 que el modelo marcó; el recall, entre las 90 que eran fraude. Un modelo puede tener 0.900 de accuracy y 0.333 de recall sin contradicción: acierta casi todo porque casi todo es negativo."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la pregunta no es «qué F1 es más alto» sino «qué umbral corresponde al coste de mis errores». El pipeline hace honesta la comparación y el AUC confirma que el modelo ordena bien aunque el umbral no sea óptimo. Bajar a 0.3 sube el recall y baja la precision: es un intercambio deliberado."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Entrena, valida y prueba con conjuntos disjuntos; el test se usa una vez.",
+				"`stratify=y` mantiene la proporción de clases y conviene casi siempre.",
+				"La validación cruzada da k estimaciones: media para el nivel, desviación para la estabilidad.",
+				"Accuracy sola engaña con clases desbalanceadas; añade precision, recall y F1.",
+				"Precision castiga falsos positivos; recall, falsos negativos; F1 combina ambos.",
+				"El ROC-AUC mide orden y no umbral, pero no mide calibración.",
+				"Toda transformación aprendida se ajusta dentro del pipeline, nunca antes del split."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Un modelo predice «sano» para todos los pacientes de un conjunto donde solo el 5 % está enfermo. ¿Qué ocurre?",
+			"options": [
+				"Es un buen modelo: acierta el 95 % de los casos",
+				"Su accuracy es 0.95, pero su recall y su F1 son 0: no detecta ningún positivo",
+				"Su precision es 0.95 y su recall también",
+				"Su ROC-AUC será cercano a 1"
+			],
+			"answer": 1,
+			"explain": "La accuracy es alta porque la clase mayoritaria domina. Ningún positivo se detecta, así que el recall es 0 y el F1 también. El AUC de un modelo que asigna la misma probabilidad a todos es 0.5."
+		},
+		{
+			"type": "quiz",
+			"question": "Un filtro borra automáticamente los correos que clasifica como spam. ¿Qué error conviene vigilar primero?",
+			"options": [
+				"El falso negativo, porque el spam llegaría a la bandeja de entrada",
+				"El falso positivo, porque se perdería un correo legítimo sin posibilidad de recuperarlo",
+				"Ninguno: la accuracy resume los dos",
+				"Solo el AUC, porque es independiente del umbral"
+			],
+			"answer": 1,
+			"explain": "Si el sistema borra sin confirmación, un falso positivo destruye información del usuario. La métrica que lo mide es la precision, y en ese escenario se elige un umbral alto aunque se cuelen más spam."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál de estas prácticas produce fuga de datos?",
+			"options": [
+				"Ajustar `StandardScaler` solo con `X_train` y transformar `X_test`",
+				"Ajustar `StandardScaler` con todo el dataset y después separar en train y test",
+				"Usar `StratifiedKFold` con `shuffle=True`",
+				"Calcular las métricas finales una única vez sobre el test"
+			],
+			"answer": 1,
+			"explain": "La media y la desviación son parámetros aprendidos. Si se calculan con el dataset completo, la información del test entra en el preprocesado y la estimación deja de ser independiente. La solución es un `Pipeline` ajustado dentro de cada pliegue."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "scikit-learn: guía de validación cruzada",
+					"url": "https://scikit-learn.org/stable/modules/cross_validation.html",
+					"note": "particiones, estratificación y grupos"
+				},
+				{
+					"label": "scikit-learn: métricas de clasificación",
+					"url": "https://scikit-learn.org/stable/modules/model_evaluation.html",
+					"note": "todas las métricas y su interpretación"
+				},
+				{
+					"label": "scikit-learn: Pipeline",
+					"url": "https://scikit-learn.org/stable/modules/compose.html",
+					"note": "encadenar preprocesado y modelo"
+				}
+			]
+		}
+	]
+}

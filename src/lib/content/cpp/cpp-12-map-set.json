@@ -1,0 +1,392 @@
+{
+	"id": "cpp-12-map-set",
+	"track": "cpp",
+	"order": 12,
+	"title": "std::map, set, pilas y colas",
+	"subtitle": "Elegir el contenedor correcto según el orden, la búsqueda y la complejidad",
+	"level": "intermedio",
+	"minutes": 44,
+	"tags": ["map", "set", "stack", "queue", "complejidad"],
+	"keywords": [
+		"std::map vs unordered_map",
+		"std::set",
+		"stack lifo",
+		"queue fifo",
+		"priority_queue",
+		"complejidad contenedores",
+		"map operator[] inserta",
+		"hash vs arbol",
+		"cuándo usar cada contenedor",
+		"recorrer map"
+	],
+	"summary": "Un map guarda pares clave-valor ordenados; un unordered_map los guarda en una tabla hash. Un set elimina duplicados y las pilas y colas imponen un orden de salida. Aquí aprenderás qué contenedor elegir y cuánto cuesta cada operación.",
+	"objectives": [
+		"Distinguir std::map de std::unordered_map por orden y complejidad",
+		"Usar set para eliminar duplicados y consultar pertenencia",
+		"Aplicar stack, queue y priority_queue al problema correcto",
+		"Evitar que operator[] inserte claves por accidente",
+		"Elegir contenedor a partir de la complejidad y del orden requerido"
+	],
+	"prerequisites": ["Arrays, std::vector y std::string", "RAII y punteros inteligentes"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Ya sabes guardar una secuencia en un `std::vector`. Pero muchos problemas no piden una secuencia: piden responder «¿cuántas veces aparece esta palabra?», «¿qué elementos son únicos?» o «¿cuál es el siguiente trabajo más urgente?». Para eso están los contenedores asociativos y los adaptadores."
+		},
+		{
+			"type": "p",
+			"md": "La decisión entre ellos no es estética. Cada contenedor ofrece un orden distinto de recorrido y un coste distinto por operación. Elegir mal convierte un bucle de un segundo en uno de un minuto, o hace que tu programa imprima resultados en un orden impredecible."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un contenedor asociativo?"
+		},
+		{
+			"type": "p",
+			"md": "Un contenedor asociativo guarda elementos identificados por una clave y permite encontrarlos sin recorrer todo. `std::map<Clave, Valor>` almacena pares y ordena por clave; `std::set<Clave>` almacena solo claves únicas, también ordenadas. `std::unordered_map` y `std::unordered_set` hacen lo mismo con una tabla hash, sin orden de recorrido."
+		},
+		{
+			"type": "p",
+			"md": "Los adaptadores son otra cosa: no guardan datos con una clave, sino que limitan por dónde entran y salen. `std::stack` es LIFO (el último que entra es el primero que sale), `std::queue` es FIFO (el primero que entra es el primero que sale) y `std::priority_queue` siempre entrega el elemento de mayor prioridad. Stack y queue no son contenedores completos: envuelven un `std::deque` por debajo y exponen solo unas operaciones."
+		},
+		{
+			"type": "table",
+			"head": ["Contenedor", "Estructura interna", "Inserción", "Búsqueda", "Orden de recorrido", "Cuándo usarlo"],
+			"rows": [
+				["`std::map`", "Árbol balanceado", "O(log n)", "O(log n)", "Por clave, ascendente", "Necesitas claves ordenadas"],
+				["`std::unordered_map`", "Tabla hash", "O(1) medio", "O(1) medio", "Sin orden definido", "Solo necesitas buscar rápido"],
+				["`std::set`", "Árbol balanceado", "O(log n)", "O(log n)", "Ascendente", "Elementos únicos y ordenados"],
+				["`std::stack`", "Adaptador sobre deque", "O(1) `push`", "No busca", "LIFO", "Deshacer, DFS, paréntesis"],
+				["`std::queue`", "Adaptador sobre deque", "O(1) `push`", "No busca", "FIFO", "Turnos, BFS, productor-consumidor"],
+				["`std::priority_queue`", "Montículo binario", "O(log n) `push`", "O(1) `top`", "Mayor prioridad primero", "Colas de urgencia y top-k"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Contar frecuencias**: un `map<std::string, int>` asocia cada palabra con su número de apariciones.",
+				"**Eliminar duplicados**: insertar en un `set` descarta automáticamente lo repetido y mantiene el orden.",
+				"**Buscar por identificador**: un `unordered_map<int, Registro>` pasa de una búsqueda lineal a una consulta directa.",
+				"**Procesar en orden inverso**: una pila resuelve la evaluación de expresiones y el retroceso en un laberinto.",
+				"**Atender por turnos**: una cola mantiene el orden de llegada en una simulación o en un recorrido BFS.",
+				"**Priorizar**: una `priority_queue` entrega siempre el mayor puntaje, el trabajo más urgente o el camino más corto en Dijkstra."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning aparecen constantemente: un vocabulario es un `map<string, int>` que asigna un índice a cada token; un conjunto de etiquetas únicas es un `set`; la búsqueda en anchura de un grafo usa una `queue`; y los mejores candidatos de una búsqueda se guardan en una `priority_queue`. Saber qué operación domina el algoritmo te dice qué contenedor necesitas."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "`std::map` y `std::set` se implementan típicamente como árboles rojo-negro, un árbol binario de búsqueda que se rebalancea al insertar y borrar. Por eso todas las operaciones de búsqueda, inserción y borrado cuestan O(log n): la altura del árbol se mantiene logarítmica aunque los datos lleguen ordenados. El recorrido `begin()` a `end()` devuelve las claves de menor a mayor."
+		},
+		{
+			"type": "p",
+			"md": "`std::unordered_map` y `std::unordered_set` usan una tabla hash: convierten la clave en un número con `std::hash`, lo reducen a un índice de un arreglo de buckets y guardan ahí el elemento. Si la función hash reparte bien, cada bucket tiene pocos elementos y la búsqueda es O(1) en promedio. Si muchas claves caen en el mismo bucket, la búsqueda degenera a O(n). Por eso el estándar no garantiza O(1) en el peor caso."
+		},
+		{
+			"type": "p",
+			"md": "Un `std::stack` no es más que un `deque` con la interfaz limitada a `push`, `pop` y `top`. Un `std::queue` expone `push`, `pop`, `front` y `back`. Una `priority_queue` mantiene un montículo: el elemento mayor está siempre en la raíz, `top()` lo devuelve en O(1) y `push`/`pop` reorganizan en O(log n)."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "`operator[]` no es una búsqueda",
+			"md": "En un `std::map`, `m[clave]` **crea** la clave con un valor inicializado si no existe. Usarlo para comprobar si algo está cambia el tamaño del mapa y puede falsear un conteo. Para consultar sin modificar usa `find`, `contains` (C++20) o `at`, que lanza `std::out_of_range` si la clave falta."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "#include <iostream>\n#include <map>\n#include <queue>\n#include <set>\n#include <stack>\n#include <string>\n\nint main() {\n    std::map<std::string, int> edades;\n    edades[\"ana\"] = 30;\n    edades[\"luis\"] = 25;\n    std::cout << edades.size() << '\\n';   // 2\n\n    std::set<int> unicos{3, 1, 3, 2};\n    std::cout << unicos.size() << '\\n';   // 3\n    for (int x : unicos) {\n        std::cout << x << ' ';            // 1 2 3\n    }\n    std::cout << '\\n';\n\n    std::stack<int> pila;\n    pila.push(1);\n    pila.push(2);\n    std::cout << pila.top() << '\\n';      // 2\n    pila.pop();\n\n    std::queue<std::string> cola;\n    cola.push(\"primero\");\n    cola.push(\"segundo\");\n    std::cout << cola.front() << '\\n';    // primero\n    cola.pop();\n    return 0;\n}"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`map[clave] = valor` inserta o actualiza. `map.at(clave)` solo lee y lanza si no existe.",
+				"`set.insert(x)` devuelve un `pair<iterator, bool>`: el segundo valor indica si realmente se insertó o ya estaba.",
+				"`stack::top()` y `queue::front()` sobre un contenedor vacío son comportamiento indefinido; comprueba `empty()` antes.",
+				"`priority_queue<int>` es un montículo de máximos. Para mínimos se declara `std::priority_queue<int, std::vector<int>, std::greater<int>>`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: contar palabras"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "frecuencia.cpp",
+			"code": "#include <iostream>\n#include <map>\n#include <string>\n#include <vector>\n\nint main() {\n    std::vector<std::string> palabras{\"sol\", \"mar\", \"sol\", \"viento\", \"mar\", \"sol\"};\n    std::map<std::string, int> frecuencia;\n\n    for (const std::string& p : palabras) {\n        ++frecuencia[p];   // si no existe, la crea con 0 y suma 1\n    }\n\n    for (const auto& [palabra, veces] : frecuencia) {\n        std::cout << palabra << \": \" << veces << '\\n';\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "La salida aparece ordenada alfabéticamente: `mar: 2`, `sol: 3`, `viento: 1`. Ese orden no lo escribiste tú: es una propiedad del `std::map`. La primera vez que se evalúa `frecuencia[\"sol\"]`, el mapa inserta la clave con valor 0 y luego el `++` lo deja en 1. Las siguientes veces encuentra la clave y solo incrementa. El `for` con `[palabra, veces]` es un *structured binding* que descompone el par en dos variables."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: intersección de conjuntos"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "cursos.cpp",
+			"code": "#include <iostream>\n#include <set>\n#include <string>\n\nint main() {\n    std::set<std::string> ana{\"mate\", \"fisica\", \"programacion\"};\n    std::set<std::string> luis{\"programacion\", \"quimica\", \"mate\"};\n\n    std::set<std::string> comunes;\n    for (const std::string& curso : ana) {\n        if (luis.count(curso) > 0) {\n            comunes.insert(curso);\n        }\n    }\n\n    std::cout << comunes.size() << '\\n';   // 2\n    for (const std::string& c : comunes) {\n        std::cout << c << ' ';              // mate programacion\n    }\n    std::cout << '\\n';\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`count` devuelve 1 si la clave existe y 0 si no; en un `set` nunca puede devolver más de 1 porque los duplicados no se almacenan. Recorrer el conjunto menor sería más eficiente, pero con tres elementos la diferencia es irrelevante: lo importante es que la consulta es logarítmica en lugar de recorrer el otro conjunto. El resultado `comunes` también está ordenado y no contiene repetidos."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: los tres mejores puntajes"
+		},
+		{
+			"type": "p",
+			"md": "Una `priority_queue` mantiene el elemento mayor en la cima sin ordenar todo el vector. Si solo necesitas los k mejores de un conjunto grande, es más barato que ordenar: cada `push` cuesta O(log n) y cada `pop` también, mientras que un `sort` completo cuesta O(n log n) aunque luego descartes casi todo."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "top3.cpp",
+			"code": "#include <iostream>\n#include <queue>\n#include <vector>\n\nint main() {\n    std::vector<int> puntajes{55, 90, 72, 90, 88, 61};\n    std::priority_queue<int> max_heap(puntajes.begin(), puntajes.end());\n\n    for (int i = 0; i < 3 && !max_heap.empty(); ++i) {\n        std::cout << max_heap.top() << ' ';\n        max_heap.pop();\n    }\n    std::cout << '\\n';   // 90 90 88\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "El constructor que recibe dos iteradores construye el montículo en tiempo lineal. Cada `top()` devuelve la raíz, el mayor de los restantes; `pop()` la elimina y reordena. Los dos 90 aparecen porque son dos elementos distintos: la cola de prioridad no elimina duplicados, a diferencia de un `set`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: insertar, actualizar y consultar en un map"
+		},
+		{
+			"type": "p",
+			"md": "Sigue los pasos y observa dos cosas: el mapa mantiene las claves ordenadas y asignar dos veces la misma clave no crea un duplicado, sino que actualiza el valor. El tamaño solo cambia en las dos primeras inserciones."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Un map ordenado por clave",
+			"code": "std::map<std::string, int> edades;\nedades[\"ana\"] = 30;\nedades[\"luis\"] = 25;\nedades[\"ana\"] = 31;\nstd::cout << edades.size() << '\\n';\nstd::cout << edades.at(\"ana\") << '\\n';",
+			"steps": [
+				{
+					"line": 1,
+					"note": "El mapa nace vacío: no hay pares ni nodos en el árbol.",
+					"vars": { "edades": "{}", "size": "0" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`operator[]` no encuentra `ana`, así que crea el par con valor 0 y luego asigna 30. El árbol tiene un nodo.",
+					"vars": { "edades": "{ana: 30}", "size": "1" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Se inserta `luis`. El mapa mantiene el orden por clave: `ana` queda antes que `luis`.",
+					"vars": { "edades": "{ana: 30, luis: 25}", "size": "2" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`ana` ya existe: no se crea otro par, solo se actualiza su valor de 30 a 31. El tamaño sigue en 2.",
+					"vars": { "edades": "{ana: 31, luis: 25}", "size": "2" },
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "La salida muestra 2: hay dos claves distintas, no tres asignaciones.",
+					"vars": { "edades": "{ana: 31, luis: 25}", "size": "2" },
+					"output": "2\n"
+				},
+				{
+					"line": 6,
+					"note": "`at(\"ana\")` busca la clave y devuelve el valor actualizado: 31. Si la clave no existiera, lanzaría `std::out_of_range`.",
+					"vars": { "edades": "{ana: 31, luis: 25}", "size": "2", "consulta": "edades.at(\"ana\")" },
+					"output": "31\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Usar `m[clave]` para comprobar**: si la clave no existe, se inserta con valor 0 y el mapa crece. Para preguntar sin modificar usa `m.contains(clave)` o `m.find(clave) != m.end()`.",
+				"**Asumir que `unordered_map` conserva el orden**: no lo hace. Si imprimes sus elementos, el orden puede cambiar entre ejecuciones o entre bibliotecas. Usa `map` cuando el orden importe.",
+				"**Olvidar comprobar `empty()`**: `top()` en una pila vacía o `front()` en una cola vacía es comportamiento indefinido, no una excepción.",
+				"**Confundir el orden de una `priority_queue`**: por defecto es un montículo de máximos. Para el mínimo hay que pasar `std::greater<int>` como comparador.",
+				"**Modificar un elemento de un `set`**: los elementos son `const` porque cambiar la clave rompería el árbol. Hay que borrar e insertar de nuevo.",
+				"**Usar una clave sin `operator<` o sin hash**: `std::map` necesita comparación; `std::unordered_map`, `std::hash` y `operator==`. Si no existen, el error de compilación ocupa varias pantallas.",
+				"**Elegir `map` para pocos elementos**: con diez elementos, un `vector` ordenado suele ser más rápido por localidad de caché. La notación O grande no cuenta toda la historia."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Hash frente a árbol",
+			"md": "Un árbol garantiza O(log n) siempre y permite recorrer en orden. Una tabla hash ofrece O(1) promedio, pero puede degenerar si el hash es malo y no da orden. Si el problema pide «el siguiente», «el rango entre A y B» o «imprimir ordenado», el árbol es la respuesta; si solo pide «¿está?», el hash suele ganar."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Elige `unordered_map` si no necesitas orden y la búsqueda es el cuello de botella; elige `map` si necesitas recorrer ordenado o rangos.",
+				"Reserva capacidad en `unordered_map` con `reserve(n)` si conoces el número de claves: evita rehacer la tabla varias veces.",
+				"Usa `contains` (C++20) para preguntar y `at` para leer cuando la clave debe existir.",
+				"Recorre con `for (const auto& [clave, valor] : m)`; el `&` evita copiar el par y `const` documenta que no lo modificas.",
+				"Comprueba `empty()` antes de `top`, `front` o `back`.",
+				"Usa `std::greater<T>` para una cola de mínimos y un comparador propio para prioridades complejas.",
+				"Si el número de elementos es pequeño, mide: un vector ordenado puede superar a un mapa en velocidad y en memoria."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Diccionarios y conjuntos en Python y C++",
+			"python": {
+				"caption": "conteo.py",
+				"code": "frecuencia = {}\nfor p in [\"sol\", \"mar\", \"sol\"]:\n    frecuencia[p] = frecuencia.get(p, 0) + 1\nprint(frecuencia)   # orden de insercion\nprint(set(frecuencia))"
+			},
+			"cpp": {
+				"caption": "conteo.cpp",
+				"code": "std::map<std::string, int> frecuencia;\nfor (const std::string& p : {\"sol\", \"mar\", \"sol\"}) {\n    ++frecuencia[p];\n}\n// recorrido ordenado por clave\nfor (const auto& [palabra, veces] : frecuencia) {\n    std::cout << palabra << \": \" << veces << '\\n';\n}"
+			},
+			"note": "El `dict` de Python conserva el orden de inserción; `std::map` ordena por clave y `std::unordered_map` no garantiza ninguno. En Python `d[k]` para leer lanza `KeyError`, mientras que en C++ `m[k]` inserta: esa diferencia es la fuente de muchos conteos inflados."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Frecuencia de letras",
+			"md": "Dada la cadena `\"banana\"`, cuenta cuántas veces aparece cada letra usando un `std::map<char, int>` y muestra los pares ordenados por letra. El resultado debe ser `a: 3`, `b: 1`, `n: 2`, cada uno en su línea.",
+			"hint": "Recorre la cadena con `for (char c : texto)` e incrementa `frecuencia[c]`. El mapa se encarga de crear la clave la primera vez.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "letras.cpp",
+				"code": "#include <iostream>\n#include <map>\n#include <string>\n\nint main() {\n    std::string texto = \"banana\";\n    std::map<char, int> frecuencia;\n\n    for (char c : texto) {\n        ++frecuencia[c];\n    }\n\n    for (const auto& [letra, veces] : frecuencia) {\n        std::cout << letra << \": \" << veces << '\\n';\n    }\n    return 0;\n}",
+				"explain": "El mapa ordena las claves de menor a mayor según su código, así que `a` aparece antes que `b` y `n`. La primera aparición de cada letra crea el par con valor 0 y el `++` lo deja en 1; las siguientes solo incrementan. La salida es `a: 3`, `b: 1`, `n: 2`."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Cola de atención con prioridad",
+			"md": "Crea una `std::priority_queue<int>` con las urgencias `{3, 1, 4, 1, 5, 9, 2, 6}`. Extrae todos los elementos e imprímelos separados por espacios. Después explica qué cambiarías para atender primero las urgencias menores.",
+			"hint": "`top()` devuelve el mayor y `pop()` lo elimina. Para invertir el orden, el tercer parámetro de la plantilla es un comparador.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "urgencias.cpp",
+				"code": "#include <iostream>\n#include <queue>\n#include <vector>\n\nint main() {\n    std::priority_queue<int> urgentes;\n    for (int u : {3, 1, 4, 1, 5, 9, 2, 6}) {\n        urgentes.push(u);\n    }\n\n    while (!urgentes.empty()) {\n        std::cout << urgentes.top() << ' ';\n        urgentes.pop();\n    }\n    std::cout << '\\n';   // 9 6 5 4 3 2 1 1\n\n    // Para el orden inverso:\n    // std::priority_queue<int, std::vector<int>, std::greater<int>> menores;\n    return 0;\n}",
+				"explain": "El montículo de máximos entrega 9, 6, 5, 4, 3, 2, 1, 1: los duplicados se conservan y el orden es descendente. Para atender primero lo menor se usa `std::greater<int>` como comparador. La cola no ordena todo de una vez; mantiene la raíz correcta y reordena en cada extracción."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la pila",
+			"lang": "cpp",
+			"code": "std::stack<int> pila;\npila.___(1);\npila.___(2);\nstd::cout << pila.___() << '\\n';   // 2\npila.___();",
+			"answers": ["push", "push", "top", "pop"],
+			"hint": "Apilar es `push`, mirar la cima es `top` y desapilar es `pop`.",
+			"explain": "La pila es LIFO: el 2 entra después del 1, así que `top()` devuelve 2. `pop()` elimina la cima pero no devuelve su valor; por eso se consulta con `top()` antes de extraer."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, el mapa hace dos trabajos a la vez: asocia cada letra con su contador y garantiza el orden alfabético al recorrerlo. Si hubieras usado un `unordered_map`, el conteo sería correcto pero las líneas podrían salir en cualquier orden. En el segundo, la cola de prioridad no conserva el orden de llegada: conserva el orden de urgencia. Los dos 1 aparecen dos veces porque son dos elementos distintos, y por eso una `priority_queue` no sirve para deduplicar. Elegir entre `set`, `map` y `priority_queue` depende de si el problema pide unicidad, asociación o prioridad."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`std::map` y `std::set` usan un árbol balanceado: O(log n) y recorrido ordenado por clave.",
+				"`std::unordered_map` y `std::unordered_set` usan hash: O(1) promedio, sin orden y con peor caso O(n).",
+				"`m[clave]` inserta si la clave falta; `find`, `contains` y `at` consultan sin crear.",
+				"`std::set` elimina duplicados y no permite modificar sus elementos en el lugar.",
+				"`stack` es LIFO, `queue` es FIFO y `priority_queue` entrega primero el mayor por defecto.",
+				"`top`, `front` y `back` requieren comprobar `empty()` antes.",
+				"La complejidad no lo decide todo: para pocos elementos, un vector ordenado puede ser mejor.",
+				"Elige el contenedor por las operaciones que dominan el algoritmo, no por costumbre."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué contenedor elegirías si necesitas recorrer las claves en orden alfabético y buscar por clave?",
+			"options": ["`std::stack`", "`std::unordered_map`", "`std::map`", "`std::priority_queue`"],
+			"answer": 2,
+			"explain": "`std::map` mantiene las claves ordenadas y ofrece búsqueda O(log n). `unordered_map` busca más rápido en promedio pero no define orden; la pila y la cola de prioridad no son diccionarios."
+		},
+		{
+			"type": "quiz",
+			"question": "`std::map<std::string, int> m;` está vacío. ¿Qué hace `m[\"x\"];`?",
+			"options": [
+				"Lanza `std::out_of_range`",
+				"Devuelve 0 sin modificar el mapa",
+				"Inserta `\"x\"` con valor 0 y el tamaño pasa a 1",
+				"No compila porque la clave no existe"
+			],
+			"answer": 2,
+			"explain": "`operator[]` crea la clave con un valor inicializado si no está. Para consultar sin insertar se usa `find`, `contains` o `at`, que no modifican el mapa."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la diferencia esencial entre `std::stack` y `std::queue`?",
+			"options": [
+				"La pila ordena los elementos y la cola no",
+				"La pila extrae el último que entró; la cola, el primero",
+				"La cola permite búsqueda binaria y la pila no",
+				"La pila usa hash y la cola usa un árbol"
+			],
+			"answer": 1,
+			"explain": "`stack` es LIFO: `top()` es el último insertado. `queue` es FIFO: `front()` es el primero que llegó. Ninguna de las dos ordena por valor ni busca; solo limitan el orden de acceso."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · std::map",
+					"url": "https://en.cppreference.com/w/cpp/container/map",
+					"note": "árbol ordenado"
+				},
+				{
+					"label": "cppreference · std::unordered_map",
+					"url": "https://en.cppreference.com/w/cpp/container/unordered_map",
+					"note": "tabla hash"
+				},
+				{
+					"label": "cppreference · std::priority_queue",
+					"url": "https://en.cppreference.com/w/cpp/container/priority_queue",
+					"note": "montículo y comparadores"
+				}
+			]
+		}
+	]
+}

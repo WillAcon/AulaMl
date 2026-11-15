@@ -1,0 +1,534 @@
+{
+	"id": "cpp-15-herencia",
+	"track": "cpp",
+	"order": 15,
+	"title": "Herencia, virtual y polimorfismo",
+	"subtitle": "Una interfaz, muchas implementaciones y la decisión que se toma en tiempo de ejecución",
+	"level": "avanzado",
+	"minutes": 50,
+	"tags": [
+		"herencia",
+		"polimorfismo",
+		"virtual",
+		"poo"
+	],
+	"keywords": [
+		"qué es la herencia",
+		"virtual c++",
+		"override",
+		"vtable",
+		"polimorfismo",
+		"destructor virtual",
+		"clase abstracta",
+		"interfaz c++",
+		"object slicing",
+		"composición vs herencia",
+		"clase base"
+	],
+	"summary": "La herencia permite tratar objetos distintos a través de una interfaz común, y `virtual` decide en tiempo de ejecución qué implementación se ejecuta. Aquí ves la vtable por dentro, por qué el destructor debe ser virtual, cómo evitar el object slicing y cuándo conviene componer en lugar de heredar.",
+	"objectives": [
+		"Derivar clases con herencia pública y sobrescribir métodos con override",
+		"Explicar cómo la vtable resuelve una llamada virtual en ejecución",
+		"Declarar clases abstractas con métodos puros y usarlas mediante referencias o unique_ptr",
+		"Justificar el destructor virtual y reconocer un object slicing",
+		"Elegir entre herencia y composición según la relación del dominio"
+	],
+	"prerequisites": [
+		"Clases, constructores y encapsulamiento",
+		"RAII y punteros inteligentes"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hay problemas donde varios tipos comparten un contrato: toda figura sabe calcular su área, toda métrica sabe comparar dos vectores, toda activación transforma un número. La **herencia** permite declarar ese contrato una vez y que cada tipo lo cumpla a su manera. El **polimorfismo** es la capacidad de escribir código que llama a ese contrato sin saber qué tipo concreto tiene delante."
+		},
+		{
+			"type": "p",
+			"md": "La diferencia con una función sobrecargada es cuándo se decide. En la sobrecarga, el compilador elige la versión mirando los tipos estáticos. Con `virtual`, la elección ocurre en ejecución, según el tipo real del objeto. Esa es la única forma de recorrer un `std::vector` con objetos de clases distintas y que cada uno ejecute su propio código."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la herencia pública?"
+		},
+		{
+			"type": "p",
+			"md": "Una clase derivada declara que **es un** caso particular de la base: `class Circulo : public Figura` significa que un `Circulo` puede usarse en cualquier lugar donde se espere una `Figura`. Hereda sus miembros públicos y protegidos, y puede añadir los suyos o redefinir el comportamiento de los métodos virtuales."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Herencia pública** (`: public Base`): mantiene la relación «es un» y es la única habitual en diseño.",
+				"**Herencia privada o protegida**: implementa en términos de la base sin exponer la conversión; se usa muy poco.",
+				"**Sobrescritura**: la derivada declara un método con la misma firma y lo marca `override`.",
+				"**Método virtual puro** (`= 0`): no tiene implementación en la base y obliga a las derivadas a darla.",
+				"**Clase abstracta**: tiene al menos un método puro y no se puede instanciar."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve el polimorfismo?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Extender sin tocar**: añadir una figura nueva no obliga a modificar el bucle que suma áreas.",
+				"**Desacoplar**: el código cliente depende de `Metrica`, no de MAE ni de RMSE.",
+				"**Modelar variantes**: activaciones, optimizadores, capas o *plugins* comparten interfaz y cambian el comportamiento.",
+				"**Probar con dobles**: una implementación falsa de la interfaz sustituye a la real en un test.",
+				"**Evitar cadenas de `if`**: en lugar de preguntar el tipo y ramificar, cada clase hace lo suyo."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La contrapartida es el coste y la complejidad: cada llamada virtual es un salto indirecto que el compilador no siempre puede predecir, y una jerarquía mal diseñada acopla todas las derivadas a los detalles de la base. Por eso la última sección trata de cuándo conviene no heredar."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? La vtable"
+		},
+		{
+			"type": "p",
+			"md": "Cuando una clase tiene métodos virtuales, el compilador crea una **tabla virtual** (vtable): un array de punteros a función, uno por método virtual, con la implementación que corresponde a esa clase. Cada objeto guarda, en su primer campo oculto, un puntero a la vtable de su tipo dinámico, el `vptr`."
+		},
+		{
+			"type": "p",
+			"md": "Una llamada `f->area()` se convierte en: leer el `vptr` del objeto, buscar la entrada de `area` en la vtable y saltar a esa dirección. De ahí vienen dos consecuencias. Primera, el objeto crece: un `int` de tamaño 4 puede pasar a ocupar 16 con el `vptr` y la alineación. Segunda, la decisión se toma con el tipo **dinámico**, el del objeto real, no con el tipo del puntero o de la referencia."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Concepto",
+				"Qué es",
+				"Cuándo se resuelve"
+			],
+			"rows": [
+				[
+					"Tipo estático",
+					"El declarado: `Figura*`, `const Base&`",
+					"En compilación"
+				],
+				[
+					"Tipo dinámico",
+					"El del objeto real al que apunta",
+					"En ejecución"
+				],
+				[
+					"Llamada no virtual",
+					"Salto directo a la función de la base",
+					"En compilación"
+				],
+				[
+					"Llamada virtual",
+					"Indirección a través de la vtable",
+					"En ejecución"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El `vptr` se escribe en el constructor, y por eso una llamada virtual dentro de un constructor ejecuta la versión de la clase que se está construyendo, no la de la derivada: en ese momento la derivada aún no existe. Es un error sutil que el compilador no señala como tal."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "base abstracta y derivada",
+			"code": "class Base {\npublic:\n    virtual ~Base() = default;                 // destructor virtual\n    virtual double evaluar(double x) const = 0; // pura: obliga a implementar\n};\n\nclass Derivada : public Base {\npublic:\n    double evaluar(double x) const override;   // misma firma, misma const\n};"
+		},
+		{
+			"type": "p",
+			"md": "`override` no es obligatorio, pero sí imprescindible en la práctica: si la firma no coincide exactamente —por ejemplo, si olvidas el `const`— el compilador avisa con `marked override, but does not override` en lugar de crear silenciosamente un método nuevo que nunca se llama. La firma incluye nombre, parámetros y cualificadores; el tipo de retorno solo puede ser covariante."
+		},
+		{
+			"type": "p",
+			"md": "La clase derivada inicializa la base en su lista de inicialización: `Circulo(double r) : Figura(), radio_(r) {}`. Si la base no tiene constructor por defecto, hay que llamar explícitamente a uno con parámetros. El orden de construcción es siempre base primero, derivada después, y la destrucción al revés."
+		},
+		{
+			"type": "compare",
+			"title": "La misma interfaz en los dos lenguajes",
+			"python": {
+				"caption": "figuras.py",
+				"code": "from abc import ABC, abstractmethod\n\nclass Figura(ABC):\n    @abstractmethod\n    def area(self): ...\n\nclass Cuadrado(Figura):\n    def __init__(self, lado):\n        self.lado = lado\n    def area(self):\n        return self.lado ** 2\n\nprint(Cuadrado(3).area())  # 9"
+			},
+			"cpp": {
+				"caption": "figuras.cpp",
+				"code": "class Figura {\npublic:\n    virtual ~Figura() = default;\n    virtual double area() const = 0;\n};\n\nclass Cuadrado : public Figura {\npublic:\n    explicit Cuadrado(double lado) : lado_(lado) {}\n    double area() const override { return lado_ * lado_; }\nprivate:\n    double lado_;\n};"
+			},
+			"note": "Python marca la abstracción con `@abstractmethod` y comprueba en tiempo de ejecución; C++ la marca con `= 0` y comprueba en compilación. En ambos casos la clase base no se puede instanciar y las derivadas deben implementar el método."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: figuras a través de la base"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "figuras.cpp",
+			"code": "#include <iostream>\n#include <memory>\n#include <string>\n#include <vector>\n\nclass Figura {\npublic:\n    virtual ~Figura() = default;\n    virtual double area() const = 0;\n    virtual std::string nombre() const = 0;\n};\n\nclass Circulo : public Figura {\npublic:\n    explicit Circulo(double radio) : radio_(radio) {}\n    double area() const override { return 3.141592653589793 * radio_ * radio_; }\n    std::string nombre() const override { return \"circulo\"; }\n\nprivate:\n    double radio_;\n};\n\nclass Rectangulo : public Figura {\npublic:\n    Rectangulo(double ancho, double alto) : ancho_(ancho), alto_(alto) {}\n    double area() const override { return ancho_ * alto_; }\n    std::string nombre() const override { return \"rectangulo\"; }\n\nprivate:\n    double ancho_;\n    double alto_;\n};\n\nint main() {\n    std::vector<std::unique_ptr<Figura>> figuras;\n    figuras.push_back(std::make_unique<Circulo>(2.0));\n    figuras.push_back(std::make_unique<Rectangulo>(3.0, 4.0));\n\n    double total = 0.0;\n    for (const auto& f : figuras) {\n        std::cout << f->nombre() << \": \" << f->area() << '\\n';\n        total += f->area();\n    }\n    std::cout << \"total: \" << total << '\\n';\n    return 0;\n}",
+			"highlight": [
+				8,
+				9,
+				29,
+				34,
+				40
+			]
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`Figura` declara dos métodos puros, así que es abstracta: `Figura f;` no compila.",
+				"`Circulo` y `Rectangulo` heredan públicamente y sobrescriben ambos métodos con `override`.",
+				"El vector guarda `std::unique_ptr<Figura>`: posee objetos de tipos distintos a través de un puntero común.",
+				"`f->area()` se resuelve por la vtable de cada objeto; el bucle no sabe ni le importa qué tipo concreto es."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `circulo: 12.5664`, `rectangulo: 12` y `total: 24.5664`. Si añadieras un `Triangulo`, bastaría con crear la clase y añadirla al vector: ni el bucle ni la suma cambian. Esa es la ganancia real del polimorfismo, y también su trampa: el código cliente ya no sabe qué tipos existen."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: activaciones intercambiables"
+		},
+		{
+			"type": "p",
+			"md": "En una red neuronal las capas aplican activaciones distintas sobre los mismos datos. La interfaz `Activacion` fija el contrato y el bucle que evalúa solo ve `const Activacion&`."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "activaciones.cpp",
+			"code": "#include <cmath>\n#include <iomanip>\n#include <iostream>\n#include <memory>\n#include <string>\n#include <vector>\n\nclass Activacion {\npublic:\n    virtual ~Activacion() = default;\n    virtual double aplicar(double x) const = 0;\n    virtual std::string nombre() const = 0;\n};\n\nclass ReLU : public Activacion {\npublic:\n    double aplicar(double x) const override { return x > 0.0 ? x : 0.0; }\n    std::string nombre() const override { return \"relu\"; }\n};\n\nclass Sigmoide : public Activacion {\npublic:\n    double aplicar(double x) const override { return 1.0 / (1.0 + std::exp(-x)); }\n    std::string nombre() const override { return \"sigmoide\"; }\n};\n\nint main() {\n    std::vector<std::unique_ptr<Activacion>> capa;\n    capa.push_back(std::make_unique<ReLU>());\n    capa.push_back(std::make_unique<Sigmoide>());\n\n    std::cout << std::fixed << std::setprecision(3);\n    for (const auto& act : capa) {\n        std::cout << act->nombre() << \"(-2) = \" << act->aplicar(-2.0) << '\\n';\n    }\n    return 0;\n}",
+			"highlight": [
+				11,
+				12,
+				17,
+				22,
+				32
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `relu(-2) = 0.000` y `sigmoide(-2) = 0.119`. La misma llamada `aplicar(-2.0)` ejecuta dos fórmulas distintas porque el objeto real es distinto. `ReLU` no necesita estado y su constructor implícito basta; `Sigmoide` tampoco guarda nada, pero podría hacerlo sin cambiar la interfaz."
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en `override` en ambas derivadas y en el destructor virtual de la base. Sin ese destructor, borrar un `Sigmoide` a través de un `unique_ptr<Activacion>` sería comportamiento indefinido: el compilador llamaría solo al destructor de la base."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un pipeline compuesto de transformadores"
+		},
+		{
+			"type": "p",
+			"md": "La herencia resuelve la variación; la composición resuelve la estructura. Un `Pipeline` **tiene** una secuencia de transformadores y los aplica en orden. Cada paso es polimórfico, pero el pipeline no hereda de nadie: contiene."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "pipeline.cpp",
+			"code": "#include <algorithm>\n#include <iostream>\n#include <memory>\n#include <utility>\n#include <vector>\n\nclass Transformador {\npublic:\n    virtual ~Transformador() = default;\n    virtual double aplicar(double x) const = 0;\n};\n\nclass Escalar : public Transformador {\npublic:\n    explicit Escalar(double factor) : factor_(factor) {}\n    double aplicar(double x) const override { return x * factor_; }\n\nprivate:\n    double factor_;\n};\n\nclass Recortar : public Transformador {\npublic:\n    explicit Recortar(double limite) : limite_(limite) {}\n    double aplicar(double x) const override { return std::min(x, limite_); }\n\nprivate:\n    double limite_;\n};\n\nclass Pipeline {\npublic:\n    void agregar(std::unique_ptr<Transformador> paso) {\n        pasos_.push_back(std::move(paso));\n    }\n\n    double ejecutar(double x) const {\n        for (const auto& paso : pasos_) {\n            x = paso->aplicar(x);\n        }\n        return x;\n    }\n\nprivate:\n    std::vector<std::unique_ptr<Transformador>> pasos_;\n};\n\nint main() {\n    Pipeline p;\n    p.agregar(std::make_unique<Escalar>(2.0));\n    p.agregar(std::make_unique<Recortar>(5.0));\n    std::cout << p.ejecutar(4.0) << '\\n';\n    return 0;\n}",
+			"highlight": [
+				33,
+				36,
+				43,
+				51
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `5`. El valor 4 se multiplica por 2 y da 8; después `Recortar` lo limita a 5. El pipeline no conoce las clases concretas, solo `Transformador`, y `agregar` toma posesión del paso con `std::move`, de modo que el `unique_ptr` del llamador queda vacío y sin riesgo de doble liberación."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "override convierte un bug silencioso en un error de compilación",
+			"md": "Sin `override`, una firma que no coincide crea un método nuevo que oculta al virtual y nunca se ejecuta a través de la base. Con `override`, el compilador comprueba que existe un método virtual con esa firma exacta. Escríbelo siempre, incluso cuando creas que no hace falta."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: despacho virtual y slicing"
+		},
+		{
+			"type": "p",
+			"md": "La traza compara dos accesos al mismo objeto derivado. Por una referencia, la llamada llega a la implementación de `Derivada`; por una copia en un `Base`, la parte derivada se perdió antes de la llamada. Observa en qué paso cambia el tipo dinámico."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Un objeto, dos caminos",
+			"code": "#include <iostream>\n#include <string>\n\nstruct Base {\n    virtual ~Base() = default;\n    virtual std::string nombre() const { return \"Base\"; }\n};\n\nstruct Derivada : Base {\n    std::string nombre() const override { return \"Derivada\"; }\n};\n\nint main() {\n    Derivada d;\n    Base& ref = d;\n    Base copia = d;\n    std::cout << ref.nombre() << '\\n';\n    std::cout << copia.nombre() << '\\n';\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 14,
+					"note": "Se construye `d`. Su `vptr` apunta a la vtable de `Derivada`, donde la entrada de `nombre` es la versión derivada.",
+					"vars": {
+						"d": "Derivada",
+						"ref": "—",
+						"copia": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 15,
+					"note": "`ref` se enlaza a `d` sin copiar nada. El tipo estático es `Base&`; el dinámico sigue siendo `Derivada`.",
+					"vars": {
+						"d": "Derivada",
+						"ref": "→ d",
+						"copia": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 16,
+					"note": "`copia` se construye con el constructor de copia de `Base`: solo se copia la subparte base y se pierde el resto. Es el object slicing, y aquí no avisa nadie.",
+					"vars": {
+						"d": "Derivada",
+						"ref": "→ d",
+						"copia": "Base (recortada)"
+					},
+					"output": ""
+				},
+				{
+					"line": 17,
+					"note": "La llamada por `ref` es virtual: consulta la vtable de `d` y ejecuta `Derivada::nombre`.",
+					"vars": {
+						"d": "Derivada",
+						"ref": "→ d",
+						"copia": "Base (recortada)"
+					},
+					"output": "Derivada\n"
+				},
+				{
+					"line": 18,
+					"note": "`copia` es un objeto `Base` completo, con la vtable de `Base`. La llamada ejecuta la versión base.",
+					"vars": {
+						"d": "Derivada",
+						"ref": "→ d",
+						"copia": "Base (recortada)"
+					},
+					"output": "Base\n"
+				},
+				{
+					"line": 20,
+					"note": "Al salir de `main` se destruyen `copia`, `ref` (no destruye nada, es una referencia) y `d`. El destructor virtual garantiza el orden correcto.",
+					"vars": {
+						"d": "destruido",
+						"ref": "fin",
+						"copia": "destruido"
+					},
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "El paso tres es el que hay que recordar: una copia por valor de un objeto polimórfico no conserva el tipo. Si necesitas copiar objetos de una jerarquía, hazlo a través de un método virtual `clonar()` que devuelva `std::unique_ptr<Base>`, o evita la copia y usa referencias y punteros."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Error",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`cannot instantiate abstract class`",
+					"La clase tiene métodos puros o falta implementarlos en la derivada",
+					"Implementa todos los métodos puros o usa la base solo por referencia"
+				],
+				[
+					"`marked 'override', but does not override`",
+					"La firma no coincide: falta `const`, cambia un parámetro o el nombre",
+					"Copia la firma exacta de la base y revisa los cualificadores"
+				],
+				[
+					"Fuga al borrar por puntero a la base",
+					"El destructor de la base no es virtual",
+					"Declara `virtual ~Base() = default;`"
+				],
+				[
+					"La función imprime el nombre de la base",
+					"Recibiste el parámetro por valor y sufriste object slicing",
+					"Usa `const Base&` o `const std::unique_ptr<Base>&`"
+				],
+				[
+					"La llamada virtual del constructor no llega a la derivada",
+					"Durante la construcción de la base, la derivada aún no existe",
+					"No llames a métodos virtuales desde constructores ni destructores"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El tercer error es el más peligroso porque el programa compila y a menudo «funciona»: el destructor de la base se ejecuta, la parte derivada no se destruye y la memoria que poseía queda perdida. Con `-Wall -Wextra` puede aparecer `delete-non-virtual-dtor`, pero solo si el compilador puede ver el tipo."
+		},
+		{
+			"type": "diff",
+			"title": "Pasar por valor recorta el objeto",
+			"wrong": {
+				"caption": "Incorrecto: parámetro por valor",
+				"code": "#include <iostream>\n#include <string>\n\nstruct Base {\n    virtual std::string nombre() const { return \"Base\"; }\n};\n\nstruct Derivada : Base {\n    std::string nombre() const override { return \"Derivada\"; }\n};\n\nvoid imprimir(Base b) {\n    std::cout << b.nombre() << '\\n';\n}\n\nint main() {\n    Derivada d;\n    imprimir(d);\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto: referencia a la base",
+				"code": "#include <iostream>\n#include <string>\n\nstruct Base {\n    virtual std::string nombre() const { return \"Base\"; }\n};\n\nstruct Derivada : Base {\n    std::string nombre() const override { return \"Derivada\"; }\n};\n\nvoid imprimir(const Base& b) {\n    std::cout << b.nombre() << '\\n';\n}\n\nint main() {\n    Derivada d;\n    imprimir(d);\n    return 0;\n}"
+			},
+			"explain": "La primera versión imprime `Base`: al pasar por valor se construye un `Base` nuevo y el tipo dinámico se pierde. La segunda imprime `Derivada`: la referencia conserva el objeto original y el despacho virtual lo encuentra. El diagnóstico es invisible en el código de llamada, por eso conviene que las funciones polimórficas reciban siempre referencias."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Declara `virtual ~Base() = default;` en toda clase pensada para ser base.",
+				"Marca cada sobrescritura con `override` y usa `final` si no quieres más derivadas.",
+				"Recibe los objetos polimórficos por `const&` o por puntero inteligente, nunca por valor.",
+				"Prefiere interfaces pequeñas: un método puro por responsabilidad real.",
+				"No llames a métodos virtuales desde constructores ni destructores.",
+				"Usa `std::unique_ptr<Base>` para poseer y `Base&` para observar.",
+				"Antes de heredar, pregúntate si la relación es realmente «es un»."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Tres figuras y la de mayor área",
+			"md": "Define una clase abstracta `Figura` con `area()` y `nombre()` puros y destructor virtual. Deriva `Circulo` (radio 1), `Rectangulo` (2x3) y `Triangulo` (base 4, altura 5). Guárdalas en un `std::vector<std::unique_ptr<Figura>>`, imprime cada área con dos decimales, suma el total y muestra el nombre de la figura con mayor área usando `std::max_element`.",
+			"hint": "El comparador de `max_element` recibe dos `const std::unique_ptr<Figura>&` y compara `a->area() < b->area()`. Para imprimir con dos decimales usa `std::fixed` y `std::setprecision`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "tres_figuras.cpp",
+				"code": "#include <algorithm>\n#include <iomanip>\n#include <iostream>\n#include <memory>\n#include <string>\n#include <vector>\n\nclass Figura {\npublic:\n    virtual ~Figura() = default;\n    virtual double area() const = 0;\n    virtual std::string nombre() const = 0;\n};\n\nclass Circulo : public Figura {\npublic:\n    explicit Circulo(double radio) : radio_(radio) {}\n    double area() const override { return 3.141592653589793 * radio_ * radio_; }\n    std::string nombre() const override { return \"circulo\"; }\n\nprivate:\n    double radio_;\n};\n\nclass Rectangulo : public Figura {\npublic:\n    Rectangulo(double ancho, double alto) : ancho_(ancho), alto_(alto) {}\n    double area() const override { return ancho_ * alto_; }\n    std::string nombre() const override { return \"rectangulo\"; }\n\nprivate:\n    double ancho_;\n    double alto_;\n};\n\nclass Triangulo : public Figura {\npublic:\n    Triangulo(double base, double altura) : base_(base), altura_(altura) {}\n    double area() const override { return base_ * altura_ / 2.0; }\n    std::string nombre() const override { return \"triangulo\"; }\n\nprivate:\n    double base_;\n    double altura_;\n};\n\nint main() {\n    std::vector<std::unique_ptr<Figura>> figuras;\n    figuras.push_back(std::make_unique<Circulo>(1.0));\n    figuras.push_back(std::make_unique<Rectangulo>(2.0, 3.0));\n    figuras.push_back(std::make_unique<Triangulo>(4.0, 5.0));\n\n    std::cout << std::fixed << std::setprecision(2);\n    double total = 0.0;\n    for (const auto& f : figuras) {\n        std::cout << f->nombre() << \": \" << f->area() << '\\n';\n        total += f->area();\n    }\n\n    const auto mayor = std::max_element(\n        figuras.begin(), figuras.end(),\n        [](const std::unique_ptr<Figura>& a, const std::unique_ptr<Figura>& b) {\n            return a->area() < b->area();\n        });\n\n    std::cout << \"total: \" << total << '\\n';\n    std::cout << \"mayor: \" << (*mayor)->nombre() << '\\n';\n    return 0;\n}",
+				"explain": "Las áreas son 3.14, 6.00 y 10.00; el total 19.14 y la mayor es el triángulo. `max_element` compara punteros inteligentes, pero el comparador mira el área del objeto apuntado: el polimorfismo sigue funcionando dentro del algoritmo. Las tres clases se destruyen correctamente al final por el destructor virtual."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Métricas MAE y RMSE tras una interfaz",
+			"md": "Declara una interfaz `Metrica` con `calcular(real, pred)` puro y `nombre()` puro. Implementa `MAE` y `RMSE` para los vectores `{3, 5}` y `{2, 7}`. Recorre un `std::vector<std::unique_ptr<Metrica>>` e imprime cada métrica con dos decimales. Calcula a mano los valores esperados antes de ejecutar.",
+			"hint": "Los errores son 1 y 2. MAE promedia sus valores absolutos; RMSE promedia los cuadrados y aplica `std::sqrt`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "metricas.cpp",
+				"code": "#include <cmath>\n#include <iomanip>\n#include <iostream>\n#include <memory>\n#include <string>\n#include <vector>\n\nclass Metrica {\npublic:\n    virtual ~Metrica() = default;\n    virtual double calcular(const std::vector<double>& real,\n                            const std::vector<double>& pred) const = 0;\n    virtual std::string nombre() const = 0;\n};\n\nclass MAE : public Metrica {\npublic:\n    double calcular(const std::vector<double>& real,\n                    const std::vector<double>& pred) const override {\n        double suma = 0.0;\n        for (std::size_t i = 0; i < real.size(); ++i) {\n            suma += std::abs(real[i] - pred[i]);\n        }\n        return suma / static_cast<double>(real.size());\n    }\n    std::string nombre() const override { return \"MAE\"; }\n};\n\nclass RMSE : public Metrica {\npublic:\n    double calcular(const std::vector<double>& real,\n                    const std::vector<double>& pred) const override {\n        double suma = 0.0;\n        for (std::size_t i = 0; i < real.size(); ++i) {\n            const double error = real[i] - pred[i];\n            suma += error * error;\n        }\n        return std::sqrt(suma / static_cast<double>(real.size()));\n    }\n    std::string nombre() const override { return \"RMSE\"; }\n};\n\nint main() {\n    const std::vector<double> real{3.0, 5.0};\n    const std::vector<double> pred{2.0, 7.0};\n\n    std::vector<std::unique_ptr<Metrica>> metricas;\n    metricas.push_back(std::make_unique<MAE>());\n    metricas.push_back(std::make_unique<RMSE>());\n\n    std::cout << std::fixed << std::setprecision(2);\n    for (const auto& m : metricas) {\n        std::cout << m->nombre() << \": \" << m->calcular(real, pred) << '\\n';\n    }\n    return 0;\n}",
+				"explain": "MAE = (1 + 2) / 2 = 1.50. RMSE = sqrt((1 + 4) / 2) = sqrt(2.5) = 1.58. Ambas clases comparten firma y estado vacío, así que la interfaz es el único acoplamiento. Si mañana añades MAPE, el bucle de impresión no cambia."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la jerarquía",
+			"lang": "cpp",
+			"code": "class Base {\npublic:\n    ___ ~Base() = default;\n    virtual double f() const = 0;\n};\n\nclass D : public Base {\npublic:\n    double f() const ___ { return 1.0; }\n};",
+			"answers": [
+				"virtual",
+				"override"
+			],
+			"hint": "El destructor de una base polimórfica debe permitir el borrado correcto; la derivada declara que sobrescribe.",
+			"explain": "`virtual ~Base()` hace que `delete` a través de un `Base*` destruya también la parte derivada. `override` obliga al compilador a comprobar que `D::f` coincide exactamente con la firma virtual de la base."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de figuras, el punto delicado es `max_element`: recibe dos `unique_ptr` y el comparador desreferencia para comparar áreas. Si compararas los punteros directamente, ordenarías por dirección de memoria, un resultado sin sentido que cambia entre ejecuciones. El total se acumula en el mismo bucle que imprime, así que no hay que recorrer el vector dos veces."
+		},
+		{
+			"type": "p",
+			"md": "En las métricas, ambas implementaciones tienen la misma firma y el `override` garantiza que así sea. La interfaz no impone cómo se calcula, solo qué se recibe y qué se devuelve. Y el destructor virtual no es decorativo: el vector posee `MAE` y `RMSE` a través de `Metrica`, así que el borrado ocurre con el tipo estático de la base."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"La herencia pública expresa una relación «es un» y permite usar la derivada como base.",
+				"`virtual` decide la implementación en ejecución mediante la vtable; sin él, se usa el tipo estático.",
+				"`override` convierte una firma equivocada en un error de compilación.",
+				"Una clase con métodos puros es abstracta y no se puede instanciar.",
+				"El destructor de una base polimórfica debe ser virtual.",
+				"Las funciones que reciben objetos polimórficos usan `const&` o punteros inteligentes para evitar slicing.",
+				"La composición suele ser más flexible: hereda contratos, compón implementaciones."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué una clase base polimórfica necesita un destructor virtual?",
+			"options": [
+				"Para que el destructor se ejecute más rápido",
+				"Para que `delete` a través de un puntero a la base destruya también la parte derivada",
+				"Porque sin él la clase no puede tener métodos virtuales",
+				"Para evitar el object slicing al copiar"
+			],
+			"answer": 1,
+			"explain": "Sin destructor virtual, `delete base_ptr` solo ejecuta el destructor de la base y deja sin destruir los miembros de la derivada: fuga de recursos y comportamiento indefinido. El destructor virtual no evita el slicing, que ocurre al copiar por valor."
+		},
+		{
+			"type": "quiz",
+			"question": "Con `Derivada d; Base& ref = d;` y `nombre()` virtual, ¿qué devuelve `ref.nombre()`?",
+			"options": [
+				"La versión de `Base`, porque la referencia es de tipo `Base`",
+				"La versión de `Derivada`, porque el tipo dinámico es `Derivada`",
+				"No compila: una referencia no puede apuntar a una derivada",
+				"Depende de si `nombre()` está marcado `override`"
+			],
+			"answer": 1,
+			"explain": "La llamada virtual se resuelve con el tipo dinámico del objeto, no con el tipo de la referencia. `override` solo verifica la firma; no cambia el despacho."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué ocurre al pasar un objeto `Derivada` a una función que recibe `Base` por valor?",
+			"options": [
+				"Se copia el objeto completo y se conserva el tipo dinámico",
+				"Se construye un `Base` con la parte base y se pierde el resto: object slicing",
+				"El programa no compila",
+				"Se produce una fuga de memoria inmediata"
+			],
+			"answer": 1,
+			"explain": "El parámetro por valor es un objeto `Base` nuevo, construido con el constructor de copia de `Base`. La parte derivada no cabe en él y se descarta; las llamadas virtuales usan la vtable de `Base`."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference: clases derivadas",
+					"url": "https://en.cppreference.com/w/cpp/language/derived_class",
+					"note": "herencia y acceso"
+				},
+				{
+					"label": "cppreference: funciones virtuales",
+					"url": "https://en.cppreference.com/w/cpp/language/virtual",
+					"note": "virtual, override y final"
+				},
+				{
+					"label": "C++ Core Guidelines: jerarquías",
+					"url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-hier",
+					"note": "diseño de clases base"
+				}
+			]
+		}
+	]
+}

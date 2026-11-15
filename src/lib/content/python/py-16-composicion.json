@@ -1,0 +1,628 @@
+{
+	"id": "py-16-composicion",
+	"track": "python",
+	"order": 16,
+	"title": "Composición y diseño de clases",
+	"subtitle": "Construir objetos a partir de otros: responsabilidades pequeñas, inyección de dependencias y menos acoplamiento",
+	"level": "intermedio",
+	"minutes": 34,
+	"tags": [
+		"poo",
+		"composicion",
+		"diseno",
+		"acoplamiento",
+		"inyeccion"
+	],
+	"keywords": [
+		"composición vs herencia",
+		"inyección de dependencias python",
+		"acoplamiento",
+		"diseño de clases",
+		"relación tiene un",
+		"delegación",
+		"pipeline de datos",
+		"clases pequeñas",
+		"responsabilidad única",
+		"desacoplar clases",
+		"objetos compuestos"
+	],
+	"summary": "La composición construye objetos a partir de otros en vez de heredar de ellos. Aquí diseñas clases con una responsabilidad clara, pasas las dependencias por el constructor y montas un pipeline de datos que puedes cambiar y probar sin tocar el resto del sistema.",
+	"objectives": [
+		"Distinguir una relación «tiene un» de una relación «es un» y elegir composición",
+		"Delegar trabajo a un objeto guardado como atributo",
+		"Inyectar dependencias por el constructor y sustituirlas en una prueba",
+		"Separar un pipeline de datos en clases pequeñas con una sola responsabilidad",
+		"Reconocer el acoplamiento excesivo y el estado compartido accidental"
+	],
+	"prerequisites": [
+		"Herencia, polimorfismo y abstracción"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En la lección anterior usaste la herencia para reutilizar comportamiento. Funciona, pero no es la única forma y muchas veces no es la correcta. Un `Auto` no **es** un `Motor`: lo **tiene**. Un `Informe` no **es** un `LectorCSV`: lo usa. Forzar esas relaciones en una jerarquía produce clases que arrastran métodos que no les corresponden."
+		},
+		{
+			"type": "p",
+			"md": "La **composición** resuelve esos casos: un objeto guarda otros objetos como atributos y les delega la parte del trabajo que les corresponde. Es la técnica más usada en código real y la que convierte un programa en un conjunto de piezas sustituibles en lugar de un bloque monolítico."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la composición?"
+		},
+		{
+			"type": "p",
+			"md": "Componer es construir un objeto a partir de otros. `Auto` recibe un `Motor` en su constructor, lo guarda en `self.motor` y, cuando necesita arrancar, llama a `self.motor.arrancar()`. La clase no hereda el comportamiento: lo **delega**."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en piezas de Lego: el castillo no hereda del ladrillo, se construye con ladrillos. Cambiar una torre por otra más alta no exige redefinir el castillo entero; basta con cambiar esa pieza. En código, sustituir el lector de CSV por uno de Excel debería ser igual de local."
+		},
+		{
+			"type": "p",
+			"md": "Componer no significa crear veinte clases de tres líneas. Significa que cada clase tenga **una responsabilidad** identificable y que las demás colaboren con ella en lugar de repetir su lógica. Si una clase lee archivos, limpia datos y escribe informes, tiene tres motivos para cambiar y ninguna prueba sencilla."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Cambiar una pieza sin tocar el resto**: pasar de un lector de lista a un lector de CSV sin reescribir el informe.",
+				"**Probar sin infraestructura**: inyectar un notificador que guarda mensajes en una lista en vez de enviar correos.",
+				"**Evitar jerarquías rígidas**: no todo encaja en un árbol de clases, y forzarlo cuesta más de lo que ahorra.",
+				"**Modelar el dominio**: un pedido tiene líneas; un informe tiene fuente, limpiador y resumen.",
+				"**Encadenar pasos de ML**: escalar, imputar y codificar son objetos que se aplican en secuencia sobre los datos."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "La composición también es duck typing",
+			"md": "`Informe` no necesita que su fuente herede de nada: solo llama a `fuente.leer()`. Cualquier objeto con ese método sirve, sea un archivo, una lista o un simulador de pruebas. La interfaz es el método, no la clase base."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cuando `Auto.arrancar` ejecuta `self.motor.arrancar()`, ocurren dos pasos: se busca el atributo `motor` en el objeto y se invoca el método sobre **ese otro objeto**. Python no copia el motor dentro del auto: guarda una referencia. Si dos autos reciben el mismo `Motor`, los dos ven los cambios que se hagan en él."
+		},
+		{
+			"type": "p",
+			"md": "Esa referencia compartida es útil para un servicio que todos usan y peligrosa para un estado que debería ser propio. Si tu clase guarda una lista recibida y la modifica, estás cambiando la lista de quien te la pasó. Copiar al recibir (`list(valores)`) o al devolver evita sorpresas."
+		},
+		{
+			"type": "p",
+			"md": "La **inyección de dependencias** es la consecuencia de diseño: la clase no crea sus colaboradores dentro de un método, los recibe en el constructor. `Informe(fuente, limpiador, resumen)` puede recibir tres objetos reales en producción y tres dobles en una prueba. Si `Informe` hiciera `self.fuente = LectorCSV(ruta)`, quedaría atado a una ruta y a un formato."
+		},
+		{
+			"type": "p",
+			"md": "El **acoplamiento** mide cuánto sabe una clase de otra. Llamar a `.leer()` es un acoplamiento débil: solo depende de un nombre y de un contrato. Llamar a `lector.archivo.name.split(\".\")[1]` es fuerte: depende de la estructura interna y se rompe si el colaborador cambia. Cuanto menos sepa, más fácil es sustituir."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Componer y delegar",
+			"code": "class Motor:\n    def __init__(self, caballos):\n        self.caballos = caballos\n\n    def arrancar(self):\n        return f\"Motor de {self.caballos} CV en marcha\"\n\nclass Auto:\n    def __init__(self, marca, motor):\n        self.marca = marca\n        self.motor = motor          # el motor se recibe, no se crea\n\n    def arrancar(self):\n        return f\"{self.marca}: {self.motor.arrancar()}\"\n\nauto = Auto(\"Toyota\", Motor(120))\nprint(auto.arrancar())",
+			"highlight": [
+				11,
+				14
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Forma",
+				"Qué expresa",
+				"Ejemplo"
+			],
+			"rows": [
+				[
+					"Atributo compuesto",
+					"«tiene un»",
+					"`self.motor = motor`"
+				],
+				[
+					"Delegación",
+					"reenviar el trabajo al colaborador",
+					"`self.motor.arrancar()`"
+				],
+				[
+					"Inyección por constructor",
+					"recibir la dependencia desde fuera",
+					"`Auto(\"Toyota\", motor)`"
+				],
+				[
+					"Interfaz implícita",
+					"basta con que exista el método",
+					"`fuente.leer()`"
+				],
+				[
+					"Herencia",
+					"«es un»",
+					"`class Auto(Vehiculo)`"
+				]
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Un objeto dentro de otro",
+			"python": {
+				"caption": "auto.py",
+				"code": "class Motor:\n    def __init__(self, caballos):\n        self.caballos = caballos\n\n    def arrancar(self):\n        return f\"Motor de {self.caballos} CV en marcha\"\n\nclass Auto:\n    def __init__(self, marca, motor):\n        self.marca = marca\n        self.motor = motor\n\n    def arrancar(self):\n        return f\"{self.marca}: {self.motor.arrancar()}\"\n\nprint(Auto(\"Toyota\", Motor(120)).arrancar())"
+			},
+			"cpp": {
+				"caption": "auto.cpp",
+				"code": "#include <iostream>\n#include <string>\n#include <utility>\n\nclass Motor {\npublic:\n    explicit Motor(int caballos) : caballos_(caballos) {}\n\n    std::string arrancar() const {\n        return \"Motor de \" + std::to_string(caballos_) + \" CV en marcha\";\n    }\n\nprivate:\n    int caballos_;\n};\n\nclass Auto {\npublic:\n    Auto(std::string marca, Motor motor)\n        : marca_(std::move(marca)), motor_(std::move(motor)) {}\n\n    std::string arrancar() const {\n        return marca_ + \": \" + motor_.arrancar();\n    }\n\nprivate:\n    std::string marca_;\n    Motor motor_;\n};\n\nint main() {\n    Auto auto1{\"Toyota\", Motor{120}};\n    std::cout << auto1.arrancar() << '\\n';\n    return 0;\n}"
+			},
+			"note": "En Python `self.motor` guarda una referencia: el motor se comparte si el mismo objeto se pasa a dos autos. En C++ el miembro es un valor y se copia o se mueve al construir; para compartir haría falta una referencia o un puntero."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: el auto y su motor"
+		},
+		{
+			"type": "p",
+			"md": "El caso mínimo: el auto no sabe calcular caballos ni encender el motor, solo coordina. `Motor` puede cambiar su funcionamiento interno sin que `Auto` se entere."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "auto.py",
+			"code": "class Motor:\n    def __init__(self, caballos):\n        self.caballos = caballos\n\n    def arrancar(self):\n        return \"en marcha\"\n\nclass Auto:\n    def __init__(self, marca, motor):\n        self.marca = marca\n        self.motor = motor\n\n    def arrancar(self):\n        return f\"{self.marca}: {self.motor.arrancar()}\"\n\nauto = Auto(\"Toyota\", Motor(120))\nprint(auto.arrancar())\nprint(auto.motor.caballos)",
+			"highlight": [
+				10,
+				11,
+				14,
+				18
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Toyota: en marcha` y `120`. `auto.motor` es un objeto `Motor` completo, no una copia de sus atributos. Por eso `auto.motor.caballos` funciona. Si mañana `Motor` añade `consumo`, el auto lo expone sin tocar una línea, y si se reemplaza por un `MotorElectrico` con el mismo método `arrancar`, el auto sigue funcionando."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: inyectar un colaborador"
+		},
+		{
+			"type": "p",
+			"md": "Un servicio de pagos debe avisar de cada cobro. Si el aviso se imprime dentro del método, no puedes probar el cobro sin ensuciar la salida ni cambiar de canal sin editar el servicio. Inyectar el notificador separa ambas responsabilidades."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pagos.py",
+			"code": "class NotificadorConsola:\n    def __init__(self, prefijo):\n        self.prefijo = prefijo\n\n    def enviar(self, mensaje):\n        print(f\"{self.prefijo} {mensaje}\")\n\nclass ServicioPagos:\n    def __init__(self, notificador):\n        self.notificador = notificador\n        self.pagos = []\n\n    def cobrar(self, monto):\n        if monto <= 0:\n            raise ValueError(\"el monto debe ser positivo\")\n        self.pagos.append(monto)\n        self.notificador.enviar(f\"cobro de {monto}\")\n        return monto\n\nclass NotificadorFalso:\n    def __init__(self):\n        self.mensajes = []\n\n    def enviar(self, mensaje):\n        self.mensajes.append(mensaje)\n\nfalso = NotificadorFalso()\nservicio = ServicioPagos(falso)\nservicio.cobrar(50)\nprint(len(falso.mensajes), falso.mensajes)",
+			"highlight": [
+				10,
+				18,
+				20,
+				29
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `1 ['cobro de 50']`. `NotificadorFalso` no hereda de `NotificadorConsola`: solo tiene un método `enviar` con la misma firma. El servicio no distingue uno del otro, y esa es la ventaja. En una prueba real comprobarías `falso.mensajes` sin abrir un buzón ni depender de la red, y en producción inyectarías el notificador de correo."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: pipeline de datos con clases pequeñas"
+		},
+		{
+			"type": "p",
+			"md": "Un informe de ventas necesita tres pasos: leer filas, limpiar las que traen nulos y resumir el total. En lugar de una función de cuarenta líneas, cada paso es un objeto y `Informe` los compone."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "informe.py",
+			"code": "class LectorLista:\n    def __init__(self, filas):\n        self.filas = filas\n\n    def leer(self):\n        return list(self.filas)\n\nclass LimpiadorNulos:\n    def __init__(self, valor):\n        self.valor = valor\n\n    def limpiar(self, filas):\n        limpias = []\n        for fila in filas:\n            if fila[\"ventas\"] is None:\n                fila = dict(fila, ventas=self.valor)\n            limpias.append(fila)\n        return limpias\n\nclass Resumen:\n    def __init__(self, campo):\n        self.campo = campo\n\n    def calcular(self, filas):\n        total = sum(fila[self.campo] for fila in filas)\n        return {self.campo: total, \"filas\": len(filas)}\n\nclass Informe:\n    def __init__(self, fuente, limpiador, resumen):\n        self.fuente = fuente\n        self.limpiador = limpiador\n        self.resumen = resumen\n\n    def generar(self):\n        filas = self.fuente.leer()\n        filas = self.limpiador.limpiar(filas)\n        return self.resumen.calcular(filas)\n\ndatos = [\n    {\"sede\": \"Lima\", \"ventas\": 100},\n    {\"sede\": \"Lima\", \"ventas\": None},\n    {\"sede\": \"Arequipa\", \"ventas\": 80},\n]\ninforme = Informe(LectorLista(datos), LimpiadorNulos(0), Resumen(\"ventas\"))\nprint(informe.generar())",
+			"highlight": [
+				6,
+				18,
+				26,
+				35,
+				36,
+				37
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `{'ventas': 180, 'filas': 3}`. `Informe` no sabe de dónde vienen las filas ni cómo se limpian: solo pide `leer()`, `limpiar()` y `calcular()`. Para pasar a un CSV real, escribes `LectorCSV` con un método `leer()` y cambias una sola línea. Para probar el resumen con datos fijos, le pasas `LectorLista`."
+		},
+		{
+			"type": "p",
+			"md": "`LimpiadorNulos` construye `dict(fila, ventas=self.valor)`, que crea un diccionario nuevo en vez de modificar el original. Si mutara la fila recibida, el `datos` del llamador quedaría alterado y una segunda ejecución del informe daría otro resultado. Ese es el tipo de efecto invisible que la composición con datos copiados evita."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: dos pasos encadenados"
+		},
+		{
+			"type": "p",
+			"md": "Un `Pipeline` guarda una lista de pasos y aplica cada uno al resultado del anterior. Sigue cómo `datos` cambia de `[1, 2]` a `[2, 4]` y después a `[20, 40]`."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Delegación en cadena",
+			"code": "class Escalador:\n    def __init__(self, factor):\n        self.factor = factor\n\n    def aplicar(self, valores):\n        return [v * self.factor for v in valores]\n\nclass Pipeline:\n    def __init__(self, pasos):\n        self.pasos = pasos\n\n    def ejecutar(self, datos):\n        for paso in self.pasos:\n            datos = paso.aplicar(datos)\n        return datos\n\np = Pipeline([Escalador(2), Escalador(10)])\nprint(p.ejecutar([1, 2]))",
+			"steps": [
+				{
+					"line": 17,
+					"note": "`Pipeline` recibe una lista con dos objetos `Escalador` ya construidos. El pipeline no los crea: los recibe, así que podría recibir cualquier objeto con un método `aplicar`.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"output": ""
+				},
+				{
+					"line": 18,
+					"note": "Se llama `p.ejecutar([1, 2])`. Dentro del método, `self` es `p` y `datos` es una lista nueva con los dos valores.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+							}
+						},
+						{
+							"name": "Pipeline.ejecutar",
+							"vars": {
+								"self": "p",
+								"datos": "[1, 2]"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 13,
+					"note": "Primera vuelta del bucle: `paso` apunta al escalador de factor 2.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+							}
+						},
+						{
+							"name": "Pipeline.ejecutar",
+							"vars": {
+								"self": "p",
+								"datos": "[1, 2]",
+								"paso": "Escalador(factor=2)"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 14,
+					"note": "`paso.aplicar(datos)` delega en el escalador. Devuelve una lista nueva con cada valor multiplicado por 2; la lista anterior no se modifica.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+							}
+						},
+						{
+							"name": "Pipeline.ejecutar",
+							"vars": {
+								"self": "p",
+								"datos": "[2, 4]",
+								"paso": "Escalador(factor=2)"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 13,
+					"note": "Segunda vuelta: `paso` ahora es el escalador de factor 10 y `datos` conserva el resultado anterior.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+							}
+						},
+						{
+							"name": "Pipeline.ejecutar",
+							"vars": {
+								"self": "p",
+								"datos": "[2, 4]",
+								"paso": "Escalador(factor=10)"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 14,
+					"note": "Se aplica el segundo escalador sobre `[2, 4]`: cada valor se multiplica por 10.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+							}
+						},
+						{
+							"name": "Pipeline.ejecutar",
+							"vars": {
+								"self": "p",
+								"datos": "[20, 40]",
+								"paso": "Escalador(factor=10)"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 15,
+					"note": "El bucle termina y `ejecutar` devuelve la última lista. Con ella desaparecen las variables locales de la función.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 18,
+					"note": "`print` recibe el resultado y lo escribe. El pipeline no conoce el tipo concreto de sus pasos: solo que tienen `aplicar`.",
+					"vars": {
+						"Escalador": "<class 'Escalador'>",
+						"Pipeline": "<class 'Pipeline'>",
+						"p": "Pipeline(pasos=[Escalador(factor=2), Escalador(factor=10)])"
+					},
+					"output": "[20, 40]\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje",
+				"Causa habitual",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`AttributeError: 'Auto' object has no attribute 'motor'`",
+					"El `__init__` no guardó el colaborador en `self`",
+					"Asigna `self.motor = motor` antes de usarlo"
+				],
+				[
+					"`TypeError: Auto.__init__() missing 1 required positional argument: 'motor'`",
+					"Creaste el auto sin pasar la dependencia",
+					"Pasa un objeto `Motor` o dale un valor por defecto explícito"
+				],
+				[
+					"`AttributeError: 'LectorCSV' object has no attribute 'leer'`",
+					"El colaborador usa otro nombre de método (`leer_filas`)",
+					"Unifica la interfaz o adapta con una clase pequeña"
+				],
+				[
+					"`TypeError: 'NoneType' object is not callable`",
+					"Un colaborador quedó en `None` y llamaste a su método",
+					"Valida la dependencia al construir o falla antes con un mensaje claro"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El argumento por defecto mutable se comparte entre objetos",
+			"wrong": {
+				"caption": "Todos los pipelines usan la misma lista",
+				"code": "class Pipeline:\n    def __init__(self, pasos=[]):\n        self.pasos = pasos\n\np1 = Pipeline()\np1.pasos.append(\"escalar\")\np2 = Pipeline()\nprint(p2.pasos)"
+			},
+			"right": {
+				"caption": "Cada objeto recibe su propia lista",
+				"code": "class Pipeline:\n    def __init__(self, pasos=None):\n        self.pasos = list(pasos or [])\n\np1 = Pipeline()\np1.pasos.append(\"escalar\")\np2 = Pipeline()\nprint(p2.pasos)"
+			},
+			"explain": "El valor por defecto se evalúa una sola vez, cuando se define la función, y todas las instancias apuntan a la misma lista. El código incorrecto imprime `['escalar']`. Con `None` como centinela y una copia dentro del `__init__`, cada objeto empieza vacío."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Elige composición cuando la relación sea «tiene un» o «usa un»; reserva la herencia para «es un».",
+				"Recibe las dependencias por el constructor en lugar de crearlas dentro del método.",
+				"Depende del comportamiento (`.leer()`), no de la estructura interna del colaborador.",
+				"Evita cadenas largas como `informe.fuente.archivo.carpeta`: cada punto extra es acoplamiento.",
+				"Una clase, una responsabilidad. Si no puedes describirla en una frase sin «y», divídela.",
+				"No compartas listas o diccionarios mutables sin decidir si quieres compartirlos.",
+				"No uses un valor por defecto mutable (`[]`, `{}`): usa `None` y crea dentro.",
+				"En pruebas, sustituye el colaborador por un doble que registre llamadas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Carrito con calculadora de impuestos",
+			"md": "Crea `CalculadoraIGV(tasa)` con un método `calcular(subtotal)` que devuelva el subtotal con impuesto redondeado a dos decimales. Crea `Carrito(calculadora)` que acumule precios en una lista y ofrezca `subtotal()` y `total()`, delegando el cálculo en la calculadora. Prueba el carrito con una tasa de 0.18 y dos precios, y luego con una calculadora falsa que no aplica impuesto.",
+			"hint": "El carrito no debe importar `CalculadoraIGV`; solo llama a `self.calculadora.calcular(...)`. Una calculadora falsa puede ser una clase con el mismo método que devuelva el valor tal cual.",
+			"solution": {
+				"lang": "python",
+				"caption": "carrito.py",
+				"code": "class CalculadoraIGV:\n    def __init__(self, tasa):\n        self.tasa = tasa\n\n    def calcular(self, subtotal):\n        return round(subtotal * (1 + self.tasa), 2)\n\nclass Carrito:\n    def __init__(self, calculadora):\n        self.calculadora = calculadora\n        self.items = []\n\n    def agregar(self, precio):\n        self.items.append(precio)\n\n    def subtotal(self):\n        return sum(self.items)\n\n    def total(self):\n        return self.calculadora.calcular(self.subtotal())\n\nclass SinImpuesto:\n    def calcular(self, subtotal):\n        return subtotal\n\ncarrito = Carrito(CalculadoraIGV(0.18))\ncarrito.agregar(100)\ncarrito.agregar(50)\nprint(carrito.subtotal(), carrito.total())\n\ncarrito2 = Carrito(SinImpuesto())\ncarrito2.agregar(100)\nprint(carrito2.subtotal(), carrito2.total())",
+				"explain": "La salida es `150 177.0` y `100 100`. El carrito solo conoce el método `calcular`, así que acepta la calculadora real y la falsa sin cambios. `subtotal` es la única fuente de verdad y `total` la transforma; si mañana aparece un descuento, se añade otro colaborador en lugar de llenar `total` de condicionales."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Monitor con fuente, regla y notificador",
+			"md": "Compón un monitor de temperatura a partir de tres objetos: una fuente con `leer()` que devuelva una lista de lecturas, una regla con `evaluar(valor)` que diga si supera un límite y un notificador con `enviar(mensaje)`. `Monitor(fuente, regla, notificador)` debe revisar cada lectura y enviar una alerta con su posición cuando la regla se cumpla, devolviendo la lista de alertas. Pruébalo con `[20, 35, 31, 10]` y un límite de 30.",
+			"hint": "Recorre con `enumerate(self.fuente.leer(), start=1)` para tener la posición. El notificador puede guardar los mensajes en una lista para que puedas comprobar el resultado.",
+			"solution": {
+				"lang": "python",
+				"caption": "monitor.py",
+				"code": "class FuenteLista:\n    def __init__(self, lecturas):\n        self.lecturas = lecturas\n\n    def leer(self):\n        return list(self.lecturas)\n\nclass ReglaUmbral:\n    def __init__(self, limite):\n        self.limite = limite\n\n    def evaluar(self, valor):\n        return valor > self.limite\n\nclass Notificador:\n    def __init__(self):\n        self.alertas = []\n\n    def enviar(self, mensaje):\n        self.alertas.append(mensaje)\n\nclass Monitor:\n    def __init__(self, fuente, regla, notificador):\n        self.fuente = fuente\n        self.regla = regla\n        self.notificador = notificador\n\n    def revisar(self):\n        for posicion, valor in enumerate(self.fuente.leer(), start=1):\n            if self.regla.evaluar(valor):\n                self.notificador.enviar(f\"lectura {posicion}: {valor}\")\n        return self.notificador.alertas\n\nmonitor = Monitor(FuenteLista([20, 35, 31, 10]), ReglaUmbral(30), Notificador())\nprint(monitor.revisar())",
+				"explain": "La salida es `['lectura 2: 35', 'lectura 3: 31']`. El monitor no lee sensores ni decide qué es una alerta: coordina tres colaboradores que sí lo hacen. Puedes cambiar el límite sin tocar el monitor, alimentar lecturas desde otra fuente y enviar alertas por otro canal."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la delegación del informe",
+			"lang": "python",
+			"code": "class Informe:\n    def __init__(self, fuente, limpiador):\n        self.fuente = ___\n        self.limpiador = limpiador\n\n    def generar(self):\n        filas = self.fuente.___()\n        return self.limpiador.limpiar(___)",
+			"answers": [
+				"fuente",
+				"leer",
+				"filas"
+			],
+			"hint": "La fuente recibida se guarda tal cual; el método que aporta es `leer()`; el limpiador recibe lo que devolvió la fuente.",
+			"explain": "`self.fuente = fuente` guarda la referencia, `self.fuente.leer()` delega la lectura y `self.limpiador.limpiar(filas)` pasa el resultado al siguiente paso. El informe no sabe qué implementación concreta tiene detrás."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el carrito, la decisión importante no es la fórmula del IGV, sino dónde vive. Si el impuesto estuviera dentro de `Carrito.total`, cambiar la tasa o añadir exoneraciones obligaría a editar el carrito y a repetir la lógica en cada prueba. Con la calculadora inyectada, el carrito se ocupa de acumular y la política fiscal se cambia en un objeto aparte."
+		},
+		{
+			"type": "p",
+			"md": "En el monitor, los tres colaboradores tienen interfaces mínimas: `leer`, `evaluar`, `enviar`. Ninguna clase hereda de otra y ninguna importa a las demás. Esa independencia permite probar la regla sola (`ReglaUmbral(30).evaluar(31)` es `True`) sin construir un monitor completo, algo imposible si la regla estuviera enterrada en un método de veinte líneas."
+		},
+		{
+			"type": "p",
+			"md": "El límite de la composición es la legibilidad: si un objeto necesita seis colaboradores para hacer algo, el constructor se vuelve una lista de parámetros y conviene agruparlos en una configuración. Y si dos clases comparten mucha lógica interna, puede que sí exista una relación «es un» que estás ignorando. La regla práctica sigue siendo la misma: composición por defecto, herencia cuando la sustitución sea real."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"La composición construye un objeto con otros objetos; la herencia declara que uno **es** otro.",
+				"Delegar es guardar el colaborador y reenviarle el trabajo: `self.motor.arrancar()`.",
+				"La inyección por constructor permite sustituir dependencias reales por dobles de prueba.",
+				"El acoplamiento crece cuando una clase conoce detalles internos de otra; depende del método, no de la estructura.",
+				"En Python las referencias se comparten: decide si el colaborador debe ser propio o común.",
+				"Un pipeline de datos se descompone en fuente, transformaciones y salida, cada una con su método.",
+				"Usa `None` como centinela en lugar de listas o diccionarios por defecto.",
+				"Clases pequeñas y con una responsabilidad clara son más fáciles de probar y de reemplazar."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "`class Auto` guarda un `Motor` en `self.motor` y llama a `self.motor.arrancar()`. ¿Qué relación modela?",
+			"options": [
+				"Herencia simple: `Auto` es un tipo de `Motor`",
+				"Composición con delegación: `Auto` tiene un `Motor` y le reenvía el trabajo",
+				"Herencias múltiples: comparte el estado de `Motor`",
+				"Una copia de los atributos de `Motor` dentro de `Auto`"
+			],
+			"answer": 1,
+			"explain": "El auto no es un motor: lo contiene y le pide que arranque. La composición guarda una referencia y delega; no copia atributos ni forma parte de la jerarquía de `Motor`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `def __init__(self, pasos=[])` es un error frecuente en una clase con varios objetos?",
+			"options": [
+				"Porque Python no permite listas como valor por defecto",
+				"Porque la lista se crea una sola vez y todas las instancias comparten la misma",
+				"Porque el `__init__` debe recibir siempre `None`",
+				"Porque las listas no se pueden asignar a `self`"
+			],
+			"answer": 1,
+			"explain": "Los valores por defecto se evalúan al definir la función, no en cada llamada. Si un objeto añade elementos a esa lista, los demás ven los mismos. Con `pasos=None` y `self.pasos = list(pasos or [])` cada instancia recibe la suya."
+		},
+		{
+			"type": "quiz",
+			"question": "Tu `Informe` llama a `fuente.leer()`, `limpiador.limpiar(...)` y `resumen.calcular(...)`, y no importa ninguna de esas clases. ¿Qué ventaja aporta?",
+			"options": [
+				"Que el informe se ejecuta más rápido",
+				"Que puedes sustituir cada colaborador por otro con el mismo método, incluido un doble de prueba",
+				"Que Python valida los tipos automáticamente",
+				"Que las clases pasan a ser abstractas"
+			],
+			"answer": 1,
+			"explain": "Al depender solo de los métodos, cualquier objeto que los ofrezca sirve. Esa es la base del duck typing y lo que permite probar el informe con datos fijos sin tocar archivos ni red."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "Tutorial de clases",
+					"url": "https://docs.python.org/es/3/tutorial/classes.html",
+					"note": "atributos, composición y herencia"
+				},
+				{
+					"label": "Argumentos por defecto",
+					"url": "https://docs.python.org/es/3/tutorial/controlflow.html#default-argument-values",
+					"note": "por qué el valor por defecto mutable se comparte"
+				},
+				{
+					"label": "Glosario: duck typing",
+					"url": "https://docs.python.org/es/3/glossary.html",
+					"note": "definición y vocabulario del modelo de objetos"
+				}
+			]
+		}
+	]
+}

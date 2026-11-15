@@ -1,0 +1,530 @@
+{
+	"id": "cpp-02-estructura-tipos",
+	"track": "cpp",
+	"order": 2,
+	"title": "Estructura de un programa, cout y tipos",
+	"subtitle": "Anatomía de un archivo .cpp, entrada y salida por consola, y los tipos fundamentales",
+	"level": "principiante",
+	"minutes": 35,
+	"tags": [
+		"estructura",
+		"cout",
+		"tipos",
+		"entrada/salida"
+	],
+	"keywords": [
+		"estructura de un programa c++",
+		"include",
+		"int main",
+		"std::cout",
+		"std::cin",
+		"tipos de datos c++",
+		"sizeof",
+		"std::string",
+		"namespace std",
+		"getline",
+		"literales",
+		"formato de salida"
+	],
+	"summary": "Todo archivo .cpp tiene directivas, declaraciones y una función main. En esta lección recorres esa estructura, escribes y lees datos con std::cout y std::cin, eliges tipos fundamentales con criterio y das formato a los números de tus informes.",
+	"objectives": [
+		"Identificar las partes de un programa C++ y el papel de main",
+		"Escribir por consola con std::cout y leer con std::cin y std::getline",
+		"Elegir entre int, double, char, bool y std::string según el dato",
+		"Comprobar el tamaño de un tipo con sizeof",
+		"Formatear números reales con std::fixed y std::setprecision"
+	],
+	"prerequisites": [
+		"¿Qué es C++? Compilador y primer programa"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un programa en C++ no es una lista de órdenes sueltas: es un archivo con una estructura fija, un punto de entrada y declaraciones que el compilador debe resolver antes de ejecutar nada. En esta lección desarmas ese esqueleto y aprendes a mover datos hacia dentro y hacia fuera con `std::cin` y `std::cout`."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la estructura de un programa?"
+		},
+		{
+			"type": "p",
+			"md": "Llamamos estructura al orden y a las piezas mínimas que el compilador espera: directivas del preprocesador, declaraciones de tipos y funciones, y una función `main`. Todo lo demás son sentencias dentro de bloques."
+		},
+		{
+			"type": "p",
+			"md": "Un **tipo** es un contrato: define cuántos bytes ocupa un valor, qué operaciones admite y cómo se interpreta esa memoria. `int` y `double` parecen intercambiables porque ambos guardan números, pero uno trunca los decimales y el otro los conserva."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Directivas**: `#include` trae declaraciones de la biblioteca y se procesa antes de compilar.",
+				"**Función `main`**: única y obligatoria; el sistema operativo empieza ahí.",
+				"**Sentencias**: terminan en `;` y viven dentro de un bloque entre llaves.",
+				"**Declaraciones**: introducen nombres con un tipo, como `int edad = 36;`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Elegir bien la estructura y los tipos evita dos problemas: errores de compilación por declaraciones que faltan y errores silenciosos por tipos que no representan lo que crees."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Herramientas de consola**: leer líneas de un archivo o de la terminal y escribir resultados.",
+				"**Informes y registros**: imprimir tablas alineadas y números con decimales fijos.",
+				"**Ciencia de datos**: representar una columna con el tipo correcto antes de calcular.",
+				"**Machine Learning**: guardar métricas (`double`), conteos (`int`) y etiquetas (`std::string`)."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Python resuelve parte de esto por ti: `input()` siempre devuelve texto y los enteros crecen solos. En C++ decides el tipo y pagas por las conversiones que necesites."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "`std::cout` y `std::cin` son objetos globales conectados a la salida y la entrada estándar. No son funciones: son flujos, y el operador `<<` está sobrecargado para cada tipo. Cuando escribes `std::cout << 42`, el compilador elige la versión que convierte un `int` a texto."
+		},
+		{
+			"type": "p",
+			"md": "Los flujos usan un búfer: los datos se acumulan y se vacían al llenarse, al cerrar el programa o al encontrar `std::endl`. Por eso `'\\n'` es más barato que `std::endl`: no fuerza el vaciado."
+		},
+		{
+			"type": "p",
+			"md": "El tamaño de cada tipo lo fija la implementación dentro de unos mínimos del estándar. `sizeof` te dice cuántos bytes ocupa un valor en tu máquina, y ese número cambia entre plataformas de 32 y 64 bits."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "tamanos.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    std::cout << \"int:       \" << sizeof(int) << \" bytes\\n\";\n    std::cout << \"double:    \" << sizeof(double) << \" bytes\\n\";\n    std::cout << \"float:     \" << sizeof(float) << \" bytes\\n\";\n    std::cout << \"char:      \" << sizeof(char) << \" byte\\n\";\n    std::cout << \"bool:      \" << sizeof(bool) << \" byte\\n\";\n    std::cout << \"long long: \" << sizeof(long long) << \" bytes\\n\";\n    return 0;\n}",
+			"highlight": [
+				4,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "En una máquina de 64 bits verás `int` 4, `double` 8, `float` 4, `char` 1, `bool` 1 y `long long` 8. Que `bool` ocupe un byte no significa que guarde 256 valores: solo representa `true` o `false`."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Los tamaños no están grabados en piedra",
+			"md": "El estándar garantiza mínimos: `int` al menos 16 bits y `double` al menos 64. Usa `sizeof` o `std::numeric_limits` cuando el tamaño importe, y prefiere `std::int32_t` de `<cstdint>` si necesitas anchos exactos."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica de un programa que lee, calcula y escribe es esta:"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "esqueleto.cpp",
+			"code": "#include <iostream>\n#include <string>\n\nint main() {\n    // declaraciones\n    // lectura con std::cin\n    // cálculo\n    // escritura con std::cout\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Dentro de `main`, cada declaración sigue el patrón `tipo nombre = valor;`. `std::cout << a << b` encadena escrituras; `std::cin >> a >> b` encadena lecturas y separa por espacios."
+		},
+		{
+			"type": "list",
+			"items": [
+				"`#include <iostream>` para `std::cout`, `std::cin` y `std::endl`.",
+				"`#include <string>` para `std::string`; no lo heredes de otra cabecera.",
+				"`#include <iomanip>` para `std::fixed` y `std::setprecision`.",
+				"`std::` delante de cada nombre de la biblioteca.",
+				"`return 0;` al final de `main`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: presentar datos"
+		},
+		{
+			"type": "p",
+			"md": "Tres variables, tres tipos y tres líneas de salida. Observa que `std::cout` convierte solo: no hay que llamar a `str()` como en Python."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "presentar.cpp",
+			"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string nombre = \"Ada\";\n    int edad = 36;\n    double estatura = 1.68;\n\n    std::cout << \"Nombre: \" << nombre << '\\n';\n    std::cout << \"Edad: \" << edad << \" años\\n\";\n    std::cout << \"Estatura: \" << estatura << \" m\\n\";\n    return 0;\n}",
+			"highlight": [
+				5,
+				6,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "`std::string` guarda texto de longitud variable y reserva memoria por su cuenta; `int` guarda enteros sin decimales; `double` guarda reales con precisión doble. En la salida, `<<` inserta cada valor en el flujo y `'\\n'` cierra la línea. `estatura` aparece como `1.68` porque el flujo elige la representación más corta que reconstruye el valor."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: dar formato a números"
+		},
+		{
+			"type": "p",
+			"md": "Los reales sin formato son incómodos en un informe: `19.9` tiene un decimal y `3.582` tres. Los manipuladores de `<iomanip>` cambian cómo escribe el flujo, y el cambio es persistente: afecta a todo lo que se imprima después."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "formato.cpp",
+			"code": "#include <iomanip>\n#include <iostream>\n\nint main() {\n    double precio = 19.9;\n\n    std::cout << \"Sin formato: \" << precio << '\\n';\n    std::cout << std::fixed << std::setprecision(2);\n    std::cout << \"Con formato: \" << precio << '\\n';\n    std::cout << \"IGV (18 %):  \" << precio * 0.18 << '\\n';\n    return 0;\n}",
+			"highlight": [
+				8
+			]
+		},
+		{
+			"type": "p",
+			"md": "`std::fixed` fija la notación decimal, sin exponente. `std::setprecision(2)` indica dos dígitos **después del punto** cuando `fixed` está activo. El IGV se calcula con `precio * 0.18` y se muestra redondeado, aunque el valor interno conserve más precisión."
+		},
+		{
+			"type": "p",
+			"md": "El orden importa: si imprimes antes de aplicar `fixed`, esa primera línea sale sin formato. Los manipuladores no son parte de la cadena, son cambios de estado del flujo."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: boleta con IGV"
+		},
+		{
+			"type": "p",
+			"md": "Una tienda necesita una boleta con subtotal, impuesto y total. El cálculo es simple, pero mezcla un `int` (cantidad) con `double` (precio), y ahí aparecen los errores de tipo si no eliges bien."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "boleta.cpp",
+			"code": "#include <iomanip>\n#include <iostream>\n#include <string>\n\nint main() {\n    std::string producto = \"Café 250 g\";\n    int cantidad = 3;\n    double precio = 12.5;\n    constexpr double igv = 0.18;\n\n    double subtotal = cantidad * precio;\n    double impuesto = subtotal * igv;\n    double total = subtotal + impuesto;\n\n    std::cout << std::fixed << std::setprecision(2);\n    std::cout << \"Producto: \" << producto << '\\n';\n    std::cout << \"Subtotal: S/ \" << subtotal << '\\n';\n    std::cout << \"IGV:      S/ \" << impuesto << '\\n';\n    std::cout << \"Total:    S/ \" << total << '\\n';\n    return 0;\n}",
+			"highlight": [
+				14,
+				15,
+				16,
+				17
+			]
+		},
+		{
+			"type": "p",
+			"md": "Verifica las cifras: 3 × 12.50 = 37.50; el 18 % es 6.75; el total, 44.25. `constexpr double igv` deja claro que la tasa no cambia. `cantidad * precio` convierte el `int` a `double` de forma automática, porque la multiplicación entre enteros y reales se hace en real."
+		},
+		{
+			"type": "p",
+			"md": "Si escribieras `cantidad * 12.5`, funcionaría igual, pero el 12.5 suelto es un número mágico: quien lea el código no sabe de dónde sale."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: cómo se construye una línea de salida"
+		},
+		{
+			"type": "p",
+			"md": "La traza muestra el estado después de cada declaración y el momento exacto en que aparece la salida. Fíjate en que la línea 8 produce todo el texto de una vez, aunque concatene cuatro valores."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Estado de las variables y salida",
+			"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string curso = \"C++\";\n    int semana = 2;\n    double horas = 6.5;\n    std::cout << curso << \": \" << horas << \" h en la semana \" << semana << '\\n';\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 4,
+					"note": "El sistema operativo entra en `main`. Todavía no hay variables locales.",
+					"vars": {},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`std::string` reserva memoria para los tres caracteres y guarda el texto.",
+					"vars": {
+						"curso": "\"C++\""
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`semana` es un entero de 4 bytes con valor 2.",
+					"vars": {
+						"curso": "\"C++\"",
+						"semana": "2"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`horas` es un `double`: guarda 6.5 sin perder la parte decimal.",
+					"vars": {
+						"curso": "\"C++\"",
+						"semana": "2",
+						"horas": "6.5"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "El flujo convierte cada valor a texto y los escribe en orden. El salto final no se ve en el panel.",
+					"vars": {
+						"curso": "\"C++\"",
+						"semana": "2",
+						"horas": "6.5"
+					},
+					"output": "C++: 6.5 h en la semana 2\n"
+				},
+				{
+					"line": 9,
+					"note": "`return 0` termina el programa y devuelve 0 al sistema operativo.",
+					"vars": {
+						"curso": "\"C++\"",
+						"semana": "2",
+						"horas": "6.5"
+					},
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Leer datos con std::cin"
+		},
+		{
+			"type": "p",
+			"md": "`std::cin >> variable` lee un valor y lo convierte al tipo del destino. El operador salta los espacios iniciales y se detiene en el siguiente espacio: para un `std::string`, eso significa una palabra, no una frase."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "leer.cpp",
+			"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string nombre;\n    int edad = 0;\n\n    std::cout << \"¿Cómo te llamas? \";\n    std::cin >> nombre;\n    std::cout << \"¿Cuántos años tienes? \";\n    std::cin >> edad;\n    std::cout << \"Hola, \" << nombre << \". Tienes \" << edad << \" años.\\n\";\n    return 0;\n}",
+			"highlight": [
+				9,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "Prueba con `Ada Lovelace` como nombre: el programa se queda con `Ada` y deja `Lovelace` en el búfer. Para leer una línea completa se usa `std::getline(std::cin, nombre)`, que consume hasta el salto de línea. No mezcles ambos sin cuidado: un `>>` deja el salto pendiente y el siguiente `getline` lee una cadena vacía."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "cin no valida nada",
+			"md": "Si el usuario escribe `veinte` donde esperas un `int`, `std::cin` falla, deja la variable con el valor anterior y activa un estado de error. Más adelante comprobarás ese estado con `std::cin.fail()`; por ahora, prueba con entradas válidas."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`unknown type name 'string'`",
+					"Falta `#include <string>` o el prefijo `std::`",
+					"Incluye la cabecera y escribe `std::string`"
+				],
+				[
+					"`use of undeclared identifier 'cout'`",
+					"Falta `#include <iostream>` o `std::`",
+					"Añade la cabecera y el prefijo"
+				],
+				[
+					"`no matching function for call to 'getline'`",
+					"Llamaste `getline` sin `std::`",
+					"Escribe `std::getline(std::cin, texto)`"
+				],
+				[
+					"`expected ';' before ...`",
+					"Olvidaste el punto y coma anterior",
+					"Revísalo: el error se reporta en la línea siguiente"
+				],
+				[
+					"La salida muestra `3` y esperabas `3.5`",
+					"Dividiste dos `int`",
+					"Convierte uno a `double` antes de dividir"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El último caso no es un error de compilación: el programa compila y hace exactamente lo que le pediste. Por eso los errores silenciosos de tipo son más peligrosos que los que el compilador detecta."
+		},
+		{
+			"type": "diff",
+			"title": "El espacio de nombres no es opcional",
+			"wrong": {
+				"caption": "No compila",
+				"code": "#include <iostream>\n\nint main() {\n    string nombre = \"Ada\";\n    cout << nombre << '\\n';\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string nombre = \"Ada\";\n    std::cout << nombre << '\\n';\n    return 0;\n}"
+			},
+			"explain": "Sin `using namespace std;` —y en este curso no lo usamos— cada nombre de la biblioteca necesita su prefijo. El compilador incluso te sugiere `std::string` y `std::cout` en el mensaje."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Incluye solo lo que usas: `<iostream>`, `<string>` e `<iomanip>` cuando hacen falta.",
+				"Nunca escribas `using namespace std;`: contamina el espacio global y crea ambigüedades.",
+				"Prefiere `'\\n'` a `std::endl` salvo que necesites vaciar el búfer en ese punto.",
+				"Declara las variables cerca de su primer uso y con un valor inicial.",
+				"Usa `std::string` para texto; los arrays de `char` quedan para interoperar con APIs de C.",
+				"Comprueba la salida con números pequeños a mano antes de confiar en el formato."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Ficha por teclado",
+			"md": "Escribe un programa que pida nombre completo, carrera y ciclo, y muestre una ficha de tres líneas. Usa `std::getline` para los textos y `std::cin >>` para el ciclo. Prueba con un nombre compuesto, como `Ada Lovelace`, para comprobar que no se corta.",
+			"hint": "`std::getline` necesita `<string>` y dos argumentos: el flujo y la variable. El ciclo es un entero, así que `>>` es suficiente.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "ficha.cpp",
+				"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string nombre;\n    std::string carrera;\n    int ciclo = 0;\n\n    std::cout << \"Nombre: \";\n    std::getline(std::cin, nombre);\n    std::cout << \"Carrera: \";\n    std::getline(std::cin, carrera);\n    std::cout << \"Ciclo: \";\n    std::cin >> ciclo;\n\n    std::cout << \"\\n--- Ficha ---\\n\";\n    std::cout << nombre << \" | \" << carrera << \" | ciclo \" << ciclo << '\\n';\n    return 0;\n}",
+				"explain": "Las dos primeras lecturas usan `getline` para admitir espacios. La tercera usa `>>` porque el ciclo es numérico."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Conversor de temperatura",
+			"md": "Pide una temperatura en grados Celsius como `double` y muestra su equivalente en Fahrenheit con un decimal. La fórmula es `F = C * 9 / 5 + 32`. Comprueba con 0 → 32.0, 100 → 212.0 y -40 → -40.0.",
+			"hint": "Usa `9.0 / 5.0` o `9.0 / 5`; si divides enteros, pierdes la parte decimal.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "temperatura.cpp",
+				"code": "#include <iomanip>\n#include <iostream>\n\nint main() {\n    double celsius = 0.0;\n    std::cout << \"Temperatura en grados Celsius: \";\n    std::cin >> celsius;\n\n    double fahrenheit = celsius * 9.0 / 5.0 + 32.0;\n\n    std::cout << std::fixed << std::setprecision(1);\n    std::cout << celsius << \" C = \" << fahrenheit << \" F\\n\";\n    return 0;\n}",
+				"explain": "`9.0 / 5.0` es una división real; `9 / 5` daría 1 y el resultado sería incorrecto. `fixed` con una precisión de 1 muestra siempre un decimal."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el programa",
+			"lang": "cpp",
+			"code": "#include ___\n#include <string>\n\nint main() {\n    std::string lenguaje = \"C++\";\n    std::___ << \"Aprendo \" << lenguaje << '\\n';\n    return ___;\n}",
+			"answers": [
+				"<iostream>",
+				"cout",
+				"0"
+			],
+			"hint": "La cabecera de entrada y salida declara `std::cout`; el retorno de `main` indica éxito.",
+			"explain": "`<iostream>` aporta los flujos, `std::cout` escribe y `0` comunica al sistema que todo terminó bien. Sin la cabecera, el compilador no conoce `std::cout`; sin `std::`, no lo encuentra."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En la ficha, el orden de las lecturas importa: `getline` consume el salto de línea completo, mientras que `>>` lo deja pendiente. Si después de `std::cin >> ciclo` llamaras a `getline`, obtendrías una cadena vacía; por eso el ciclo se lee al final, cuando ya no quedan textos pendientes."
+		},
+		{
+			"type": "p",
+			"md": "En el conversor, la trampa está en la aritmética entera. `celsius * 9 / 5` se evalúa de izquierda a derecha: `celsius` es `double`, así que toda la cadena es real y el resultado correcto sale sin trucos. Si `celsius` fuera `int`, habría que convertir antes de dividir."
+		},
+		{
+			"type": "p",
+			"md": "El ejercicio de completar refuerza la dependencia entre cabecera, nombre cualificado y valor de retorno: las tres piezas tienen que coincidir para que el programa compile y termine con éxito."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Todo programa tiene directivas, declaraciones y una función `main`.",
+				"`#include` trae declaraciones; sin la cabecera correcta, el tipo o el flujo no existen.",
+				"`std::cout <<` escribe y convierte cada tipo a texto; `std::cin >>` lee una palabra o un número.",
+				"`std::getline` lee una línea completa y conviene para nombres con espacios.",
+				"`sizeof` revela el tamaño real de un tipo en tu plataforma.",
+				"`std::fixed` y `std::setprecision(n)` controlan los decimales de los reales.",
+				"Los nombres de la biblioteca estándar viven en `std`; escribe el prefijo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuántos bytes ocupa un `char` según el estándar de C++?",
+			"options": [
+				"1 byte",
+				"2 bytes",
+				"4 bytes",
+				"Depende de la plataforma y puede ser cualquiera"
+			],
+			"answer": 0,
+			"explain": "`sizeof(char)` es siempre 1 por definición: el byte de C++ es la unidad de tamaño, aunque en la práctica casi todas las plataformas usan 8 bits. Otros tipos sí varían."
+		},
+		{
+			"type": "quiz",
+			"question": "Si el usuario escribe `Ada Lovelace` y lees con `std::cin >> nombre`, ¿qué queda en `nombre`?",
+			"options": [
+				"`Ada Lovelace`",
+				"`Ada`",
+				"`Lovelace`",
+				"Una cadena vacía"
+			],
+			"answer": 1,
+			"explain": "`>>` se detiene en el primer espacio en blanco. Para conservar la frase completa necesitas `std::getline(std::cin, nombre)`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime `std::cout << std::fixed << std::setprecision(3) << 2.5;`?",
+			"options": [
+				"`2.5`",
+				"`2.500`",
+				"`2.50`",
+				"`2`"
+			],
+			"answer": 1,
+			"explain": "Con `fixed`, `setprecision(3)` fija tres dígitos después del punto, así que 2.5 se rellena con ceros: `2.500`. Sin `fixed`, la precisión significa cifras significativas."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference: iostream",
+					"url": "https://en.cppreference.com/w/cpp/header/iostream",
+					"note": "flujos de entrada y salida"
+				},
+				{
+					"label": "cppreference: tipos fundamentales",
+					"url": "https://en.cppreference.com/w/cpp/language/types",
+					"note": "tamaños y garantías"
+				},
+				{
+					"label": "cppreference: string",
+					"url": "https://en.cppreference.com/w/cpp/string/basic_string",
+					"note": "texto de longitud variable"
+				}
+			]
+		}
+	]
+}

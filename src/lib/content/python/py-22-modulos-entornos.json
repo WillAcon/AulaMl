@@ -1,0 +1,513 @@
+{
+	"id": "py-22-modulos-entornos",
+	"track": "python",
+	"order": 22,
+	"title": "Módulos, paquetes y entornos virtuales",
+	"subtitle": "Separar el código en archivos reutilizables y aislar las dependencias de cada proyecto",
+	"level": "intermedio",
+	"minutes": 34,
+	"tags": [
+		"módulos",
+		"paquetes",
+		"venv",
+		"pip",
+		"import"
+	],
+	"keywords": [
+		"qué es un módulo en python",
+		"import from python",
+		"if __name__ == __main__",
+		"crear paquete python",
+		"__init__.py",
+		"PYTHONPATH",
+		"sys.path",
+		"entorno virtual python",
+		"python -m venv",
+		"pip install requirements.txt",
+		"reproducibilidad dependencias",
+		"estructura proyecto python"
+	],
+	"summary": "Un programa pequeño cabe en un archivo; uno real necesita módulos, paquetes y dependencias con versión fija. Aprenderás cómo Python encuentra lo que importas, cómo se ejecuta un módulo una sola vez y cómo crear un entorno virtual que haga tu proyecto reproducible.",
+	"objectives": [
+		"Importar módulos y nombres concretos, incluidos alias e imports relativos",
+		"Explicar el orden de búsqueda de sys.path y el papel de PYTHONPATH",
+		"Proteger el código de prueba con if __name__ == \"__main__\"",
+		"Crear un paquete con __init__.py y una estructura de proyecto clara",
+		"Crear un entorno virtual, instalar dependencias y fijarlas en requirements.txt"
+	],
+	"prerequisites": [
+		"Archivos, JSON y CSV",
+		"Funciones"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora tus programas viven en un solo archivo. Eso funciona mientras el código cabe en la pantalla, pero un proyecto real mezcla lectura de datos, limpieza, modelo e informes, y todo en un archivo se vuelve imposible de navegar. Python resuelve el problema con **módulos**: archivos `.py` que se importan entre sí."
+		},
+		{
+			"type": "p",
+			"md": "Hay una segunda pieza que casi nadie enseña al principio: el **entorno virtual**. Sin él, cada proyecto comparte las mismas bibliotecas instaladas en el sistema, y actualizar una rompe la otra. Juntas, ambas ideas son la diferencia entre un script de práctica y un proyecto que otra persona puede ejecutar dentro de seis meses."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un módulo y qué es un paquete?"
+		},
+		{
+			"type": "p",
+			"md": "Un **módulo** es un archivo `.py` cuyo contenido puedes cargar desde otro archivo. Su nombre de módulo es el nombre del archivo sin la extensión: `conversiones.py` se importa como `conversiones`. Un **paquete** es una carpeta de módulos con un archivo `__init__.py` que marca dónde empieza el paquete; `ventas/` con `limpieza.py` y `resumen.py` se importa como `ventas`."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en un módulo como una caja de herramientas etiquetada: no vuelcas la caja entera sobre la mesa, sacas la herramienta que necesitas. Un paquete es un mueble con cajones: agrupa herramientas por tema y te obliga a decir en qué cajón está cada una. El **entorno virtual** es el taller propio de cada proyecto, con sus propias herramientas y versiones."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve organizar el código así?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Reutilizar**: la función que normaliza textos se escribe una vez y la usan el informe, la API y las pruebas.",
+				"**Separar responsabilidades**: un archivo carga datos, otro los limpia, otro entrena; cada uno se puede leer y probar por separado.",
+				"**Evitar choques de nombres**: `ventas.limpiar` y `texto.limpiar` pueden convivir porque viven en paquetes distintos.",
+				"**Fijar dependencias**: `requirements.txt` dice exactamente qué versión de NumPy o pytest necesita el proyecto.",
+				"**Colaborar sin sorpresas**: quien clona el repositorio crea su entorno virtual, instala y obtiene el mismo resultado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? La búsqueda y la caché de imports"
+		},
+		{
+			"type": "p",
+			"md": "Cuando escribes `import math`, Python no adivina dónde está. Recorre una lista ordenada de rutas, `sys.path`, y se queda con la primera coincidencia. El orden es: el directorio del script que estás ejecutando (o el directorio actual si usas `-c` o el REPL), las rutas de la variable de entorno `PYTHONPATH`, y por último las carpetas de la biblioteca estándar y de los paquetes instalados."
+		},
+		{
+			"type": "p",
+			"md": "Ese orden explica un error clásico: si tu archivo se llama `random.py`, Python lo encuentra antes que al `random` de la biblioteca estándar y tu propio archivo la sustituye. La solución no es pelear con `sys.path`, es renombrar tu archivo."
+		},
+		{
+			"type": "p",
+			"md": "Antes de leer el archivo, Python mira `sys.modules`, un diccionario con todo lo ya importado. Si el módulo está ahí, lo reutiliza y **no vuelve a ejecutarlo**. Por eso el código de nivel superior corre una sola vez aunque lo importen diez archivos. La primera importación ejecuta el archivo entero, de arriba abajo, y deja un objeto módulo con sus nombres; las siguientes solo enlazan ese objeto."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Importar no es gratis, pero solo se paga una vez",
+			"md": "La primera importación cuesta: se localiza el archivo, se compila a bytecode, se guarda en `__pycache__` y se ejecuta. Esa es la razón de que los imports pesados se noten al arrancar. A cambio, las siguientes son una consulta a `sys.modules` y no repiten el trabajo."
+		},
+		{
+			"type": "p",
+			"md": "Cada módulo tiene un atributo `__name__`. Si lo ejecutas directamente con `python3 archivo.py`, vale `\"__main__\"`; si lo importas desde otro archivo, vale el nombre del módulo (`\"conversiones\"`). Esa diferencia permite dejar pruebas al final de un archivo sin que se ejecuten al importarlo, siempre que las encierres en `if __name__ == \"__main__\":`."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: import, from y alias"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Las cuatro formas de importar",
+			"code": "# 1. Importa el módulo completo: usas módulo.nombre\nimport statistics\n\n# 2. Importa un nombre concreto: lo usas directo\nfrom math import sqrt\n\n# 3. Alias para abreviar o evitar choques\nimport numpy as np\nfrom statistics import mean as promedio\n\n# 4. Dentro de un paquete, import relativo al paquete actual\n# from .limpieza import normalizar_sede\n# from ..utilidades import formatear\n\nprint(statistics.mean([2, 4, 6]))\nprint(sqrt(81))\nprint(promedio([10, 20]))",
+			"highlight": [
+				2,
+				5,
+				8,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "`import statistics` enlaza el nombre `statistics` con el módulo; para usar la media necesitas `statistics.mean`. `from statistics import mean` trae solo la función, pero pierdes el contexto de dónde venía. Los alias son útiles cuando el nombre es largo (`numpy` como `np`) o cuando dos módulos exportan el mismo nombre."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: usar la biblioteca estándar"
+		},
+		{
+			"type": "p",
+			"md": "No hace falta instalar nada para empezar: la biblioteca estándar trae matemáticas, estadística, fechas y archivos. Este programa calcula el área de tres círculos y su media."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "areas.py",
+			"code": "import math\nfrom statistics import mean\n\nradios = [1.0, 2.0, 3.0]\nareas = [math.pi * r ** 2 for r in radios]\n\nprint(round(areas[0], 2))\nprint(round(mean(areas), 2))",
+			"highlight": [
+				1,
+				2,
+				5
+			]
+		},
+		{
+			"type": "p",
+			"md": "La primera línea trae el módulo `math` completo; la segunda trae únicamente `mean`. La comprensión calcula cada área con `math.pi`, y `mean` promedia la lista. La salida es `3.14` y `14.66`: la media de 3.14, 12.57 y 28.27. Si solo necesitaras una función, `from math import pi` sería suficiente, pero entonces el nombre `pi` quedaría suelto y menos claro."
+		},
+		{
+			"type": "compare",
+			"title": "Traer código externo en Python y en C++",
+			"python": {
+				"caption": "areas.py",
+				"code": "import math\n\nprint(math.sqrt(16))"
+			},
+			"cpp": {
+				"caption": "areas.cpp",
+				"code": "#include <cmath>\n#include <iostream>\n\nint main() {\n    std::cout << std::sqrt(16.0) << std::endl;\n    return 0;\n}"
+			},
+			"note": "En C++ el `#include` copia el contenido de la cabecera durante la compilación y necesitas `std::`. En Python, `import` carga un objeto módulo en tiempo de ejecución y los nombres viven dentro de él."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: tu primer módulo propio"
+		},
+		{
+			"type": "p",
+			"md": "Crea una carpeta y dentro dos archivos. El primero, `conversiones.py`, define constantes y funciones. El segundo, `main.py`, las usa. Ambos deben estar en la misma carpeta para que la búsqueda de imports los encuentre."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "conversiones.py",
+			"code": "\"\"\"Conversiones de unidades usadas en el curso.\"\"\"\n\nFACTOR_LIBRA_KG = 0.45359237\n\n\ndef libras_a_kilos(libras: float) -> float:\n    return libras * FACTOR_LIBRA_KG\n\n\ndef kilos_a_libras(kilos: float) -> float:\n    return kilos / FACTOR_LIBRA_KG\n\n\nif __name__ == \"__main__\":\n    print(libras_a_kilos(150))",
+			"highlight": [
+				14,
+				15
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "main.py",
+			"code": "import conversiones\n\npeso_lb = 150\nprint(round(conversiones.libras_a_kilos(peso_lb), 1))",
+			"highlight": [
+				1,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "Ejecutar `python3 conversiones.py` imprime `68.0388555`, porque ahí `__name__` vale `\"__main__\"` y la prueba se ejecuta. Ejecutar `python3 main.py` imprime `68.0`: importar `conversiones` define las funciones, pero el bloque de prueba queda apagado. Ese es todo el truco del guardián, y es la razón por la que puedes importar sin efectos secundarios."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un paquete con dos módulos"
+		},
+		{
+			"type": "p",
+			"md": "Cuando un módulo crece, se parte en un paquete. Esta estructura separa la limpieza de textos del cálculo del resumen, y expone una interfaz corta desde `__init__.py`: quien use el paquete importa `ventas` y no necesita saber en qué archivo vive cada función."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Estructura del proyecto",
+			"code": "proyecto/\n├── main.py\n├── requirements.txt\n└── ventas/\n    ├── __init__.py\n    ├── limpieza.py\n    └── resumen.py"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ventas/__init__.py",
+			"code": "\"\"\"Herramientas para analizar ventas.\"\"\"\n\nfrom .limpieza import normalizar_sede\nfrom .resumen import total_por_sede\n\n__all__ = [\"normalizar_sede\", \"total_por_sede\"]",
+			"highlight": [
+				3,
+				4
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ventas/resumen.py",
+			"code": "from .limpieza import normalizar_sede\n\n\ndef total_por_sede(registros):\n    totales = {}\n    for sede, monto in registros:\n        clave = normalizar_sede(sede)\n        totales[clave] = totales.get(clave, 0) + monto\n    return totales",
+			"highlight": [
+				1,
+				8
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "main.py",
+			"code": "from ventas import total_por_sede\n\nregistros = [(\"lima \", 120.0), (\"Cusco\", 80.5), (\"LIMA\", 60.0)]\nprint(total_por_sede(registros))",
+			"highlight": [
+				1,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "El punto de `from .limpieza` significa «dentro de este mismo paquete». La salida es `{'Lima': 180.0, 'Cusco': 80.5}`: `lima ` y `LIMA` se normalizan a la misma clave y sus montos se suman. `__all__` no bloquea imports, pero documenta qué nombres forman la interfaz pública y es lo que usa `from ventas import *`."
+		},
+		{
+			"type": "p",
+			"md": "Crea un entorno virtual antes de instalar nada. En macOS o Linux, `python3 -m venv .venv` crea la carpeta, `source .venv/bin/activate` lo activa y el prompt muestra `(.venv)`. En Windows la activación es `.venv\\Scripts\\activate`. Después, `pip install numpy` instala dentro del entorno, no en el sistema."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Comando",
+				"Qué hace"
+			],
+			"rows": [
+				["`python3 -m venv .venv`", "Crea un entorno aislado en la carpeta `.venv`"],
+				["`source .venv/bin/activate`", "Activa el entorno en macOS y Linux"],
+				["`pip install numpy`", "Instala en el entorno activo, no en todo el sistema"],
+				["`pip freeze > requirements.txt`", "Escribe las versiones exactas instaladas"],
+				["`pip install -r requirements.txt`", "Reproduce esas versiones en otra máquina"]
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Nunca compartas la carpeta .venv",
+			"md": "Contiene rutas absolutas y binarios de tu sistema operativo. Se añade a `.gitignore` y se reconstruye con `python3 -m venv .venv` más `pip install -r requirements.txt`. Lo que se comparte es el archivo de requisitos, no el entorno."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué pasa en un import repetido"
+		},
+		{
+			"type": "p",
+			"md": "Avanza paso a paso. Observa que el segundo `import math` no vuelve a ejecutar el módulo y que `__name__` vale `\"__main__\"` porque el archivo se está ejecutando, no importando."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "sys.modules evita trabajo repetido",
+			"code": "import sys\nimport math\nimport math\n\nprint(math.sqrt(81))\nprint(\"math\" in sys.modules)\nprint(__name__)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "`sys` es un módulo integrado: ya está cargado, así que solo se enlaza el nombre.",
+					"vars": {
+						"sys": "<module 'sys' (built-in)>"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`math` no está en `sys.modules`. Python lo busca en `sys.path`, lo ejecuta una vez y guarda el objeto módulo.",
+					"vars": {
+						"sys": "<module 'sys' (built-in)>",
+						"math": "<module 'math'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "El segundo `import math` encuentra el módulo en la caché y no vuelve a ejecutarlo. No hay coste de inicialización.",
+					"vars": {
+						"sys": "<module 'sys' (built-in)>",
+						"math": "<module 'math'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`sqrt` vive dentro del módulo, por eso se llama con el prefijo `math.`. El resultado es 9.0.",
+					"vars": {
+						"sys": "<module 'sys' (built-in)>",
+						"math": "<module 'math'>"
+					},
+					"output": "9.0\n"
+				},
+				{
+					"line": 6,
+					"note": "La comprobación confirma que `math` figura en el diccionario de módulos cargados.",
+					"vars": {
+						"sys": "<module 'sys' (built-in)>",
+						"math": "<module 'math'>"
+					},
+					"output": "True\n"
+				},
+				{
+					"line": 7,
+					"note": "Al ejecutar el archivo directamente, `__name__` vale `\"__main__\"`. Si otro archivo lo importara, valdría el nombre del módulo.",
+					"vars": {
+						"sys": "<module 'sys' (built-in)>",
+						"math": "<module 'math'>"
+					},
+					"output": "__main__\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				["`ModuleNotFoundError: No module named 'requests'`", "El paquete no está instalado en el entorno activo", "Activa el entorno y ejecuta `pip install requests`"],
+				["`ImportError: cannot import name 'media' from 'statistics'`", "El nombre no existe o está mal escrito", "Revisa la ortografía; en la biblioteca estándar es `mean`"],
+				["`ImportError: attempted relative import with no known parent package`", "Ejecutaste un módulo del paquete directamente con `python3 ventas/resumen.py`", "Ejecuta `python3 -m ventas.resumen` desde la raíz del proyecto"],
+				["`ModuleNotFoundError: No module named 'ventas'`", "Estás en otra carpeta y la raíz del proyecto no está en `sys.path`", "Ejecuta desde la raíz o añade la ruta con `PYTHONPATH=.`"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Ejecutar un módulo del paquete de la forma correcta",
+			"wrong": {
+				"caption": "Desde dentro de la carpeta del paquete",
+				"code": "cd ventas\npython3 resumen.py\n# ImportError: attempted relative import with no known parent package"
+			},
+			"right": {
+				"caption": "Como módulo, desde la raíz",
+				"code": "python3 -m ventas.resumen\n# Python conoce el paquete y resuelve el punto"
+			},
+			"explain": "El import relativo necesita saber a qué paquete pertenece el archivo. Al ejecutar el archivo suelto, Python lo trata como `__main__` y pierde ese contexto; con `-m` lo carga como `ventas.resumen` y el punto se resuelve."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"No nombres un archivo como un módulo de la biblioteca estándar: `random.py`, `json.py` o `types.py` te van a traicionar.",
+				"Importa arriba del archivo y en grupos: biblioteca estándar, terceros, módulos propios.",
+				"Usa `from x import y` cuando el nombre sea inequívoco; si no, prefiere `import x` para conservar el contexto.",
+				"Deja en `__init__.py` solo la interfaz pública y los imports cortos; la lógica va en los módulos internos.",
+				"Ejecuta los scripts de un paquete con `python3 -m paquete.modulo`, no con la ruta del archivo.",
+				"Fija versiones en `requirements.txt` y mantén `.venv` fuera del control de versiones."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Un módulo con guardián",
+			"md": "Crea `temperaturas.py` con dos funciones: `c_a_f(celsius)` y `f_a_c(fahrenheit)`. Añade un bloque `if __name__ == \"__main__\":` que imprima la conversión de 25 °C y de 212 °F. Ejecuta el archivo y después impórtalo desde otro archivo: comprueba que al importarlo no se imprime nada.",
+			"hint": "El guardián compara `__name__` con la cadena `\"__main__\"`. Al importar, `__name__` es `\"temperaturas\"` y el bloque se salta.",
+			"solution": {
+				"lang": "python",
+				"caption": "temperaturas.py",
+				"code": "def c_a_f(celsius: float) -> float:\n    return celsius * 9 / 5 + 32\n\ndef f_a_c(fahrenheit: float) -> float:\n    return (fahrenheit - 32) * 5 / 9\n\nif __name__ == \"__main__\":\n    print(c_a_f(25))\n    print(f_a_c(212))",
+				"explain": "Al ejecutar el archivo se imprimen `77.0` y `100.0`. Desde otro archivo, `import temperaturas` define las funciones pero no imprime nada, porque `__name__` vale `\"temperaturas\"`. El guardián no es decoración: evita que una prueba se dispare en mitad de otro programa."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Convertir un script en módulo reutilizable",
+			"md": "Tienes un script que calcula estadísticas de ventas e imprime todo al ejecutarse. Sepáralo: crea `analisis.py` con una función `resumen(ventas)` que devuelva un diccionario con `n`, `media` (redondeada a 2 decimales) y `maximo`. Deja la impresión dentro del guardián. Después escribe `informe.py` que haga `from analisis import resumen` e imprima el resultado de una lista de prueba.",
+			"hint": "Dentro de `resumen` usa `len`, `statistics.mean` y `max`. La función devuelve datos; solo el bloque `__main__` imprime.",
+			"solution": {
+				"lang": "python",
+				"caption": "analisis.py",
+				"code": "import statistics\n\ndef resumen(ventas):\n    return {\n        \"n\": len(ventas),\n        \"media\": round(statistics.mean(ventas), 2),\n        \"maximo\": max(ventas),\n    }\n\nif __name__ == \"__main__\":\n    print(resumen([10.0, 20.0, 30.0]))",
+				"explain": "`import analisis` no imprime nada, y `analisis.resumen(...)` devuelve el diccionario `{'n': 3, 'media': 20.0, 'maximo': 30.0}`. La separación entre calcular e imprimir es lo que hace la función comprobable: puedes llamarla desde un test sin capturar la salida."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa los imports",
+			"lang": "python",
+			"code": "import ___ as st\nfrom math import ___\n\ndatos = [2, 4, 6]\nprint(___(datos))\nprint(sqrt(81))",
+			"answers": [
+				"statistics",
+				"sqrt",
+				"st.mean"
+			],
+			"hint": "El alias `st` se usa como prefijo. La función que falta es la raíz cuadrada.",
+			"explain": "`import statistics as st` permite `st.mean(datos)`, que devuelve 4. `from math import sqrt` trae la función suelta, y `sqrt(81)` devuelve 9.0. El alias acorta sin perder el módulo de origen."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la tentación es dejar las impresiones al final del archivo sin guardián. Funciona mientras ejecutas ese archivo, pero al importarlo desde otro se imprime basura en medio del programa. El guardián convierte el archivo en dos cosas a la vez: script ejecutable por sí mismo y módulo silencioso para los demás."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el cambio importante no es estético. Una función que imprime no se puede probar sin capturar la salida, y no se puede reutilizar para generar un PDF o una respuesta HTTP. Una función que devuelve un diccionario sí. La regla general es: las funciones calculan y devuelven; el código de nivel superior, o el guardián, decide qué hacer con el resultado."
+		},
+		{
+			"type": "p",
+			"md": "Para reproducir el proyecto en otra máquina, el orden es siempre el mismo: `python3 -m venv .venv`, activar, `pip install -r requirements.txt`. Si el archivo no existe todavía, `pip freeze > requirements.txt` lo genera después de instalar. Fijar versiones evita que una actualización silenciosa cambie los resultados de tu modelo."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un módulo es un archivo `.py`; un paquete es una carpeta con `__init__.py`.",
+				"`import x` trae el módulo; `from x import y` trae un nombre; `as` renombra.",
+				"Python busca en `sys.path` en orden y reutiliza lo que ya está en `sys.modules`.",
+				"Un módulo se ejecuta una sola vez, en su primera importación.",
+				"`__name__` vale `\"__main__\"` en el archivo ejecutado y el nombre del módulo al importarlo.",
+				"Los imports relativos (`from .modulo import x`) requieren ejecutar con `python3 -m paquete.modulo`.",
+				"Un entorno virtual aísla dependencias; `requirements.txt` las reproduce con versiones fijas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Importas el mismo módulo en dos archivos distintos del programa. ¿Qué ocurre?",
+			"options": [
+				"El módulo se ejecuta dos veces y duplica sus efectos",
+				"Se ejecuta la primera vez y la segunda se reutiliza desde `sys.modules`",
+				"Python lanza `ImportError` por importar dos veces",
+				"Se ejecuta una vez por cada proceso, aunque sea el mismo intérprete"
+			],
+			"answer": 1,
+			"explain": "`sys.modules` actúa como caché: la primera importación localiza, compila y ejecuta el archivo; las siguientes solo devuelven el objeto ya creado. Por eso los efectos secundarios de nivel superior ocurren una sola vez."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime `print(__name__)` cuando ejecutas `python3 conversiones.py` directamente?",
+			"options": [
+				"`conversiones`",
+				"`__main__`",
+				"La ruta completa del archivo",
+				"`None`"
+			],
+			"answer": 1,
+			"explain": "El archivo que arranca el intérprete recibe el nombre `__main__`. Al importarlo desde otro archivo, `__name__` sería `\"conversiones\"`. Esa diferencia es la base del guardián."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué problema resuelve un entorno virtual?",
+			"options": [
+				"Hace que Python se ejecute más rápido",
+				"Aísla las dependencias y sus versiones para cada proyecto",
+				"Comprime el código antes de publicarlo",
+				"Permite ejecutar Python sin instalarlo en el sistema"
+			],
+			"answer": 1,
+			"explain": "Cada entorno tiene su propia carpeta de paquetes. Así un proyecto puede usar NumPy 1.26 y otro NumPy 2.0 sin que se pisen. No acelera el código ni sustituye al intérprete: reutiliza el que ya tienes."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "Módulos",
+					"url": "https://docs.python.org/es/3/tutorial/modules.html",
+					"note": "import, paquetes e imports relativos"
+				},
+				{
+					"label": "Entornos virtuales y paquetes",
+					"url": "https://docs.python.org/es/3/tutorial/venv.html",
+					"note": "venv y pip paso a paso"
+				},
+				{
+					"label": "sys.path",
+					"url": "https://docs.python.org/es/3/library/sys.html#sys.path",
+					"note": "orden de búsqueda de módulos"
+				}
+			]
+		}
+	]
+}

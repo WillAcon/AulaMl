@@ -1,0 +1,511 @@
+{
+	"id": "py-30-fundamentos-ml",
+	"track": "python",
+	"order": 30,
+	"title": "Fundamentos de Machine Learning",
+	"subtitle": "Qué aprende un modelo, qué datos necesita y cómo se mide si sirve",
+	"level": "intermedio",
+	"minutes": 48,
+	"tags": ["machine learning", "supervisado", "pipeline", "evaluación"],
+	"keywords": [
+		"qué es machine learning",
+		"aprendizaje supervisado",
+		"aprendizaje no supervisado",
+		"features y labels",
+		"train test split",
+		"sobreajuste",
+		"sesgo y varianza",
+		"función de pérdida",
+		"pipeline de machine learning",
+		"tipos de problemas de ml",
+		"instalar scikit-learn"
+	],
+	"summary": "Un modelo no recibe reglas: las deduce de ejemplos. Aquí aprendes el vocabulario mínimo del Machine Learning —características, etiquetas, particiones, pérdida y generalización— y recorres el pipeline completo con datos pequeños que puedes verificar a mano.",
+	"objectives": [
+		"Distinguir aprendizaje supervisado de no supervisado y reconocer el tipo de problema",
+		"Separar una tabla en la matriz X y el vector y con las dimensiones correctas",
+		"Dividir los datos en entrenamiento, validación y prueba sin filtrar información",
+		"Explicar qué mide una función de pérdida y qué significan MSE y MAE",
+		"Detectar sobreajuste comparando el error de entrenamiento con el de prueba"
+	],
+	"prerequisites": [
+		"NumPy: vectores, matrices y vectorización",
+		"Pandas: Series y DataFrames",
+		"Estadística y análisis exploratorio"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora has limpiado tablas y dibujado gráficos. En esos casos eras tú quien escribía la regla: «si el área supera 100 m², el precio es alto». El **Machine Learning** cambia el reparto: le entregas ejemplos resueltos y él propone la regla."
+		},
+		{
+			"type": "p",
+			"md": "Esta lección es el mapa del territorio. No entrenarás todavía un modelo complejo: entenderás qué entra, qué sale y cómo se comprueba si el resultado sirve. Con ese vocabulario, las tres lecciones siguientes encajan como piezas de un mismo motor."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es el Machine Learning?"
+		},
+		{
+			"type": "p",
+			"md": "El Machine Learning es la rama de la inteligencia artificial que construye programas capaces de **mejorar con datos** en lugar de recibir una instrucción para cada caso. Un programa clásico recibe reglas y datos y devuelve respuestas; un modelo recibe datos y respuestas, y devuelve la regla, que después aplica a datos nuevos."
+		},
+		{
+			"type": "p",
+			"md": "Buscas una función `f` tal que `f(X)` se parezca a `y`. Si `X` son el área y las habitaciones de un departamento, e `y` su precio, aprender es ajustar los números internos de `f` hasta que sus predicciones se acerquen a los precios reales. Lo importante no es acertar en los ejemplos vistos, sino en los que verá por primera vez: eso se llama **generalizar**."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Tiene sentido cuando la decisión se repite muchas veces, existe un historial de casos resueltos y las reglas escritas a mano se vuelven inmanejables. Casos típicos, con su tipo de problema:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Filtro de spam**: decides si un correo es basura a partir de palabras y remitente (clasificación).",
+				"**Precio de una vivienda**: estimas un número continuo con área, zona y antigüedad (regresión).",
+				"**Segmentos de clientes**: agrupas compras parecidas sin saber qué grupos existen (clustering).",
+				"**Detección de fraude**: encuentras pocos cargos anómalos entre millones normales (clasificación desbalanceada).",
+				"**Mantenimiento predictivo**: anticipas qué máquina fallará según vibración y temperatura."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? El pipeline conceptual"
+		},
+		{
+			"type": "p",
+			"md": "Todo proyecto recorre las mismas etapas. Cambian las herramientas, no el orden:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Definir el problema**: qué decisión tomas, qué error duele más y cómo se mide el éxito.",
+				"**Limpiar**: una fila por caso, una columna por variable, sin duplicados ni fugas.",
+				"**Elegir características y etiqueta**: separas `X` (lo que sabes antes) e `y` (lo que predices).",
+				"**Dividir**: reservas datos que el modelo no verá durante el ajuste.",
+				"**Entrenar**: el algoritmo ajusta sus parámetros para reducir una pérdida.",
+				"**Evaluar**: mides el error en datos reservados y comparas con una referencia simple."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La división es la parte que más se salta y la que más engaña. Si estudias con exámenes resueltos y te evalúan con esos mismos exámenes, sacarás 20 sin haber aprendido. Reservar datos es guardar preguntas que nunca viste."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: el vocabulario mínimo"
+		},
+		{
+			"type": "table",
+			"head": ["Término", "Símbolo", "Qué es", "Ejemplo"],
+			"rows": [
+				["Característica", "`X`", "Lo que conoces antes de decidir", "área, habitaciones"],
+				["Etiqueta", "`y`", "Lo que quieres predecir", "precio"],
+				["Ejemplo", "fila", "Un caso completo", "un departamento"],
+				["Modelo", "`f`", "La regla ajustada", "`precio = 1.5 · área + 5 · hab + 5`"],
+				["Pérdida", "`L`", "Número que mide el error", "MSE"],
+				["Hiperparámetro", "—", "Lo eliges tú, no el ajuste", "profundidad del árbol"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Las dimensiones cuentan la historia: con 6 filas y 2 columnas, `X` mide `(6, 2)` e `y` mide `(6,)`. Seis ejemplos, dos características, una etiqueta por ejemplo. Cuando scikit-learn se queja de formas incompatibles, casi siempre sobra una fila o una columna."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: de una tabla a X e y"
+		},
+		{
+			"type": "p",
+			"md": "Estos seis departamentos tienen precios construidos con una regla exacta: `1.5` mil soles por metro cuadrado, `5` mil por habitación y `5` mil de base. Así puedes comprobar a mano cada número."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "tabla_a_matrices.py",
+			"code": "X = [\n    [40, 1],\n    [60, 2],\n    [80, 2],\n    [100, 3],\n    [120, 3],\n    [140, 4],\n]\ny = [70, 105, 135, 170, 200, 235]  # precio en miles de soles\n\nprint(len(X), \"ejemplos\")\nprint(len(X[0]), \"características\")\nprint(\"primera fila:\", X[0], \"->\", y[0])",
+			"highlight": [11, 12, 13]
+		},
+		{
+			"type": "p",
+			"md": "`len(X)` cuenta filas; `len(X[0])` cuenta columnas. La salida es `6 ejemplos`, `2 características` y `primera fila: [40, 1] -> 70`. Fíjate en que `y` no está dentro de `X`: si incluyeras el precio como columna, el modelo tendría la respuesta en la entrada."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la matriz X y el vector y"
+		},
+		{
+			"type": "matrix",
+			"title": "Matriz de características X",
+			"data": [[40, 1], [60, 2], [80, 2], [100, 3], [120, 3], [140, 4]],
+			"rowLabels": ["d1", "d2", "d3", "d4", "d5", "d6"],
+			"colLabels": ["área (m²)", "habitaciones"],
+			"steps": [
+				{
+					"note": "Cada fila es un ejemplo completo. La etiqueta de esta fila es `y = 70`.",
+					"highlight": [[0, 0], [0, 1]]
+				},
+				{
+					"note": "Segunda fila: `X = [60, 2]` y su etiqueta vale `105`.",
+					"highlight": [[1, 0], [1, 1]]
+				},
+				{
+					"note": "Tercera fila: `X = [80, 2]`, etiqueta `135`.",
+					"highlight": [[2, 0], [2, 1]]
+				},
+				{
+					"note": "Cuarta fila: `X = [100, 3]`, etiqueta `170`.",
+					"highlight": [[3, 0], [3, 1]]
+				},
+				{
+					"note": "Quinta fila: `X = [120, 3]`, etiqueta `200`.",
+					"highlight": [[4, 0], [4, 1]]
+				},
+				{
+					"note": "Sexta fila: `X = [140, 4]`, etiqueta `235`. Las etiquetas forman el vector `y`, de longitud 6.",
+					"highlight": [[5, 0], [5, 1]]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Lee la matriz como una hoja de cálculo sin la columna del precio: esas dos columnas son lo que el modelo puede usar, y el precio vive aparte, en un vector paralelo que intentará reproducir para filas nuevas."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: separar antes de entrenar"
+		},
+		{
+			"type": "p",
+			"md": "Con seis filas, la división más honesta deja cuatro para aprender y dos para comprobar:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "division_manual.py",
+			"code": "X = [[40, 1], [60, 2], [80, 2], [100, 3], [120, 3], [140, 4]]\ny = [70, 105, 135, 170, 200, 235]\n\ncorte = 4  # cuatro filas para entrenar, dos para evaluar\nX_train, y_train = X[:corte], y[:corte]\nX_test, y_test = X[corte:], y[corte:]\n\nprint(\"entrenamiento:\", len(X_train), \"filas\")\nprint(\"prueba:\", len(X_test), \"filas\")\nprint(\"prueba X:\", X_test)\nprint(\"prueba y:\", y_test)",
+			"highlight": [4, 5, 6]
+		},
+		{
+			"type": "p",
+			"md": "La salida confirma el reparto: `entrenamiento: 4 filas`, `prueba: 2 filas`, `prueba X: [[120, 3], [140, 4]]` y `prueba y: [200, 235]`. Un corte por posición sirve si el orden es arbitrario; si las filas están ordenadas por precio, el test se parece demasiado al train y la medida se infla."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Antes de ejecutar el bloque siguiente",
+			"code": "python -m pip install scikit-learn"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "division_con_sklearn.py",
+			"code": "from sklearn.model_selection import train_test_split\n\nX = [[40, 1], [60, 2], [80, 2], [100, 3], [120, 3], [140, 4]]\ny = [70, 105, 135, 170, 200, 235]\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.25, random_state=0\n)\n\nprint(len(X_train), \"en train\")\nprint(len(X_test), \"en test\")",
+			"highlight": [7, 8]
+		},
+		{
+			"type": "p",
+			"md": "`train_test_split` mezcla las filas y respeta la correspondencia entre cada `X` y su `y`. Con 6 filas, el 25 % son 1.5, así que redondea hacia arriba: 2 para test y 4 para entrenamiento. `random_state` fija la mezcla."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La fuga de datos más común",
+			"md": "Si normalizas o imputas valores con **toda** la tabla y después divides, el test ya influyó en el entrenamiento. Divide primero y ajusta el escalador solo con `X_train`; a `X_test` se le aplica la transformación aprendida."
+		},
+		{
+			"type": "h",
+			"text": "Supervisado, no supervisado y los tipos de problema"
+		},
+		{
+			"type": "p",
+			"md": "La primera división depende de si tienes respuestas. En el **supervisado** cada ejemplo trae su etiqueta y el modelo aprende a predecirla. En el **no supervisado** no hay etiqueta: buscas grupos o estructura. El **refuerzo** aprende por recompensas tras actuar."
+		},
+		{
+			"type": "table",
+			"head": ["Tipo", "Tienes", "Buscas", "Ejemplo"],
+			"rows": [
+				["Supervisado", "`X` e `y`", "predecir `y`", "precio, spam"],
+				["No supervisado", "solo `X`", "grupos o estructura", "segmentos, anomalías"],
+				["Por refuerzo", "entorno y recompensas", "una política de acción", "robot, videojuego"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Dentro del supervisado, la etiqueta decide el resto. Si `y` es continuo —un precio, una temperatura— hablas de **regresión**. Si es una categoría —spam o no— hablas de **clasificación**. La regresión logística se llama así por historia, pero resuelve clasificación: devuelve una probabilidad."
+		},
+		{
+			"type": "h",
+			"text": "La pérdida: cómo se mide el error"
+		},
+		{
+			"type": "p",
+			"md": "Una **función de pérdida** convierte «qué tan mal predice el modelo» en un número que el algoritmo puede minimizar. En regresión, la más usada es el error cuadrático medio (MSE): promedias las diferencias al cuadrado entre lo real y lo predicho. Al elevar al cuadrado, castiga mucho los errores grandes."
+		},
+		{
+			"type": "p",
+			"md": "El error absoluto medio (MAE) promedia el valor absoluto de los errores. Está en las mismas unidades que `y` y resiste mejor los valores atípicos. Ninguna es «la correcta»: elige la que refleje el coste real de equivocarte. Para minimizar la pérdida, la mayoría de modelos usa **descenso de gradiente**: calcula cómo cambia el error al mover cada parámetro (la derivada o gradiente) y da un pequeño paso en la dirección que lo reduce."
+		},
+		{
+			"type": "h",
+			"text": "Traza: cómo se calcula el error paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "Un baseline que siempre predice la media es la primera comparación que debes batir. Con cuatro precios, la media es 120 y el MSE se calcula así:"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "MSE de un modelo que predice la media",
+			"code": "y = [70, 105, 135, 170]\nmedia = sum(y) / len(y)\nerror_total = 0\n\nfor precio in y:\n    error_total = error_total + (precio - media) ** 2\n\nprint(round(error_total / len(y), 2))",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se guardan los cuatro precios reales. Todavía no hay predicciones.",
+					"vars": { "y": "[70, 105, 135, 170]" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "La suma es 480 y hay 4 valores: la media es `120.0`. Ese será el valor predicho para todas las filas.",
+					"vars": { "y": "[70, 105, 135, 170]", "media": "120.0" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "El acumulador de errores al cuadrado empieza en cero.",
+					"vars": { "y": "[70, 105, 135, 170]", "media": "120.0", "error_total": "0" },
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Primera iteración: `precio = 70`, el error es `-50` y al cuadrado suma `2500`.",
+					"vars": { "y": "[70, 105, 135, 170]", "media": "120.0", "error_total": "2500", "precio": "70" },
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Segunda iteración: `precio = 105`, error `-15`, cuadrado `225`. El acumulado pasa a `2725`.",
+					"vars": { "y": "[70, 105, 135, 170]", "media": "120.0", "error_total": "2725", "precio": "105" },
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Tercera iteración: `precio = 135`, error `15`, cuadrado `225`. Acumulado `2950`.",
+					"vars": { "y": "[70, 105, 135, 170]", "media": "120.0", "error_total": "2950", "precio": "135" },
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Cuarta iteración: `precio = 170`, error `50`, cuadrado `2500`. Acumulado final `5450`.",
+					"vars": { "y": "[70, 105, 135, 170]", "media": "120.0", "error_total": "5450", "precio": "170" },
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "`5450 / 4 = 1362.5`. El MSE está en soles al cuadrado: por eso se compara con su raíz, unos `36.9` mil soles de error típico.",
+					"vars": { "y": "[70, 105, 135, 170]", "media": "120.0", "error_total": "5450", "precio": "170" },
+					"output": "1362.5\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "La media de estos cuatro precios (120) es menor que la de los seis departamentos (152.5), así que el error también cambia: cada conjunto tiene su referencia. Y la raíz del MSE vale `36.9` mil soles, una cifra que sí puedes comparar con un precio."
+		},
+		{
+			"type": "h",
+			"text": "Sesgo, varianza y las tres particiones"
+		},
+		{
+			"type": "p",
+			"md": "El **sesgo** es el error de un modelo demasiado simple: aunque le des más datos, seguirá sin capturar la curva real. La **varianza** es el error de un modelo demasiado sensible: cambia sus predicciones si cambias unas filas. El primero produce **subajuste** (falla en ambos conjuntos); la segunda, **sobreajuste** (brilla en entrenamiento y cae en prueba)."
+		},
+		{
+			"type": "p",
+			"md": "Para distinguirlos necesitas tres conjuntos. Con **entrenamiento** ajustas parámetros; con **validación** eliges hiperparámetros; con **prueba** informas el resultado final, una sola vez. Si usas el test para decidir, deja de ser test."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La señal clásica de sobreajuste",
+			"md": "Un modelo con 0.99 de exactitud en entrenamiento y 0.61 en prueba memorizó. La solución no es darle más vueltas al algoritmo, sino simplificarlo, añadir datos o regularizar."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: predecir el precio de un departamento"
+		},
+		{
+			"type": "p",
+			"md": "Con los seis departamentos puedes montar el esqueleto completo sin bibliotecas externas: entrenar, predecir y evaluar. El modelo es la media, el baseline que cualquier modelo real debe superar."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pipeline_baseline.py",
+			"code": "X = [[40, 1], [60, 2], [80, 2], [100, 3], [120, 3], [140, 4]]\ny = [70, 105, 135, 170, 200, 235]\n\ndef entrenar(X, y):\n    return sum(y) / len(y)          # el baseline predice siempre la media\n\ndef predecir(modelo, X):\n    return [modelo for _ in X]\n\ndef mse(real, predicho):\n    return sum((r - p) ** 2 for r, p in zip(real, predicho)) / len(real)\n\nmodelo = entrenar(X, y)\npredicciones = predecir(modelo, X)\n\nprint(\"predicción constante:\", modelo)\nprint(\"MSE:\", round(mse(y, predicciones), 2))",
+			"highlight": [5, 8, 11, 13, 14, 16, 17]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `predicción constante: 152.5` y `MSE: 3122.92`. No significa que el modelo sea malo por naturaleza: significa que ignorar el área y las habitaciones cuesta muchísimo. Un modelo que las use debería bajar el MSE de forma evidente."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Evaluar con los datos de entrenamiento**: siempre sale bien y no dice nada del futuro.",
+				"**Incluir la etiqueta entre las características**: el modelo copia la respuesta y la métrica se vuelve perfecta e inútil.",
+				"**Escalar antes de dividir**: la media y la desviación del test se filtran al entrenamiento.",
+				"**Usar exactitud con clases desbalanceadas**: si el 98 % no es fraude, un modelo que nunca detecta fraude acierta el 98 %."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe la pregunta antes del código: qué predices, para qué y con qué error se considera útil.",
+				"Fija `random_state` en cada división para poder repetir el experimento.",
+				"Empieza con un baseline trivial: la media o la clase mayoritaria.",
+				"Guarda el preprocesamiento en un `Pipeline` para que train y test reciban el mismo trato.",
+				"No toques el test hasta el final; si lo miras diez veces, estarás eligiendo el modelo que mejor encaja con él."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Separa características y etiqueta",
+			"md": "Tienes cinco correos descritos por dos columnas —palabras sospechosas y remitente conocido— y una tercera que indica si es spam. Construye `X` e `y` con comprensiones de lista, imprime las filas y características de `X`, y cuenta cuántos correos son spam.",
+			"hint": "Recorre cada fila y corta con slicing: `fila[:2]` para las características, `fila[2]` para la etiqueta.",
+			"solution": {
+				"lang": "python",
+				"caption": "correos.py",
+				"code": "correos = [\n    [5, 0, 1],\n    [1, 1, 0],\n    [8, 0, 1],\n    [0, 1, 0],\n    [3, 1, 0],\n]\n\nX = [fila[:2] for fila in correos]\ny = [fila[2] for fila in correos]\n\nprint(\"X:\", len(X), \"filas de\", len(X[0]), \"características\")\nprint(\"y:\", y)\nprint(\"spam:\", sum(y), \"de\", len(y))",
+				"explain": "El slicing separa sin mutar la tabla original. `X` queda con 5 filas de 2 columnas y `y` con 5 etiquetas; la salida confirma `spam: 2 de 5`. Si hubieras cortado `fila[:3]`, la etiqueta entraría en `X` y el modelo tendría la respuesta en la entrada."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Diseña las tres particiones",
+			"md": "Simula 1000 clientes con `X = [[i] for i in range(1000)]`. Reserva el 20 % como test y, del resto, un 25 % como validación. Imprime cuántos quedan en cada conjunto y comenta qué decide cada uno.",
+			"hint": "Llama dos veces a `train_test_split`: la segunda sobre `X_train` e `y_train`, no sobre la tabla completa.",
+			"solution": {
+				"lang": "python",
+				"caption": "tres_particiones.py",
+				"code": "from sklearn.model_selection import train_test_split\n\nX = [[i] for i in range(1000)]\ny = [i % 2 for i in range(1000)]\n\n# 20 % final: solo se usa para informar el resultado\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42\n)\n\n# 25 % del 80 % restante: elegir hiperparámetros\nX_train, X_val, y_train, y_val = train_test_split(\n    X_train, y_train, test_size=0.25, random_state=42\n)\n\nprint(len(X_train), len(X_val), len(X_test))",
+				"explain": "La primera división deja 800 y 200. La segunda toma 200 de esos 800 para validación, así que imprime `600 200 200`. El test conserva su 20 % original y nunca participa en la elección: por eso sigue siendo una estimación honesta."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la división",
+			"lang": "python",
+			"code": "from sklearn.model_selection import train_test_split\n\nX_train, X_test, y_train, y_test = train_test_split(\n    X, ___, test_size=___, random_state=42\n)\n\nprint(len(X_train), len(X_test))",
+			"answers": ["y", "0.2"],
+			"hint": "El segundo argumento son las etiquetas; el tercero, la fracción que va al test.",
+			"explain": "`train_test_split` recibe primero las características y luego la etiqueta, y devuelve los cuatro bloques en ese orden. Con 1000 filas y `test_size=0.2`, el test tendrá 200 y el train 800."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio importa la frontera, no el bucle: `X` contiene solo información disponible al decidir, e `y` contiene la decisión. Una columna como «marcado como spam por el usuario» sería una fuga, porque existe después de la decisión."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la validación sale del bloque de entrenamiento, no del test. Ese detalle explica por qué el test no se desgasta: se toca una vez. Con conjuntos pequeños una sola división es ruidosa; ahí conviene la validación cruzada."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un modelo aprende una regla de ejemplos; generalizar es acertar en datos no vistos.",
+				"`X` son las características e `y` la etiqueta: con `n` filas y `d` columnas, `X` mide `(n, d)`.",
+				"Supervisado usa etiquetas; regresión predice números y clasificación, categorías.",
+				"El MSE castiga los errores grandes; el MAE es más robusto y está en las unidades de `y`.",
+				"Divide antes de cualquier transformación y reserva el test para el informe final.",
+				"Subajuste falla en ambos conjuntos; sobreajuste triunfa en entrenamiento y cae en prueba."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "En un problema supervisado, ¿qué representa `y`?",
+			"options": [
+				"Las características que describen cada ejemplo",
+				"La etiqueta o valor que quieres predecir",
+				"El número de filas del conjunto de datos",
+				"El modelo ya entrenado"
+			],
+			"answer": 1,
+			"explain": "`X` reúne las características y `y` la respuesta conocida de cada ejemplo. El entrenamiento busca que `f(X)` se acerque a `y` también en filas nuevas."
+		},
+		{
+			"type": "quiz",
+			"question": "Reservas el 20 % de los datos como test. ¿Qué mides con ellos?",
+			"options": [
+				"Cuánto tarda el entrenamiento",
+				"Qué tan bien generaliza el modelo a datos que no vio",
+				"Si el código tiene errores de sintaxis",
+				"La correlación entre las características"
+			],
+			"answer": 1,
+			"explain": "El test es una muestra que el modelo no usó para ajustar sus parámetros. Su error estima el comportamiento futuro; el de entrenamiento solo mide memoria."
+		},
+		{
+			"type": "quiz",
+			"question": "Tu modelo acierta el 99 % en entrenamiento y el 61 % en test. ¿Qué es lo más probable?",
+			"options": [
+				"Que el conjunto de test es demasiado pequeño",
+				"Que hay sobreajuste: el modelo memorizó el entrenamiento",
+				"Que las etiquetas del test están mal",
+				"Que el problema no tiene solución"
+			],
+			"answer": 1,
+			"explain": "La brecha enorme entre ambos conjuntos es la firma del sobreajuste. La respuesta es simplificar, regularizar o conseguir más datos, no seguir ajustando sobre el test."
+		},
+		{
+			"type": "links",
+			"title": "Para profundizar",
+			"items": [
+				{
+					"label": "scikit-learn: guía de aprendizaje supervisado",
+					"url": "https://scikit-learn.org/stable/supervised_learning.html",
+					"note": "referencia oficial de los algoritmos"
+				},
+				{
+					"label": "An Introduction to Statistical Learning",
+					"url": "https://www.statlearning.com/",
+					"note": "libro gratuito con ejercicios en Python"
+				},
+				{
+					"label": "scikit-learn: selección de modelo",
+					"url": "https://scikit-learn.org/stable/model_selection.html",
+					"note": "divisiones, validación cruzada y métricas"
+				}
+			]
+		}
+	]
+}

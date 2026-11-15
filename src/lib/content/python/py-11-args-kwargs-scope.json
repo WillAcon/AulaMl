@@ -1,0 +1,630 @@
+{
+	"id": "py-11-args-kwargs-scope",
+	"track": "python",
+	"order": 11,
+	"title": "Argumentos flexibles y alcance de variables",
+	"subtitle": "Recibir cualquier número de datos, entender dónde vive cada nombre y no compartir listas sin querer",
+	"level": "intermedio",
+	"minutes": 38,
+	"tags": [
+		"funciones",
+		"args",
+		"kwargs",
+		"scope",
+		"legb"
+	],
+	"keywords": [
+		"*args python",
+		"**kwargs python",
+		"keyword-only",
+		"desempaquetar argumentos",
+		"ámbito de variables",
+		"variable local y global",
+		"nonlocal",
+		"regla LEGB",
+		"argumento mutable por defecto",
+		"paso por referencia python",
+		"UnboundLocalError",
+		"configurar función"
+	],
+	"summary": "Con *args y **kwargs una función acepta cualquier cantidad de argumentos posicionales o con nombre. Además aprenderás cómo Python resuelve cada nombre con la regla LEGB, cuándo una función modifica el objeto del llamador y por qué una lista por defecto es una trampa.",
+	"objectives": [
+		"Escribir funciones que acepten un número variable de argumentos",
+		"Leer y usar las formas *args, **kwargs y los parámetros keyword-only",
+		"Desempaquetar listas y diccionarios al llamar a una función",
+		"Explicar la regla LEGB y cuándo hace falta global o nonlocal",
+		"Evitar el error clásico de la lista mutable como valor por defecto",
+		"Distinguir reasignar un parámetro de mutar el objeto recibido"
+	],
+	"prerequisites": [
+		"Funciones: parámetros y retorno"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "La lección anterior te dio funciones con una firma fija: dos parámetros, dos argumentos. Pero las bibliotecas reales no funcionan así. `print` acepta cualquier cantidad de valores, `dict` acepta pares con nombre y un modelo de scikit-learn recibe decenas de opciones que casi nunca usas todas. Necesitas una forma de decir «recibe lo que venga» sin escribir veinte variantes de la misma función."
+		},
+		{
+			"type": "p",
+			"md": "En esta lección vas a aprender las dos herramientas que resuelven eso —`*args` y `**kwargs`— y, sobre todo, a entender dónde vive cada nombre. El **alcance** explica por qué una variable creada dentro de una función no existe fuera, por qué a veces una función sí modifica tu lista y por qué un valor por defecto aparentemente inocente puede arrastrar datos entre llamadas."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué son *args, **kwargs y el alcance?"
+		},
+		{
+			"type": "p",
+			"md": "`*args` recoge en una **tupla** todos los argumentos posicionales que sobran. `**kwargs` recoge en un **diccionario** todos los argumentos con nombre que no coinciden con un parámetro declarado. Los nombres `args` y `kwargs` son convención; lo que importa son los asteriscos, y puedes llamarlos `*numeros` o `**opciones` si describe mejor su contenido."
+		},
+		{
+			"type": "p",
+			"md": "El **alcance** (*scope*) es la zona del programa donde un nombre es visible. Cada llamada a una función crea un espacio propio de nombres. Python lo busca en un orden fijo —local, envolvente, global, incorporado— y se detiene en el primero que encuentre. Esa regla se conoce por las siglas **LEGB**."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Una tupla y un diccionario, no listas",
+			"md": "Dentro de la función, `args` es una tupla y `kwargs` es un diccionario normal. Puedes recorrerlos, consultar `len(args)` o leer `kwargs.get(\"clave\")`, pero no puedes añadir elementos a `args`. Si necesitas una lista, conviértela con `list(args)`."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Funciones de resumen**: `sumar(*numeros)` o `promedio(*notas)` sin fijar cuántos valores llegan.",
+				"**Envoltorios y decoradores**: una función que recibe `*args, **kwargs`, los pasa tal cual y añade algo alrededor.",
+				"**Opciones de configuración**: `crear_modelo(datos, *, profundidad=3, learning_rate=0.1)` deja claro qué se puede ajustar.",
+				"**Registro de eventos**: `registrar(\"compra\", usuario=\"ana\", monto=120)` guarda datos heterogéneos sin definir un parámetro por campo.",
+				"**Llamadas dinámicas**: pasar una lista con `*` o un diccionario con `**` a una función que espera argumentos separados."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Al llamar a una función, Python enlaza los argumentos en este orden: primero los posicionales a los parámetros posicionales; después los que vienen con nombre a su parámetro; luego los posicionales sobrantes van a `*args`; los nombrados sobrantes, a `**kwargs`. Si un obligatorio queda sin valor, la llamada falla antes de ejecutar una sola línea del cuerpo."
+		},
+		{
+			"type": "p",
+			"md": "Un parámetro situado después de `*args` —o después de un `*` solitario— es **keyword-only**: solo se puede pasar con nombre. Del mismo modo, los parámetros anteriores a `**kwargs` pueden ser posicionales o con nombre, pero `**kwargs` captura todo lo demás. Esta gramática permite diseñar firmas muy expresivas sin perder validación."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Forma en el def",
+				"Recibe",
+				"Ejemplo de llamada"
+			],
+			"rows": [
+				[
+					"`def f(a, b)`",
+					"Exactamente dos posicionales",
+					"`f(1, 2)`"
+				],
+				[
+					"`def f(a=0)`",
+					"Uno opcional, se puede omitir",
+					"`f()` o `f(3)`"
+				],
+				[
+					"`def f(*args)`",
+					"Tupla con todos los posicionales",
+					"`f(1, 2, 3)`"
+				],
+				[
+					"`def f(**kwargs)`",
+					"Diccionario con todos los nombrados",
+					"`f(x=1, y=2)`"
+				],
+				[
+					"`def f(a, *, b)`",
+					"`a` posicional o nombrado; `b` solo nombrado",
+					"`f(1, b=2)`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Para los nombres rige LEGB: **L**ocal (el marco actual), **E**nclosing (funciones que envuelven a la actual), **G**lobal (el módulo) y **B**uilt-in (`len`, `print`, `sum`). La primera coincidencia gana. Si dentro de una función asignas a un nombre, Python lo considera local en toda la función, incluso antes de la asignación; de ahí el `UnboundLocalError` que verás más adelante."
+		},
+		{
+			"type": "p",
+			"md": "`nonlocal` aparece en funciones anidadas: permite modificar una variable del ámbito envolvente sin tocar el global. Se declara igual que `global` y solo funciona si el nombre ya existe en la función exterior."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: de la firma a la llamada"
+		},
+		{
+			"type": "p",
+			"md": "Los asteriscos funcionan en los dos sentidos: al definir, empaquetan; al llamar, desempaquetan. `*lista` reparte sus elementos como argumentos posicionales y `**diccionario` reparte sus claves como argumentos con nombre. El número de claves y valores debe coincidir con lo que la función espera."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "firmas.py",
+			"code": "# *extras recoge posicionales; nota es keyword-only; **datos recoge el resto\ndef pedido(producto, *extras, nota=\"\", **datos):\n    \"\"\"Muestra un pedido con extras y datos opcionales.\"\"\"\n    print(producto, extras, nota, datos)\n\n\npedido(\"café\", \"leche\", \"canela\", nota=\"sin azúcar\", mesa=4)\n\n# Desempaquetado al llamar\nextras = (\"leche\", \"canela\")\nopciones = {\"nota\": \"sin azúcar\", \"mesa\": 4}\npedido(\"café\", *extras, **opciones)",
+			"highlight": [
+				2,
+				7,
+				11,
+				12
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"Puedes combinar `*args` y `**kwargs` en la misma firma, en ese orden.",
+				"Un `*` sin nombre (`def f(a, *, b)`) no recoge nada: solo marca que lo siguiente es keyword-only.",
+				"Al llamar, `*` y `**` deben ir después de los argumentos explícitos.",
+				"Un diccionario pasado con `**` no puede repetir un parámetro ya asignado: obtendrías `TypeError: f() got multiple values for argument 'a'`.",
+				"Los nombres de `**kwargs` deben ser identificadores válidos; `f(**{\"a-b\": 1})` falla."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: sumar lo que llegue"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "sumar.py",
+			"code": "def sumar(*numeros):\n    \"\"\"Suma cualquier cantidad de números.\"\"\"\n    total = 0\n    for n in numeros:\n        total += n\n    return total\n\nprint(sumar(3, 5))\nprint(sumar(1, 2, 3, 4))\nprint(sumar())",
+			"highlight": [
+				1,
+				4,
+				5,
+				8,
+				10
+			]
+		},
+		{
+			"type": "p",
+			"md": "La línea 1 declara `*numeros`: todo lo que llegue posicionalmente se empaqueta en una tupla. En la primera llamada, `numeros` es `(3, 5)`; en la segunda, `(1, 2, 3, 4)`. El bucle de las líneas 4 y 5 acumula en `total`, que empieza en 0."
+		},
+		{
+			"type": "p",
+			"md": "La última llamada no pasa nada, así que `numeros` es la tupla vacía y el bucle no se ejecuta: devuelve `0`. Esa es una decisión de diseño razonable para una suma. Si en cambio quieres exigir al menos un valor, añade una guarda al principio."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: opciones con nombre"
+		},
+		{
+			"type": "p",
+			"md": "Este ejemplo mezcla las tres formas. `titulo` es obligatorio y posicional; `ancho` y `borde` son keyword-only con valor por defecto; `**opciones` guarda cualquier dato adicional sin que la función tenga que conocerlo de antemano."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "reporte.py",
+			"code": "def crear_reporte(titulo, *, ancho=20, borde=\"-\", **opciones):\n    \"\"\"Devuelve un reporte enmarcado y las opciones no usadas.\"\"\"\n    linea = borde * ancho\n    texto = f\"{linea}\\n{titulo}\\n{linea}\"\n    return texto, opciones\n\n\ntexto, extras = crear_reporte(\"Ventas\", ancho=10, borde=\"=\", autor=\"Ana\")\nprint(texto)\nprint(extras)",
+			"highlight": [
+				1,
+				3,
+				4,
+				8,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "`ancho=10` y `borde=\"=\"` se enlazan con sus parámetros porque tienen nombre; `autor=\"Ana\"` no coincide con ninguno y cae en `opciones`. El resultado del `print` es un marco de diez signos igual, la palabra `Ventas` y otro marco; el diccionario muestra `{'autor': 'Ana'}`."
+		},
+		{
+			"type": "p",
+			"md": "Si llamaras `crear_reporte(\"Ventas\", 10)`, Python lanzaría `TypeError: crear_reporte() takes 1 positional argument but 2 were given`: el `*` de la firma prohíbe pasar `ancho` por posición. Esa restricción es deliberada, porque `crear_reporte(\"Ventas\", 10, 20)` no dice qué significa cada número."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un inventario que se actualiza"
+		},
+		{
+			"type": "p",
+			"md": "En una tienda, varias funciones añaden productos al mismo inventario. Aquí aparece la diferencia entre un objeto **mutable** compartido y una lista nueva. Lee el ejemplo pensando en qué lista se modifica en cada llamada."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "inventario.py",
+			"code": "def agregar(producto, inventario=None):\n    \"\"\"Devuelve el inventario con el producto añadido.\"\"\"\n    if inventario is None:\n        inventario = []\n    inventario.append(producto)\n    return inventario\n\n\nstock = [\"arroz\"]\nagregar(\"fideos\", stock)\nprint(stock)\nprint(agregar(\"sal\"))\nprint(agregar(\"azúcar\"))",
+			"highlight": [
+				2,
+				3,
+				4,
+				5,
+				9,
+				10,
+				12,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "`inventario=None` no significa «lista vacía»: significa «no se pasó nada». La guarda de la línea 3 crea una lista nueva en cada llamada sin argumento, y por eso `agregar(\"sal\")` y `agregar(\"azúcar\")` producen listas independientes. Si el valor por defecto hubiera sido `[]`, ambas llamadas compartirían la misma lista y la segunda devolvería `['sal', 'azúcar']`."
+		},
+		{
+			"type": "p",
+			"md": "La línea 10 no reasigna `stock`, pero lo modifica: `append` trabaja sobre el objeto que ambos nombres comparten. Ese es el **paso por referencia de objeto** de Python. Si dentro de la función escribieras `inventario = [producto]`, la variable externa seguiría intacta, porque solo habrías cambiado a qué apunta el nombre local."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: global, local y retorno"
+		},
+		{
+			"type": "p",
+			"md": "La siguiente traza muestra una función que incrementa un contador global. El panel de la pila tiene dos marcos: el módulo, donde vive `contador`, y `registrar`, donde vive `puntos`. Observa que `global` no copia el valor: autoriza a la función a escribir en el nombre del módulo."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Quién modifica a quién",
+			"code": "contador = 0\n\n\ndef registrar(puntos):\n    global contador\n    contador += 1\n    return puntos + contador\n\n\nprint(registrar(10))\nprint(contador)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se crea `contador` en el ámbito global con el valor 0.",
+					"vars": {
+						"contador": "0"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El `def` crea la función `registrar`. Su cuerpo aún no se ejecuta y no hay ningún marco local.",
+					"vars": {
+						"contador": "0",
+						"registrar": "<function registrar>"
+					},
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "Se llama a `registrar(10)`. Se crea un marco nuevo con `puntos = 10`; el marco del módulo sigue debajo, con `contador = 0`.",
+					"vars": {
+						"contador": "0",
+						"registrar": "<function registrar>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"contador": "0"
+							}
+						},
+						{
+							"name": "registrar",
+							"vars": {
+								"puntos": "10"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`global contador` indica que el nombre `contador` dentro de la función se refiere al del módulo, no a uno local.",
+					"vars": {
+						"contador": "0",
+						"registrar": "<function registrar>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"contador": "0"
+							}
+						},
+						{
+							"name": "registrar",
+							"vars": {
+								"puntos": "10"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`contador += 1` lee el global, suma 1 y escribe 1 en el módulo. La variable no aparece en el marco local porque pertenece al global.",
+					"vars": {
+						"contador": "1",
+						"registrar": "<function registrar>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"contador": "1"
+							}
+						},
+						{
+							"name": "registrar",
+							"vars": {
+								"puntos": "10"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`return` calcula la expresión y entrega 11. El marco de `registrar` se cierra al volver al módulo.",
+					"vars": {
+						"contador": "1",
+						"registrar": "<function registrar>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"contador": "1"
+							}
+						},
+						{
+							"name": "registrar",
+							"vars": {
+								"puntos": "10"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "`print` recibe 11 y lo escribe. El marco de `registrar` ya no existe.",
+					"vars": {
+						"contador": "1",
+						"registrar": "<function registrar>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"contador": "1"
+							}
+						}
+					],
+					"output": "11\n"
+				},
+				{
+					"line": 11,
+					"note": "El `print` final lee el contador global, que quedó en 1 tras la llamada.",
+					"vars": {
+						"contador": "1",
+						"registrar": "<function registrar>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"contador": "1"
+							}
+						}
+					],
+					"output": "1\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Sin `global`, la línea 6 habría intentado escribir en una variable local llamada `contador` y habría lanzado `UnboundLocalError`, porque Python la considera local en toda la función. Usar `global` está justificado en contadores sencillos; en programas grandes conviene devolver el nuevo valor o encapsular el estado en un objeto."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`TypeError: f() got an unexpected keyword argument 'x'`",
+					"La función no declara `x` ni tiene `**kwargs`",
+					"Añade el parámetro o acepta `**kwargs`"
+				],
+				[
+					"`UnboundLocalError: local variable 'total' referenced before assignment`",
+					"Asignas a un nombre global dentro de la función sin `global`",
+					"Declara `global` o pasa el valor como parámetro"
+				],
+				[
+					"`SyntaxError: name 'x' is assigned to before global declaration`",
+					"`global x` aparece después de usar `x`",
+					"Coloca la declaración al inicio de la función"
+				],
+				[
+					"Dos llamadas comparten datos en una lista por defecto",
+					"El valor por defecto se crea una sola vez, al definir",
+					"Usa `None` y crea la lista dentro"
+				],
+				[
+					"`TypeError: f() takes 0 positional arguments but 1 was given`",
+					"Llamaste con un posicional a una firma keyword-only",
+					"Pasa el valor con nombre: `f(x=1)`"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "La lista por defecto que nunca se vacía",
+			"wrong": {
+				"caption": "Comparte estado",
+				"code": "def agregar(producto, lista=[]):\n    lista.append(producto)\n    return lista\n\nprint(agregar(\"sal\"))\nprint(agregar(\"azúcar\"))"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "def agregar(producto, lista=None):\n    if lista is None:\n        lista = []\n    lista.append(producto)\n    return lista\n\nprint(agregar(\"sal\"))\nprint(agregar(\"azúcar\"))"
+			},
+			"explain": "El valor por defecto se evalúa una única vez, cuando se ejecuta el `def`; todas las llamadas que lo omiten reciben el mismo objeto. La primera versión imprime `['sal']` y luego `['sal', 'azúcar']`. La segunda crea una lista nueva en cada llamada sin argumento y devuelve `['sal']` y `['azúcar']`."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Nombra los parámetros variables por su contenido: `*notas`, `**opciones`, no `*a` ni `**k`.",
+				"Usa `*` para hacer keyword-only las opciones booleanas: `def crear(datos, *, normalizar=False)` se lee sin ambigüedad.",
+				"Documenta en la docstring qué claves espera `**kwargs`; si son muchas y fijas, declara parámetros normales.",
+				"Nunca uses una lista, un diccionario o un conjunto como valor por defecto: usa `None` y créalo dentro.",
+				"Evita `global` salvo para constantes de configuración o contadores muy locales; devolver valores es más testeable.",
+				"Si una función modifica la lista que recibe, dilo en el nombre o en la docstring: `agregar_en_sitio`.",
+				"Al desempaquetar con `**`, comprueba que las claves existan como parámetros; un error tipográfico se convierte en `TypeError`."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Mutables por defecto: también en clases",
+			"md": "El mismo problema aparece en los atributos de clase mutables, que verás en la lección de clases: `class Carrito: items = []` comparte la lista entre todas las instancias. La regla es idéntica: crea el objeto dentro de `__init__`, no en la definición."
+		},
+		{
+			"type": "compare",
+			"title": "Modificar una lista: Python y C++",
+			"python": {
+				"caption": "referencia.py",
+				"code": "def agregar_ultimo(lista):\n    lista.append(lista[-1])\n    return lista\n\ndatos = [1, 2]\nagregar_ultimo(datos)\nprint(datos)"
+			},
+			"cpp": {
+				"caption": "referencia.cpp",
+				"code": "#include <iostream>\n#include <vector>\n\nvoid agregar_ultimo(std::vector<int>& lista) {\n    lista.push_back(lista.back());\n}\n\nint main() {\n    std::vector<int> datos{1, 2};\n    agregar_ultimo(datos);\n    std::cout << datos.size() << std::endl;\n    return 0;\n}"
+			},
+			"note": "En Python todo argumento es una referencia al objeto, así que `append` modifica la lista del llamador sin declarar nada especial. En C++ hay que pedirlo explícitamente con `&`; sin él, la función recibe una copia. La contrapartida es que en Python reasignar el parámetro (`lista = [9]`) no cambia la variable externa, porque solo mueve el nombre local."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Resumen de ventas",
+			"md": "Escribe `resumen(*ventas)` que devuelva una tupla con la cantidad de ventas, el total y el promedio. Si no recibe nada, debe devolver `(0, 0, 0)` sin lanzar errores. Prueba con tres importes y después con una lista desempaquetada con `*`.",
+			"hint": "`len(ventas)` y `sum(ventas)` funcionan sobre la tupla. Para el promedio, divide solo cuando la cantidad sea mayor que cero.",
+			"solution": {
+				"lang": "python",
+				"caption": "resumen_ventas.py",
+				"code": "def resumen(*ventas):\n    \"\"\"Devuelve cantidad, total y promedio de las ventas.\"\"\"\n    if not ventas:\n        return 0, 0, 0\n    total = sum(ventas)\n    return len(ventas), total, total / len(ventas)\n\n\ncantidad, total, media = resumen(120, 80, 45)\nprint(f\"{cantidad} ventas | total {total} | media {media:.2f}\")\n\ndia = [120, 80, 45]\nprint(resumen(*dia))",
+				"explain": "La guarda evita dividir entre cero y define el contrato para la llamada vacía. `*ventas` permite llamar con valores separados o con `*dia`, y en ambos casos la tupla es la misma, así que el resultado coincide: `(3, 245, 81.666...)`. La función no modifica `dia`, solo lee sus elementos."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la firma flexible",
+			"lang": "python",
+			"code": "def mostrar(*___, **___):\n    print(args, kwargs)\n\nmostrar(1, 2, nombre=\"Ada\")",
+			"answers": [
+				"args",
+				"kwargs"
+			],
+			"hint": "Los nombres son convención, pero el cuerpo del ejemplo ya los usa: deben coincidir exactamente.",
+			"explain": "Con `*args` los posicionales se empaquetan en la tupla `(1, 2)`; con `**kwargs` el nombrado se guarda en `{'nombre': 'Ada'}`. La salida es `(1, 2) {'nombre': 'Ada'}`."
+		},
+		{
+			"type": "exercise",
+			"title": "Ficha de usuario con opciones",
+			"md": "Escribe `crear_usuario(nombre, *, rol=\"alumno\", **extra)` que devuelva un diccionario con `nombre`, `rol` y todos los pares adicionales. Llama una vez solo con el nombre y otra con `rol=\"docente\"` y `sede=\"Lima\"`. Muestra ambos diccionarios.",
+			"hint": "Crea el diccionario base y actualízalo con `extra` usando `update`. El `*` de la firma obliga a escribir `rol=` con nombre.",
+			"solution": {
+				"lang": "python",
+				"caption": "usuarios.py",
+				"code": "def crear_usuario(nombre, *, rol=\"alumno\", **extra):\n    \"\"\"Construye un diccionario de usuario con datos opcionales.\"\"\"\n    usuario = {\"nombre\": nombre, \"rol\": rol}\n    usuario.update(extra)\n    return usuario\n\n\nprint(crear_usuario(\"Ada\"))\nprint(crear_usuario(\"Grace\", rol=\"docente\", sede=\"Lima\"))",
+				"explain": "La primera llamada usa el rol por defecto y no pasa extras, así que `extra` es un diccionario vacío. La segunda cambia `rol` y añade `sede`; `update` incorpora esa clave sin tocar las anteriores. El resultado es `{'nombre': 'Ada', 'rol': 'alumno'}` y `{'nombre': 'Grace', 'rol': 'docente', 'sede': 'Lima'}`. Si hubieras escrito `crear_usuario(\"Grace\", \"docente\")`, el `*` habría provocado un `TypeError`."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, `*ventas` no es un detalle decorativo: cambia el contrato de la función. Sin él necesitarías una lista como único argumento y el llamador tendría que envolver los valores. Con él, ambas formas conviven gracias al desempaquetado, y la tupla resultante es idéntica. La guarda convierte el caso vacío en un resultado predecible en lugar de una excepción."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el `*` separa lo que identifica al usuario (`nombre`, obligatorio) de lo que lo configura (`rol`, con valor por defecto) y de lo que es libre (`extra`). Esa jerarquía evita llamadas ambiguas y permite que la función crezca sin romper a quienes ya la usan. Cuando el número de claves de `extra` crezca, la docstring debe enumerarlas."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`*args` empaqueta los posicionales sobrantes en una tupla; `**kwargs`, los nombrados en un diccionario.",
+				"Los nombres son convención: lo que importa es el asterisco y el uso coherente en el cuerpo.",
+				"Un parámetro después de `*` es keyword-only y solo se pasa con nombre.",
+				"Al llamar, `*lista` y `**diccionario` desempaquetan sus elementos como argumentos.",
+				"LEGB: Python busca en local, envolvente, global y built-in, y usa la primera coincidencia.",
+				"`global` y `nonlocal` permiten escribir en un ámbito exterior; sin ellas, asignar crea una local.",
+				"Los valores por defecto se evalúan una sola vez: nunca pongas listas o diccionarios mutables.",
+				"Python pasa referencias a objetos: mutar el objeto afecta al llamador; reasignar el nombre, no."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Dentro de `def f(*args)`, ¿qué tipo tiene `args`?",
+			"options": [
+				"Una lista",
+				"Una tupla",
+				"Un diccionario",
+				"Un generador"
+			],
+			"answer": 1,
+			"explain": "Los argumentos posicionales sobrantes se empaquetan en una tupla, que es inmutable. Por eso `args.append(...)` falla; si necesitas una lista, usa `list(args)`. En cambio, `kwargs` sí es un diccionario."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime este código?\n```python\ndef f(x, lista=[]):\n    lista.append(x)\n    return lista\n\nprint(f(1))\nprint(f(2))\n```",
+			"options": [
+				"`[1]` y `[2]`",
+				"`[1]` y `[1, 2]`",
+				"`[1, 2]` y `[1, 2]`",
+				"Lanza un `TypeError`"
+			],
+			"answer": 1,
+			"explain": "La lista por defecto se crea una sola vez, al definir la función, y se reutiliza en cada llamada que omite el argumento. La primera llamada la deja en `[1]`; la segunda añade 2 al mismo objeto. La solución es usar `lista=None` y crear la lista dentro."
+		},
+		{
+			"type": "quiz",
+			"question": "En `x = 10` global y una función que hace `x = x + 1` sin declarar `global`, ¿qué ocurre al llamarla?",
+			"options": [
+				"El global pasa a 11",
+				"Se crea una local y el global sigue en 10",
+				"`UnboundLocalError: local variable 'x' referenced before assignment`",
+				"`NameError: name 'x' is not defined`"
+			],
+			"answer": 2,
+			"explain": "Como el cuerpo asigna a `x`, Python la marca como local en toda la función. Al evaluar el lado derecho, esa local aún no tiene valor y se produce `UnboundLocalError`. Para modificar el global haría falta `global x`; para no modificarlo, usa otro nombre."
+		},
+		{
+			"type": "links",
+			"title": "Documentación y práctica",
+			"items": [
+				{
+					"label": "Argumentos y parámetros (Python docs)",
+					"url": "https://docs.python.org/es/3/tutorial/controlflow.html#more-on-defining-functions",
+					"note": "referencia oficial de *args, **kwargs y keyword-only"
+				},
+				{
+					"label": "Ejecución de modelos Python",
+					"url": "https://docs.python.org/es/3/reference/executionmodel.html",
+					"note": "ámbitos, nombres y reglas de LEGB"
+				}
+			]
+		}
+	]
+}

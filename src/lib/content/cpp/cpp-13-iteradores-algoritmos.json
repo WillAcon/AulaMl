@@ -1,0 +1,566 @@
+{
+	"id": "cpp-13-iteradores-algoritmos",
+	"track": "cpp",
+	"order": 13,
+	"title": "Iteradores y algoritmos STL",
+	"subtitle": "Recorrer contenedores con begin/end y delegar la lógica en <algorithm>",
+	"level": "intermedio",
+	"minutes": 42,
+	"tags": [
+		"stl",
+		"iteradores",
+		"algoritmos",
+		"lambdas"
+	],
+	"keywords": [
+		"qué es un iterador",
+		"begin end c++",
+		"range-for",
+		"std::sort",
+		"std::find",
+		"std::count_if",
+		"std::accumulate",
+		"std::transform",
+		"lambda c++",
+		"algoritmos vs bucles",
+		"iterador inválido"
+	],
+	"summary": "Los iteradores son la interfaz común que conecta contenedores y algoritmos: con begin/end recorres cualquier estructura y con <algorithm> expresas la intención en una línea. Aquí aprendes a ordenar, buscar, contar, acumular y transformar sin escribir bucles manuales, y a reconocer cuándo un iterador deja de ser válido.",
+	"objectives": [
+		"Recorrer un contenedor con iteradores y con range-for",
+		"Usar sort, find, count_if, accumulate y transform con los límites correctos",
+		"Escribir lambdas sencillas como criterio de orden o de filtrado",
+		"Comprobar el resultado de una búsqueda contra end() antes de desreferenciar",
+		"Decidir cuándo un algoritmo STL comunica mejor la intención que un bucle manual"
+	],
+	"prerequisites": [
+		"Arrays, std::vector y std::string",
+		"std::map, set, pilas y colas"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un contenedor guarda datos; un algoritmo sabe hacer algo con ellos. Lo que falta es un puente, y ese puente es el **iterador**: un objeto que se comporta como un puntero y sabe moverse por un contenedor concreto. `begin()` devuelve un iterador al primer elemento, `end()` devuelve uno a la posición inmediatamente posterior al último, y todo lo demás se construye sobre ese par."
+		},
+		{
+			"type": "p",
+			"md": "Los algoritmos no saben si trabajas con un `std::vector`, un `std::array` o un rango de un `std::string`: solo piden dos iteradores y confían en que el contenedor sepa recorrerlos."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un iterador?"
+		},
+		{
+			"type": "p",
+			"md": "Piensa en un libro. El contenedor son las páginas; el iterador es el dedo que marca dónde vas. No necesitas saber cuántas páginas hay ni cómo están encuadernadas: solo puedes avanzar una página, leer la que señalas o comprobar si llegaste al final. Cada contenedor implementa esos gestos a su manera, pero todos ofrecen los mismos."
+		},
+		{
+			"type": "list",
+			"items": [
+				"`v.begin()` — señala el primer elemento del contenedor.",
+				"`v.end()` — señala **una posición después del último**; no contiene un elemento legible.",
+				"`*it` — lee o escribe el elemento señalado.",
+				"`++it` — avanza al siguiente elemento; `--it` retrocede si el iterador lo permite.",
+				"`it != v.end()` — condición estándar para saber si quedan elementos."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "end() no es el último elemento",
+			"md": "`end()` apunta al **pasado el final**: una dirección válida para comparar, pero nunca para desreferenciar. Un rango en C++ siempre se expresa como `[begin, end)`, cerrado al inicio y abierto al final. Interiorizar esa convención evita la mayoría de los errores por un elemento de más."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven los iteradores y los algoritmos?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Ordenar** datos por un criterio propio, ascendente o descendente, sin escribir el algoritmo de ordenación.",
+				"**Buscar** un valor o la primera posición que cumple una condición, y saber con claridad si no existe.",
+				"**Resumir** una colección: sumar, promediar, contar cuántos elementos superan un umbral.",
+				"**Transformar** cada elemento en otro, por ejemplo normalizar características antes de entrenar un modelo.",
+				"**Separar intención y mecánica**: `std::count_if` dice qué quieres; un bucle `for` con un contador dice cómo lo haces."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En un pipeline de Machine Learning esto aparece constantemente: filtrar predicciones con probabilidad alta, ordenar resultados por confianza, calcular la media de una métrica o quitar los valores atípicos de un vector antes de escalarlo. Cada una de esas tareas ya existe como algoritmo; escribirlas a mano solo añade líneas donde pueden esconderse errores."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Un iterador de `std::vector` es, en la práctica, un puntero al elemento. `++it` suma `sizeof(T)` bytes y `*it` lee esa dirección. Un iterador de `std::list` es un puntero a un nodo y `++it` sigue el enlace `siguiente` del nodo. Por eso el mismo algoritmo funciona en ambos, pero con costes distintos: avanzar cien posiciones es instantáneo en un vector y lineal en una lista."
+		},
+		{
+			"type": "p",
+			"md": "Esa diferencia se formaliza en **categorías de iterador**. Un algoritmo declara qué necesita: `std::sort` exige acceso aleatorio porque compara elementos en posiciones arbitrarias; `std::find` solo necesita avanzar hacia adelante. Si el contenedor no ofrece la categoría requerida, el programa no compila, y ese error es una protección, no un obstáculo."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Categoría",
+				"Qué permite",
+				"Ejemplos de contenedor"
+			],
+			"rows": [
+				[
+					"Entrada",
+					"Leer una vez, avanzar",
+					"`std::istream_iterator`"
+				],
+				[
+					"Avance",
+					"Leer y escribir, avanzar",
+					"`std::forward_list`, `unordered_map`"
+				],
+				[
+					"Bidireccional",
+					"Además retroceder con `--`",
+					"`std::list`, `std::map`, `std::set`"
+				],
+				[
+					"Acceso aleatorio",
+					"Además `+`, `-`, `[]` y comparar",
+					"`std::vector`, `std::deque`, `std::array`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El rango `[first, last)` también explica la invalidez. Un `std::vector` guarda sus elementos en un bloque contiguo; si un `push_back` necesita crecer, reserva otro bloque, copia y libera el anterior. Todos los iteradores que apuntaban al buffer viejo quedan colgando. La regla es simple: si una operación puede cambiar la capacidad, vuelve a pedir `begin()` y `end()`."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica recorre con un iterador explícito cuando necesitas la posición, y con `range-for` cuando solo necesitas el valor. Los algoritmos reciben siempre el par de límites y, si hace falta un criterio, una lambda al final."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "formas de recorrer y ordenar",
+			"code": "std::vector<int> v{3, 1, 2};\n\nfor (auto it = v.begin(); it != v.end(); ++it) {  // iterador explícito\n    std::cout << *it << ' ';\n}\n\nfor (int x : v) {                                  // range-for\n    std::cout << x << ' ';\n}\n\nstd::sort(v.begin(), v.end());                     // todo el vector\nstd::sort(v.begin(), v.begin() + 2);               // solo el prefijo\nstd::reverse(v.begin(), v.end());                  // invierte el rango"
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en `v.begin() + 2`: la aritmética de iteradores existe justo porque el vector ofrece acceso aleatorio. En una lista ese `+ 2` no compila y hay que usar `std::next(v.begin(), 2)`, que avanza paso a paso. La sintaxis cambia según lo que el contenedor puede garantizar."
+		},
+		{
+			"type": "compare",
+			"title": "Ordenar y buscar en los dos lenguajes",
+			"python": {
+				"caption": "ordenar.py",
+				"code": "notas = [15, 8, 19, 12]\nnotas.sort()\nprint(notas)            # [8, 12, 15, 19]\nprint(notas.index(15))  # 2"
+			},
+			"cpp": {
+				"caption": "ordenar.cpp",
+				"code": "std::vector<int> notas{15, 8, 19, 12};\nstd::sort(notas.begin(), notas.end());\nauto it = std::find(notas.begin(), notas.end(), 15);\nif (it != notas.end()) {\n    std::cout << std::distance(notas.begin(), it); // 2\n}"
+			},
+			"note": "En Python el contenedor lleva sus propios métodos y lanza una excepción si el valor no existe. En C++ el algoritmo es externo y la ausencia se representa con `end()`: comprobar ese valor es obligatorio antes de usar el resultado."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: ordenar y buscar"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "ordenar_buscar.cpp",
+			"code": "#include <algorithm>\n#include <iostream>\n#include <iterator>\n#include <vector>\n\nint main() {\n    std::vector<int> notas{15, 8, 19, 12, 17};\n\n    std::sort(notas.begin(), notas.end());\n\n    for (int nota : notas) {\n        std::cout << nota << ' ';\n    }\n    std::cout << '\\n';\n\n    const auto it = std::find(notas.begin(), notas.end(), 15);\n    if (it != notas.end()) {\n        std::cout << \"15 esta en la posicion \"\n                  << std::distance(notas.begin(), it) << '\\n';\n    }\n    return 0;\n}",
+			"highlight": [
+				9,
+				15,
+				17
+			]
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`std::sort` recibe el inicio y el final del rango y reordena los elementos en el mismo vector, sin crear copias.",
+				"El `range-for` recorre el vector ya ordenado y lo imprime con espacios: `8 12 15 17 19`.",
+				"`std::find` devuelve un iterador al primer 15; si no lo encontrara, devolvería `notas.end()`.",
+				"`std::distance` cuenta los saltos desde el inicio hasta ese iterador, es decir, la posición 2."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `8 12 15 17 19 ` y `15 esta en la posicion 2`. Si cambias el 15 por 20, el bloque `if` no se ejecuta: comprobar el resultado separa un programa correcto de uno que confía en el dato."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: transformar, acumular y contar"
+		},
+		{
+			"type": "p",
+			"md": "Los algoritmos se encadenan sin contenedores intermedios, solo con iteradores. En este ejemplo cada pérdida de un modelo se convierte en una nota sobre 20, se calcula la media y se cuentan los aprobados. Cada paso es una línea y cada línea dice exactamente lo que hace."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "metricas.cpp",
+			"code": "#include <algorithm>\n#include <iomanip>\n#include <iostream>\n#include <numeric>\n#include <vector>\n\nint main() {\n    std::vector<double> perdidas{0.9, 0.4, 0.7, 0.2, 0.5};\n\n    // Convierte cada perdida en una nota de 0 a 20\n    std::transform(perdidas.begin(), perdidas.end(), perdidas.begin(),\n                   [](double p) { return (1.0 - p) * 20.0; });\n\n    const double suma = std::accumulate(perdidas.begin(), perdidas.end(), 0.0);\n    const auto aprobados = std::count_if(perdidas.begin(), perdidas.end(),\n                                         [](double nota) { return nota >= 11.0; });\n\n    std::cout << std::fixed << std::setprecision(1);\n    std::cout << \"Media: \" << suma / static_cast<double>(perdidas.size()) << '\\n';\n    std::cout << \"Aprobados: \" << aprobados << '\\n';\n    return 0;\n}",
+			"highlight": [
+				11,
+				12,
+				14,
+				15
+			]
+		},
+		{
+			"type": "p",
+			"md": "`std::transform` escribe el resultado en el mismo rango de entrada, así que el vector pasa a contener `{2, 12, 6, 16, 10}`. `std::accumulate` empieza en `0.0` y suma; el tercer argumento fija el tipo del acumulador, y por eso se escribe `0.0` y no `0`, que truncaría los decimales."
+		},
+		{
+			"type": "p",
+			"md": "Las dos lambdas son funciones anónimas. `[](double p) { return (1.0 - p) * 20.0; }` no captura nada del exterior; `[](double nota) { return nota >= 11.0; }` devuelve un `bool` que `count_if` usa como filtro. Más adelante verás capturas y `mutable`; para algoritmos, casi siempre basta esta forma mínima."
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Media: 9.2` y `Aprobados: 2`. Comprueba el detalle: la media se calcula **después** de transformar, así que promedia notas y no pérdidas. Ese orden es una decisión de diseño, no un accidente, y conviene escribirlo en un comentario."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: ordenar predicciones por confianza"
+		},
+		{
+			"type": "p",
+			"md": "Un clasificador devuelve una lista de etiquetas con su probabilidad. Para mostrar el resultado al usuario hay que ordenarlas de mayor a menor, quedarse con la primera y comprobar que las probabilidades suman uno. Tres algoritmos resuelven las tres tareas."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "ranking.cpp",
+			"code": "#include <algorithm>\n#include <iomanip>\n#include <iostream>\n#include <numeric>\n#include <string>\n#include <vector>\n\nstruct Prediccion {\n    std::string etiqueta;\n    double probabilidad;\n};\n\nint main() {\n    std::vector<Prediccion> salida{{\"gato\", 0.42}, {\"perro\", 0.51}, {\"ave\", 0.07}};\n\n    std::sort(salida.begin(), salida.end(),\n              [](const Prediccion& a, const Prediccion& b) {\n                  return a.probabilidad > b.probabilidad;\n              });\n\n    std::cout << std::fixed << std::setprecision(2);\n    std::cout << \"Clase: \" << salida.front().etiqueta\n              << \" (\" << salida.front().probabilidad << \")\\n\";\n\n    const double total = std::accumulate(\n        salida.begin(), salida.end(), 0.0,\n        [](double acumulado, const Prediccion& p) {\n            return acumulado + p.probabilidad;\n        });\n\n    std::cout << \"Probabilidad total: \" << total << '\\n';\n    return 0;\n}",
+			"highlight": [
+				17,
+				18,
+				19,
+				26
+			]
+		},
+		{
+			"type": "p",
+			"md": "El comparador recibe dos predicciones por referencia constante y devuelve `true` si la primera debe ir antes. Con `>` el orden es descendente; con `<` sería ascendente. Ese comparador debe ser un **orden estricto**: si devuelve `true` para `(a, b)` y también para `(b, a)`, `std::sort` puede leer fuera del rango y el comportamiento es indefinido."
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Clase: perro (0.51)` y `Probabilidad total: 1.00`. La suma se hace con `std::accumulate` y una lambda de dos parámetros porque el tipo del elemento (`Prediccion`) no es el tipo del acumulador (`double`). Por eso esta versión necesita la operación personalizada y no la suma por defecto."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Un algoritmo, una intención",
+			"md": "Si al leer un bucle necesitas dos frases para explicar qué hace, probablemente existe un algoritmo con nombre. `count_if`, `any_of`, `all_of`, `min_element` y `remove_if` se leen mejor que el bucle equivalente y el compilador los optimiza igual o mejor."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el iterador avanzando"
+		},
+		{
+			"type": "p",
+			"md": "La traza muestra dónde apunta el iterador en cada paso. Observa cuándo `find` encuentra el valor y cuándo devuelve `end()`: ese segundo caso provoca los fallos en producción."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "begin, ++, find y distance",
+			"code": "std::vector<int> v{4, 8, 15, 16};\nauto it = v.begin();\nstd::cout << *it << '\\n';\n++it;\nstd::cout << *it << '\\n';\nit = std::find(v.begin(), v.end(), 15);\nstd::cout << std::distance(v.begin(), it) << '\\n';\nit = std::find(v.begin(), v.end(), 99);\nstd::cout << (it == v.end() ? \"no encontrado\" : \"encontrado\") << '\\n';",
+			"steps": [
+				{
+					"line": 1,
+					"note": "El vector guarda cuatro enteros en un bloque contiguo del heap. `v.begin()` apuntará al primero y `v.end()` al hueco posterior al cuarto.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "—",
+						"posicion": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`it` recibe la dirección de `v[0]`. No copia el vector: solo guarda una posición.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "&v[0]",
+						"posicion": "0"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`*it` lee el elemento señalado, que es 4.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "&v[0]",
+						"posicion": "0"
+					},
+					"output": "4\n"
+				},
+				{
+					"line": 5,
+					"note": "Después de `++it`, el iterador apunta a `v[1]` y se imprime 8.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "&v[1]",
+						"posicion": "1"
+					},
+					"output": "8\n"
+				},
+				{
+					"line": 6,
+					"note": "`find` compara desde `begin` y se detiene en el primer 15, que está en la posición 2.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "&v[2]",
+						"posicion": "2"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`distance` cuenta los saltos entre `begin` y `it`: 2. El vector no cambió.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "&v[2]",
+						"posicion": "2"
+					},
+					"output": "2\n"
+				},
+				{
+					"line": 8,
+					"note": "Ahora se busca 99. `find` recorre todo el rango sin encontrarlo y devuelve `v.end()`.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "v.end()",
+						"posicion": "4 (pasado el final)"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "La comparación `it == v.end()` es verdadera, así que el ternario elige el primer texto. Desreferenciar `it` aquí sería un error grave.",
+					"vars": {
+						"v": "{4, 8, 15, 16}",
+						"it": "v.end()",
+						"posicion": "4 (pasado el final)"
+					},
+					"output": "no encontrado\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Recorre los pasos dos veces: `it` cambia de valor mientras `v` permanece idéntico, y el caso «no encontrado» devuelve un iterador legal, `end()`, que depende de ti comparar."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Error",
+				"Por qué ocurre",
+				"Cómo se corrige"
+			],
+			"rows": [
+				[
+					"`*std::find(v.begin(), v.end(), x)` con `x` ausente",
+					"Si no está, `find` devuelve `end()` y desreferenciarlo es indefinido",
+					"Comprueba `it != v.end()` antes de usar `*it`"
+				],
+				[
+					"Iterador que apunta a basura tras `push_back`",
+					"El vector reasignó su buffer y el iterador antiguo quedó colgando",
+					"Vuelve a llamar a `begin()`/`end()` después de modificar la capacidad"
+				],
+				[
+					"`std::sort(l.begin(), l.end())` con `std::list`",
+					"`sort` exige iteradores de acceso aleatorio y la lista solo es bidireccional",
+					"Usa `l.sort()` o copia a un vector"
+				],
+				[
+					"Comparador que devuelve `true` en ambos sentidos",
+					"No es un orden estricto y `std::sort` puede salirse del rango",
+					"Usa `<`/`>` sobre un campo, nunca `<=`"
+				],
+				[
+					"El `range-for` no modifica el vector",
+					"`for (auto x : v)` copia cada elemento; cambiar `x` no afecta al contenedor",
+					"Escribe `for (auto& x : v)` para modificar"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El último error es silencioso: el programa compila, el bucle se ejecuta y el vector queda igual. El compilador no puede saber si querías una copia o una referencia."
+		},
+		{
+			"type": "diff",
+			"title": "Modificar dentro de un range-for",
+			"wrong": {
+				"caption": "Incorrecto: modifica una copia",
+				"code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> notas{10, 12};\n    for (auto nota : notas) {\n        nota += 1;   // la copia cambia, el vector no\n    }\n    std::cout << notas[0] << ' ' << notas[1] << '\\n';\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto: modifica el elemento",
+				"code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> notas{10, 12};\n    for (auto& nota : notas) {\n        nota += 1;   // referencia al elemento real\n    }\n    std::cout << notas[0] << ' ' << notas[1] << '\\n';\n    return 0;\n}"
+			},
+			"explain": "`auto` deduce `int` y copia el valor; `auto&` deduce `int&` y enlaza al elemento del contenedor. Si no vas a modificar, `const auto&` evita copias costosas y deja claro que el bucle solo lee."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Prefiere el algoritmo con nombre: `std::count_if` antes que un bucle con contador.",
+				"Comprueba siempre el resultado de `find` contra `end()`; no asumas que el dato existe.",
+				"Pasa objetos grandes a las lambdas por `const&`, no por valor.",
+				"Usa `const auto&` en `range-for` cuando solo leas.",
+				"No guardes iteradores mientras el contenedor pueda crecer; pide `begin()` de nuevo.",
+				"Ordena con un comparador que sea un orden estricto y documéntalo si es poco obvio.",
+				"Incluye la cabecera exacta: `<algorithm>` para sort/find, `<numeric>` para accumulate."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Orden descendente y conteo de mayores",
+			"md": "Dado `std::vector<int> edades{23, 15, 42, 8, 31, 19};`, ordénalo de mayor a menor con `std::sort` y una lambda, cuenta cuántos son mayores de edad con `std::count_if` e imprime la lista y el total. No escribas ningún bucle de ordenación.",
+			"hint": "El comparador debe devolver `a > b` para ordenar de mayor a menor. Para contar, la lambda recibe un `int` y devuelve `e >= 18`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "mayores.cpp",
+				"code": "#include <algorithm>\n#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> edades{23, 15, 42, 8, 31, 19};\n\n    std::sort(edades.begin(), edades.end(),\n              [](int a, int b) { return a > b; });\n\n    const auto mayores = std::count_if(edades.begin(), edades.end(),\n                                       [](int e) { return e >= 18; });\n\n    for (int e : edades) {\n        std::cout << e << ' ';\n    }\n    std::cout << \"\\nMayores de edad: \" << mayores << '\\n';\n    return 0;\n}",
+				"explain": "`std::sort` con `a > b` deja `42 31 23 19 15 8`; `count_if` recorre el vector ya ordenado y cuenta cuatro valores. Ordenar antes de contar no cambia el resultado, pero permite imprimir la lista y el total en una sola pasada de lectura."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Normalizar un vector con algoritmos",
+			"md": "Dado `std::vector<double> x{2.0, 4.0, 6.0, 8.0};`, obtén el mínimo y el máximo con `std::min_element` y `std::max_element`, transforma cada valor a `(valor - min) / (max - min)` y calcula la media con `std::accumulate`. Imprime la media con tres decimales y la posición del máximo con `std::distance`.",
+			"hint": "`min_element` y `max_element` devuelven iteradores: desreferéncialos con `*` para obtener el valor. La lambda de transformación puede capturar `min` y `max` por valor con `[min, max]`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "normalizar.cpp",
+				"code": "#include <algorithm>\n#include <iomanip>\n#include <iostream>\n#include <numeric>\n#include <vector>\n\nint main() {\n    std::vector<double> x{2.0, 4.0, 6.0, 8.0};\n\n    const double min = *std::min_element(x.begin(), x.end());\n    const double max = *std::max_element(x.begin(), x.end());\n\n    std::transform(x.begin(), x.end(), x.begin(),\n                   [min, max](double valor) {\n                       return (valor - min) / (max - min);\n                   });\n\n    const double media = std::accumulate(x.begin(), x.end(), 0.0)\n                         / static_cast<double>(x.size());\n\n    std::cout << std::fixed << std::setprecision(3) << media << '\\n';\n    std::cout << std::distance(x.begin(), std::max_element(x.begin(), x.end()))\n              << '\\n';\n    return 0;\n}",
+				"explain": "Los valores normalizados son `0, 0.333, 0.667, 1`, cuya media es 0.5. El máximo sigue estando en la posición 3. La captura `[min, max]` copia dos doubles, lo que es trivial y evita depender de la vida de las variables originales."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el algoritmo",
+			"lang": "cpp",
+			"code": "std::vector<int> datos{5, 1, 9, 3};\nstd::sort(datos.___(), datos.___());\n\nauto it = std::find(datos.begin(), datos.end(), ___);\nstd::cout << std::distance(datos.begin(), it);",
+			"answers": [
+				"begin",
+				"end",
+				"9"
+			],
+			"hint": "El rango completo va desde el primer elemento hasta uno después del último.",
+			"explain": "`begin()` y `end()` delimitan el vector completo, así que queda ordenado como `{1, 3, 5, 9}`. El 9 está en la posición 3, que es lo que imprime `distance`."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio el comparador es la pieza delicada. `a > b` produce orden descendente porque la función responde a la pregunta «¿debe ir `a` antes que `b`?». Si escribieras `a >= b`, dos edades iguales se considerarían anteriores la una a la otra y el orden dejaría de ser estricto; con pocos elementos puede pasar desapercibido, pero es un fallo real."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la clave está en el orden de las operaciones. Primero se obtienen mínimo y máximo del vector original, después se transforma y solo entonces se calcula la media. Si calcularas la media antes de normalizar obtendrías 5.0, un número correcto pero que responde a otra pregunta. Y si usaras `std::accumulate(x.begin(), x.end(), 0)` en lugar de `0.0`, el acumulador sería `int` y la media se truncaría a 0."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un iterador es un puntero generalizado que sabe moverse por un contenedor.",
+				"El rango estándar es `[begin, end)`: `end()` señala una posición después del último y no se desreferencia.",
+				"`std::sort`, `find`, `count_if`, `accumulate` y `transform` funcionan con cualquier contenedor que ofrezca la categoría necesaria.",
+				"`std::find` devuelve `end()` cuando no encuentra; comprobarlo es obligatorio.",
+				"Las lambdas son el criterio natural de los algoritmos: comparar, filtrar o transformar.",
+				"Modificar la capacidad de un vector invalida los iteradores anteriores.",
+				"Un algoritmo con nombre comunica la intención mejor que un bucle manual equivalente."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Si `std::find(v.begin(), v.end(), 42)` no encuentra el valor, ¿qué devuelve?",
+			"options": [
+				"`nullptr`",
+				"`v.end()`",
+				"`-1`",
+				"El último elemento del vector"
+			],
+			"answer": 1,
+			"explain": "Los algoritmos STL señalan la ausencia con el iterador final del rango. Comparar contra `v.end()` es la única forma correcta de saber si hubo coincidencia; desreferenciar ese iterador es comportamiento indefinido."
+		},
+		{
+			"type": "quiz",
+			"question": "Guardas `auto it = v.begin();` y luego llamas a `v.push_back(7)`. ¿Qué ocurre con `it`?",
+			"options": [
+				"Sigue siendo válido y apunta al mismo elemento",
+				"Puede quedar invalidado si el vector reasignó su buffer",
+				"Se convierte automáticamente en `v.end()`",
+				"El compilador impide llamar a `push_back`"
+			],
+			"answer": 1,
+			"explain": "Si `push_back` necesita más capacidad, el vector reserva otro bloque, mueve los elementos y libera el anterior. Los iteradores, punteros y referencias al buffer viejo dejan de ser válidos, aunque el programa no avise."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `std::sort(l.begin(), l.end())` no compila cuando `l` es un `std::list`?",
+			"options": [
+				"Porque `std::list` no tiene `begin()` ni `end()`",
+				"Porque `std::sort` exige iteradores de acceso aleatorio y la lista solo ofrece bidireccionales",
+				"Porque las listas no se pueden ordenar",
+				"Porque falta incluir `<list>`"
+			],
+			"answer": 1,
+			"explain": "`std::sort` necesita calcular posiciones y comparar elementos separados, lo que requiere acceso aleatorio. La lista ofrece `l.sort()`, que ordena enlazando nodos y no necesita mover elementos."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference: iteradores",
+					"url": "https://en.cppreference.com/w/cpp/iterator",
+					"note": "categorías y operaciones"
+				},
+				{
+					"label": "cppreference: algorithms",
+					"url": "https://en.cppreference.com/w/cpp/algorithm",
+					"note": "lista completa de algoritmos"
+				},
+				{
+					"label": "cppreference: numeric",
+					"url": "https://en.cppreference.com/w/cpp/numeric",
+					"note": "accumulate y reducciones"
+				}
+			]
+		}
+	]
+}

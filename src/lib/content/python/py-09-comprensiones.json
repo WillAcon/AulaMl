@@ -1,0 +1,431 @@
+{
+	"id": "py-09-comprensiones",
+	"track": "python",
+	"order": 9,
+	"title": "Recorridos y comprensiones",
+	"subtitle": "Transformar colecciones con enumerate, zip y expresiones que caben en una línea legible",
+	"level": "intermedio",
+	"minutes": 35,
+	"tags": ["comprensiones", "iteración", "enumerate", "zip"],
+	"keywords": [
+		"recorrer lista python",
+		"enumerate",
+		"zip python",
+		"list comprehension",
+		"comprensión de diccionario",
+		"comprensión de conjunto",
+		"filtrar lista",
+		"cuándo no usar comprensiones",
+		"generador",
+		"legibilidad",
+		"transformar datos",
+		"bucle for"
+	],
+	"summary": "Recorrer una colección es la operación más común al preparar datos. Aprenderás a obtener índice y valor con enumerate, a combinar listas con zip y a escribir comprensiones de lista, diccionario y conjunto que transforman y filtran sin perder legibilidad.",
+	"objectives": [
+		"Recorrer listas, tuplas, diccionarios y conjuntos eligiendo el patrón adecuado",
+		"Usar enumerate para obtener posición y valor sin gestionar un contador manual",
+		"Combinar dos o más secuencias con zip y anticipar su comportamiento con longitudes distintas",
+		"Escribir comprensiones de lista, diccionario y conjunto con filtros",
+		"Decidir cuándo una comprensión mejora el código y cuándo conviene un bucle normal"
+	],
+	"prerequisites": ["Diccionarios y conjuntos", "Bucles: while, for y control de iteraciones"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Preparar datos consiste, casi siempre, en recorrer una colección y producir otra: convertir precios a otra moneda, quedarse con los pedidos grandes, construir un diccionario de totales o eliminar duplicados. El bucle `for` resuelve todos esos casos, pero exige varias líneas para algo conceptualmente simple."
+		},
+		{
+			"type": "p",
+			"md": "Python ofrece dos herramientas para ese trabajo. La primera es un conjunto de patrones de recorrido: `enumerate` cuando necesitas el índice, `zip` cuando necesitas combinar secuencias. La segunda son las **comprensiones**, expresiones que crean una colección nueva a partir de otra en una sola línea. Bien usadas, acercan el código a la pregunta que responde; mal usadas, lo vuelven jeroglífico."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una comprensión?"
+		},
+		{
+			"type": "p",
+			"md": "Una **comprensión** es una expresión que recorre un iterable, aplica una transformación a cada elemento y, opcionalmente, descarta los que no cumplen una condición. El resultado se recoge en una lista, un diccionario o un conjunto, según los delimitadores que uses. No es una función especial ni una sintaxis exótica: es azúcar para un bucle con `append`, escrita de forma que el *qué* queda delante del *cómo*."
+		},
+		{
+			"type": "p",
+			"md": "La forma general es `[expresión for elemento in iterable if condición]`. Se lee de izquierda a derecha en dos pasadas: primero la expresión que produce cada valor y después el recorrido que lo alimenta. Ese orden, inverso al de un bucle, es la razón por la que al principio cuesta leerlas."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "No crean variables persistentes",
+			"md": "En Python 3, la variable del `for` dentro de una comprensión vive en su propio ámbito y no sobrescribe una variable con el mismo nombre de fuera. Es una diferencia importante respecto a un bucle normal."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Transformar**: convertir una lista de precios en otra con IGV, o una lista de nombres en otra con formato de título.",
+				"**Filtrar**: quedarse solo con las notas aprobadas, los pedidos mayores a un umbral o los correos válidos.",
+				"**Resumir**: construir un diccionario de palabra a longitud o de categoría a total.",
+				"**Eliminar duplicados**: crear un conjunto a partir de una lista de identificadores.",
+				"**Aplanar y combinar**: recorrer pares de listas con `zip` y producir una estructura nueva.",
+				"**Preparar features**: derivar columnas calculadas antes de pasarlas a NumPy o Pandas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Al evaluar una comprensión, Python crea un ámbito nuevo, obtiene un iterador del iterable y pide elementos uno a uno. Para cada elemento evalúa la condición; si es verdadera, evalúa la expresión y añade el resultado a la colección que está construyendo. Al agotar el iterador, devuelve la colección completa. No hay magia: es el mismo trabajo que haría tu bucle, con menos texto y algo más de velocidad porque el cuerpo se ejecuta en bytecode especializado."
+		},
+		{
+			"type": "p",
+			"md": "El orden de las cláusulas importa. En `[x for x in datos if x > 0]`, el `if` actúa como filtro y decide si `x` entra. En cambio, `[x if x > 0 else 0 for x in datos]` no filtra: transforma cada elemento, sustituyendo los no positivos por cero. La primera forma puede reducir el tamaño; la segunda siempre produce la misma cantidad de elementos."
+		},
+		{
+			"type": "p",
+			"md": "Si cambias los corchetes por paréntesis, `(x * 2 for x in datos)`, no obtienes una tupla sino un **generador**: un objeto que produce valores bajo demanda y no los guarda en memoria. Es útil para `sum`, `max` o `any`, pero solo puedes recorrerlo una vez. Para materializarlo necesitas `tuple(...)` o `list(...)`."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: los cuatro patrones"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "comprensiones.py",
+			"code": "numeros = [4, -2, 7]\n\n# Lista: transformar y filtrar\ndobles = [n * 2 for n in numeros if n > 0]\n\n# Diccionario: clave y valor por elemento\ncuadrados = {n: n ** 2 for n in numeros}\n\n# Conjunto: valores únicos\nsignos = {n > 0 for n in numeros}\n\n# Generador: se consume una sola vez\ntotal = sum(n * n for n in numeros)\n\nprint(dobles)\nprint(cuadrados)\nprint(signos)\nprint(total)",
+			"highlight": [4, 7, 10, 13, 15]
+		},
+		{
+			"type": "list",
+			"items": [
+				"Lista: `[expr for x in it]` produce una lista nueva y conserva el orden.",
+				"Diccionario: `{clave: valor for x in it}` exige dos expresiones separadas por dos puntos.",
+				"Conjunto: `{expr for x in it}` elimina duplicados y no garantiza orden.",
+				"Generador: `(expr for x in it)` no guarda nada; úsalo cuando solo vas a agregar.",
+				"El filtro `if` va al final; la expresión condicional `a if cond else b` va al principio."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: enumerate y una primera comprensión"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ventas.py",
+			"code": "ventas = [120, 90, 150]\n\nfor i, monto in enumerate(ventas, start=1):\n    print(f\"Venta {i}: {monto}\")\n\nprecios = [10, 25, 7]\ncon_igv = [p * 1.18 for p in precios]\nprint(con_igv)",
+			"highlight": [3, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "`enumerate(ventas, start=1)` devuelve pares `(1, 120)`, `(2, 90)` y `(3, 150)`. El `for` los desempaqueta en `i` y `monto`, sin necesidad de inicializar un contador ni incrementarlo a mano. `start=1` es una elección de presentación: para un usuario, la primera venta es la uno, aunque el índice interno empiece en cero."
+		},
+		{
+			"type": "p",
+			"md": "La línea 7 es una comprensión de lista. Para cada `p` de `precios`, multiplica por `1.18` y añade el resultado a una lista nueva. El original no se toca. El resultado es `[11.799999999999999, 29.5, 8.26]`: los decimales binarios hacen que 11.8 no se represente exactamente, un detalle que resolverás con `round` o formato al mostrar, no dentro del cálculo."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: zip y comprensión de diccionario"
+		},
+		{
+			"type": "p",
+			"md": "`zip` recorre dos o más secuencias en paralelo y entrega una tupla por posición. Es la forma idiomática de unir nombres con notas sin indexar ambas listas. Si las longitudes no coinciden, se detiene en la más corta, sin avisar: conviene comprobarlas cuando los datos vienen de fuentes distintas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "registro.py",
+			"code": "nombres = [\"Ana\", \"Luis\", \"Eva\"]\nnotas = [14, 9, 17]\n\nfor nombre, nota in zip(nombres, notas):\n    print(f\"{nombre}: {nota}\")\n\nregistro = dict(zip(nombres, notas))\naprobados = {n: v for n, v in registro.items() if v >= 13}\nprint(registro)\nprint(aprobados)",
+			"highlight": [4, 7, 8, 9]
+		},
+		{
+			"type": "p",
+			"md": "El primer `for` imprime tres líneas, una por par. `dict(zip(...))` convierte esos pares en un diccionario: las claves son los nombres y los valores, las notas. La comprensión de la línea 8 recorre `registro.items()` y conserva solo los pares cuya nota llega a 13; el resultado es `{'Ana': 14, 'Eva': 17}`. Fíjate en la forma `n: v` antes del `for`: así se indica qué será clave y qué será valor."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: limpiar un catálogo de productos"
+		},
+		{
+			"type": "p",
+			"md": "Un catálogo exportado desde una hoja de cálculo llega con espacios sobrantes, mayúsculas inconsistentes y filas vacías. Antes de analizarlo hay que normalizar los nombres, descartar lo que quedó en blanco y calcular la longitud de cada nombre válido. Cada paso es una comprensión distinta y el conjunto se lee como una receta."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "catalogo.py",
+			"code": "productos = [\"Teclado\", \"  mouse \", \"MONITOR\", \"teclado \", \"\"]\n\nlimpios = [p.strip().lower() for p in productos]\nvalidos = [p for p in limpios if p]\nlargos = {p: len(p) for p in validos}\nunicos = sorted(set(validos))\n\nprint(validos)\nprint(largos)\nprint(unicos)",
+			"highlight": [3, 4, 5, 6]
+		},
+		{
+			"type": "p",
+			"md": "La primera comprensión transforma: `strip` quita espacios y `lower` unifica mayúsculas. La segunda filtra: un string vacío es falso en un contexto booleano, así que `if p` lo descarta; es equivalente a `if p != \"\"` y más conciso. La tercera construye un diccionario de producto a longitud, donde las repeticiones se sobrescriben sin error porque la clave es la misma. La cuarta usa un conjunto para eliminar duplicados y `sorted` para devolver una lista estable."
+		},
+		{
+			"type": "p",
+			"md": "El resultado de `validos` es `['teclado', 'mouse', 'monitor', 'teclado']`; el diccionario queda con tres entradas y `unicos` es `['monitor', 'mouse', 'teclado']`. Si en lugar de `set` hubieras usado `dict.fromkeys`, habrías conservado el orden de aparición."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: de dos listas a un diccionario filtrado"
+		},
+		{
+			"type": "p",
+			"md": "El siguiente programa combina `zip`, una comprensión de diccionario y un filtro. Antes de reproducirlo, predice qué contiene `aprobados` y cuántos elementos tendrá."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "zip, dict y filtro en cuatro líneas",
+			"code": "nombres = [\"Ana\", \"Luis\", \"Eva\"]\nnotas = [14, 9, 17]\nregistro = dict(zip(nombres, notas))\naprobados = [n for n, v in registro.items() if v >= 13]\nprint(aprobados)\nprint(f\"{len(aprobados)} de {len(registro)} aprobaron\")",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se crea la lista de nombres.",
+					"vars": { "nombres": "['Ana', 'Luis', 'Eva']" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "Se crea la lista de notas, alineada por posición con los nombres.",
+					"vars": {
+						"nombres": "['Ana', 'Luis', 'Eva']",
+						"notas": "[14, 9, 17]"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`zip` produce ('Ana', 14), ('Luis', 9) y ('Eva', 17); `dict` los convierte en pares clave-valor.",
+					"vars": {
+						"nombres": "['Ana', 'Luis', 'Eva']",
+						"notas": "[14, 9, 17]",
+						"registro": "{'Ana': 14, 'Luis': 9, 'Eva': 17}"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "La comprensión recorre los pares: descarta a Luis por su 9 y conserva a Ana y Eva. Solo se guardan las claves.",
+					"vars": {
+						"nombres": "['Ana', 'Luis', 'Eva']",
+						"notas": "[14, 9, 17]",
+						"registro": "{'Ana': 14, 'Luis': 9, 'Eva': 17}",
+						"aprobados": "['Ana', 'Eva']"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Se imprime la lista filtrada.",
+					"vars": {
+						"nombres": "['Ana', 'Luis', 'Eva']",
+						"notas": "[14, 9, 17]",
+						"registro": "{'Ana': 14, 'Luis': 9, 'Eva': 17}",
+						"aprobados": "['Ana', 'Eva']"
+					},
+					"output": "['Ana', 'Eva']\n"
+				},
+				{
+					"line": 6,
+					"note": "La f-string combina dos longitudes: dos aprobados de tres registrados.",
+					"vars": {
+						"nombres": "['Ana', 'Luis', 'Eva']",
+						"notas": "[14, 9, 17]",
+						"registro": "{'Ana': 14, 'Luis': 9, 'Eva': 17}",
+						"aprobados": "['Ana', 'Eva']"
+					},
+					"output": "2 de 3 aprobaron\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "La línea 4 condensa un bucle de cuatro líneas en una expresión, pero el orden de lectura no es el del código: primero se recorre `registro.items()`, luego se filtra por nota y al final se toma `n`. Si esa frase te resulta más clara que la expresión, probablemente el bucle sea la mejor opción para ese caso."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje o síntoma", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`SyntaxError` al poner el filtro delante", "Escribiste `[x if x > 0 for x in xs]`", "El filtro va después: `[x for x in xs if x > 0]`"],
+				["Se obtiene `[None, None]`", "Usaste la comprensión solo para imprimir o mutar", "Los efectos secundarios van en un `for` normal"],
+				["`TypeError: 'generator' object is not subscriptable`", "Usaste paréntesis y creíste que era una tupla", "Envuelve con `tuple(...)` o usa corchetes"],
+				["Faltan elementos al combinar listas", "`zip` se detiene en la más corta", "Comprueba longitudes o usa `zip_longest`"],
+				["La comprensión es ilegible", "Anidaste dos `for` y varios `if`", "Divide en pasos o vuelve al bucle"],
+				["`NameError` con la variable del bucle", "Intentas usarla fuera de la comprensión", "Guarda el resultado o usa un `for` normal"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Filtrar no es lo mismo que transformar",
+			"wrong": {
+				"caption": "SyntaxError",
+				"code": "numeros = [-2, 3, -1, 5]\npositivos = [x if x > 0 for x in numeros]"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "numeros = [-2, 3, -1, 5]\npositivos = [x for x in numeros if x > 0]\nprint(positivos)   # [3, 5]"
+			},
+			"explain": "La expresión condicional `x if x > 0 else ...` necesita un `else` y no filtra: devuelve un valor por cada elemento. Para descartar elementos, el `if` va al final, después del `for`. Si quisieras conservar la posición y sustituir los negativos por cero, sí usarías `[x if x > 0 else 0 for x in numeros]`."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas y cuándo no usarlas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa una comprensión cuando la frase «para cada X, produce Y si Z» describa exactamente lo que hace.",
+				"Limítate a un `for` y, como mucho, un `if`; si necesitas más, el bucle gana en claridad.",
+				"No metas efectos secundarios: imprimir, escribir archivos o modificar otra lista dentro de una comprensión es una trampa.",
+				"Elige nombres que se lean: `[precio * 1.18 for precio in precios]` es mejor que `[p * 1.18 for p in ps]`.",
+				"Si solo vas a sumar o buscar el máximo, usa un generador para no crear una lista intermedia.",
+				"Cuando dos pasos encadenados se entiendan peor que un bucle, quédate con el bucle: la legibilidad manda."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Comprensiones anidadas: dos niveles como máximo",
+			"md": "Una comprensión dentro de otra puede ser correcta y aun así ilegible. Si necesitas recorrer una matriz y filtrar por fila y columna, escribe el bucle o divídelo en dos comprensiones con nombres claros. El código se lee muchas más veces de las que se escribe."
+		},
+		{
+			"type": "compare",
+			"title": "Comprensión frente a bucle en C++",
+			"python": {
+				"caption": "cuadrados.py",
+				"code": "numeros = [1, 2, 3, 4]\ncuadrados = [n * n for n in numeros if n % 2 == 0]\nprint(cuadrados)"
+			},
+			"cpp": {
+				"caption": "cuadrados.cpp",
+				"code": "#include <iostream>\n#include <vector>\n\nint main() {\n    std::vector<int> numeros{1, 2, 3, 4};\n    std::vector<int> cuadrados;\n    for (int n : numeros) {\n        if (n % 2 == 0) cuadrados.push_back(n * n);\n    }\n    for (int c : cuadrados) std::cout << c << \" \";\n    std::cout << std::endl;\n    return 0;\n}"
+			},
+			"note": "C++ no tiene comprensiones equivalentes en el lenguaje estándar; se usa un bucle con `push_back` o algoritmos de la STL. La ventaja de Python es expresiva, no mágica: por debajo se ejecuta un recorrido parecido."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Precios con descuento",
+			"md": "Dada `precios = [45, 120, 80, 250, 30]`, crea una lista con los precios mayores a 50 rebajados un 10 %. Muestra la lista resultante y cuántos productos quedaron fuera del descuento.",
+			"hint": "Combina una transformación `p * 0.9` con un filtro `if p > 50`. Para contar los descartados, compara longitudes.",
+			"solution": {
+				"lang": "python",
+				"caption": "descuento.py",
+				"code": "precios = [45, 120, 80, 250, 30]\nrebajados = [p * 0.9 for p in precios if p > 50]\nfuera = len(precios) - len(rebajados)\n\nprint(rebajados)\nprint(f\"Sin descuento: {fuera}\")",
+				"explain": "Solo 120, 80 y 250 superan el umbral, así que la lista tiene tres elementos y dos quedan fuera. La condición se evalúa antes de multiplicar, de modo que los precios descartados no se transforman. `len` permite contar sin un contador manual."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la comprensión",
+			"lang": "python",
+			"code": "numeros = [3, 8, 1, 10]\nmayores = [n for ___ in numeros ___ n > 5]\ncuadrados = {n: ___ for n in numeros}\nprint(mayores, cuadrados)",
+			"answers": ["n", "if", "n * n|n ** 2"],
+			"hint": "La variable del recorrido aparece dos veces: una en la expresión y otra en el `for`. El filtro se escribe después del iterable.",
+			"explain": "`mayores` queda como `[8, 10]`. El diccionario asocia cada número con su cuadrado: `{3: 9, 8: 64, 1: 1, 10: 100}`. La expresión de la clave es `n` y la del valor, `n * n`."
+		},
+		{
+			"type": "exercise",
+			"title": "Resumen de inventario",
+			"md": "Tienes `productos = [\"teclado\", \"mouse\", \"monitor\"]` y `precios = [120, 45, 300]`. Construye un diccionario con los productos que cuestan más de 100, aplicando un 5 % de descuento a su precio. Después obtén la lista de nombres en mayúsculas y el total a pagar por esos productos.",
+			"hint": "Usa `zip` para unir ambas listas, una comprensión de diccionario con filtro y `sum` sobre los valores.",
+			"solution": {
+				"lang": "python",
+				"caption": "inventario.py",
+				"code": "productos = [\"teclado\", \"mouse\", \"monitor\"]\nprecios = [120, 45, 300]\n\ncaros = {p: round(precio * 0.95, 2) for p, precio in zip(productos, precios) if precio > 100}\nnombres = [p.upper() for p in caros]\ntotal = sum(caros.values())\n\nprint(caros)\nprint(nombres)\nprint(f\"Total: {total:.2f}\")",
+				"explain": "`zip` empareja cada producto con su precio y el filtro descarta el mouse. El descuento se aplica solo a teclado y monitor. `caros` conserva el orden de inserción, así que `nombres` es `['TECLADO', 'MONITOR']`. El total suma 114.0 y 285.0: 399.00."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la comprensión hace dos cosas a la vez: filtra y transforma. El orden de las cláusulas garantiza que la multiplicación solo se aplique a los precios que pasan el filtro. Contar los descartados restando longitudes es más robusto que mantener un contador dentro de un bucle, porque no hay estado que actualizar."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la clave está en no separar lo que va junto: `zip` mantiene la correspondencia entre nombre y precio, y la comprensión construye el diccionario en una pasada. `round(..., 2)` evita arrastrar decimales binarios en la presentación, y `sum(caros.values())` agrega sin crear una lista intermedia. Si el filtro o el descuento cambiaran, solo habría que tocar una línea."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`enumerate(coleccion, start=1)` entrega índice y valor sin contadores manuales.",
+				"`zip(a, b)` recorre dos secuencias en paralelo y se detiene en la más corta.",
+				"Una comprensión de lista se escribe `[expr for x in it if cond]`.",
+				"`{k: v for ...}` crea diccionarios y `{expr for ...}` crea conjuntos.",
+				"El `if` de filtrado va después del `for`; la expresión condicional va antes.",
+				"Los paréntesis crean un generador, no una tupla.",
+				"Si la comprensión necesita dos niveles o efectos secundarios, usa un bucle normal."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué produce `[n * 2 for n in [1, 2, 3] if n != 2]`?",
+			"options": ["`[2, 4, 6]`", "`[2, 6]`", "`[2, 0, 6]`", "`[4]`"],
+			"answer": 1,
+			"explain": "El filtro descarta el 2 antes de transformar. Quedan el 1 y el 3, que se convierten en 2 y 6. Si el `if` estuviera antes del `for`, sería un error de sintaxis."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `list(zip([1, 2, 3], [\"a\", \"b\"]))`?",
+			"options": [
+				"`[(1, 'a'), (2, 'b'), (3, None)]`",
+				"`[(1, 'a'), (2, 'b')]`",
+				"`[(1, 'a', 3)]`",
+				"Lanza un `ValueError` por longitudes distintas"
+			],
+			"answer": 1,
+			"explain": "`zip` se detiene cuando termina la secuencia más corta, sin rellenar ni avisar. Para conservar el 3 habría que usar `itertools.zip_longest` con un valor de relleno."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuándo es mejor un bucle `for` que una comprensión?",
+			"options": [
+				"Cuando quieres crear una lista nueva a partir de otra",
+				"Cuando necesitas imprimir o modificar otra estructura como efecto secundario",
+				"Cuando aplicas una transformación simple a cada elemento",
+				"Cuando filtras con una única condición"
+			],
+			"answer": 1,
+			"explain": "Las comprensiones están pensadas para **producir** una colección. Si el objetivo es un efecto secundario, como imprimir o escribir en otra lista, un `for` expresa mejor la intención y evita crear listas de `None`."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Comprensiones de listas",
+					"url": "https://docs.python.org/es/3/tutorial/datastructures.html#list-comprehensions",
+					"note": "ejemplos y sintaxis"
+				},
+				{
+					"label": "Funciones integradas: zip y enumerate",
+					"url": "https://docs.python.org/es/3/library/functions.html",
+					"note": "referencia de ambas funciones"
+				}
+			]
+		}
+	]
+}

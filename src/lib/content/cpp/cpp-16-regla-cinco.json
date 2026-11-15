@@ -1,0 +1,672 @@
+{
+	"id": "cpp-16-regla-cinco",
+	"track": "cpp",
+	"order": 16,
+	"title": "Regla de 0/3/5 y sobrecarga de operadores",
+	"subtitle": "Controlar copia, movimiento y destrucción para que un recurso tenga un solo dueño",
+	"level": "avanzado",
+	"minutes": 48,
+	"tags": [
+		"regla de cinco",
+		"operadores",
+		"copia",
+		"move"
+	],
+	"keywords": [
+		"regla de tres",
+		"regla de cinco",
+		"regla de cero",
+		"constructor de copia",
+		"operador de asignación",
+		"move constructor",
+		"std::move",
+		"sobrecarga de operadores",
+		"operator+",
+		"operator<<",
+		"friend",
+		"copia superficial"
+	],
+	"summary": "Cuando una clase posee un recurso, la copia que genera el compilador duplica el puntero y no el recurso: el resultado es una doble liberación. Aquí aprendes a decidir entre regla de 0, 3 o 5, a escribir move correctamente y a sobrecargar `+`, `==` y `<<` sin ambigüedades.",
+	"objectives": [
+		"Distinguir copia superficial de copia profunda con un recurso propio",
+		"Decidir cuándo aplicar la regla de 0, de 3 o de 5",
+		"Escribir constructor de copia, asignación, movimiento y destructor coherentes",
+		"Sobrecargar `+`, `==` y `<<` con la firma correcta",
+		"Explicar qué queda en un objeto después de moverlo"
+	],
+	"prerequisites": [
+		"Clases, constructores y encapsulamiento",
+		"Herencia, virtual y polimorfismo"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Una clase que guarda un `std::vector` no necesita preocuparse por nada: el vector copia sus elementos y libera su buffer. Una clase que guarda un `int*` obtenido con `new` sí. El compilador genera copia, asignación y destructor por su cuenta, y esa versión automática copia el **puntero**, no el bloque al que apunta. El resultado son dos objetos que creen poseer la misma memoria."
+		},
+		{
+			"type": "p",
+			"md": "La regla de 0/3/5 es una guía de decisión: si no gestionas recursos, no escribas ninguno de los cinco miembros especiales; si gestionas uno, escribe los tres de copia o los cinco con movimiento. La sobrecarga de operadores es la otra cara: permitir que tus tipos se usen con la sintaxis natural sin romper la semántica de valor."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la regla de 0/3/5?"
+		},
+		{
+			"type": "p",
+			"md": "Los **cinco miembros especiales** son el destructor, el constructor de copia, el operador de asignación de copia, el constructor de movimiento y el operador de asignación de movimiento. El compilador los genera si puede, y su versión automática hace una copia miembro a miembro o un movimiento miembro a miembro."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Regla de 0**: no declares ninguno; deja que `std::vector`, `std::string` y `std::unique_ptr` gestionen sus recursos. Es la opción preferida.",
+				"**Regla de 3**: si necesitas destructor, constructor de copia o asignación de copia, probablemente necesitas los tres.",
+				"**Regla de 5**: añade el constructor y la asignación de movimiento para evitar copias costosas.",
+				"**Copia profunda**: reservar memoria nueva y copiar el contenido, no la dirección.",
+				"**Movimiento**: transferir el puntero y dejar el origen en un estado válido pero vacío."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve controlar estos miembros?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Evitar la doble liberación**: dos objetos con el mismo puntero llaman dos veces a `delete[]` y el programa aborta.",
+				"**Evitar fugas**: una asignación que sobrescribe el puntero sin liberar el bloque anterior pierde esa memoria para siempre.",
+				"**Hacer copias independientes**: modificar la copia no debe cambiar el original.",
+				"**Mover sin copiar**: devolver un buffer grande de una función debe transferir la propiedad, no duplicar megabytes.",
+				"**Integrarse con la biblioteca**: `std::vector` mueve tus objetos al crecer solo si el movimiento está bien declarado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Un objeto con un `int*` ocupa lo que ocupa el puntero más el tamaño. El buffer vive aparte, en el heap. La copia automática copia los bytes del objeto: el puntero del original y el de la copia tienen el mismo valor. Al destruirse ambos, cada uno ejecuta `delete[]` sobre la misma dirección. Ese es el escenario clásico de `free(): double free detected`."
+		},
+		{
+			"type": "p",
+			"md": "La copia profunda rompe esa igualdad: reserva un bloque nuevo, copia elemento a elemento y guarda la dirección nueva. Ahora hay dos bloques y dos dueños. La asignación añade una dificultad: el destino ya posee un bloque que hay que liberar **después** de leer el origen."
+		},
+		{
+			"type": "p",
+			"md": "El movimiento es una copia del puntero más la anulación del origen: `datos_ = otro.datos_; otro.datos_ = nullptr;`. El origen queda vacío y su destructor no libera nada. `std::move` no mueve nada por sí mismo: solo convierte la expresión en un valor que puede enlazarse a una referencia `T&&`, y el constructor de movimiento hace el resto."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Si defines...",
+				"Necesitas también...",
+				"Motivo"
+			],
+			"rows": [
+				[
+					"Nada (regla de 0)",
+					"Nada",
+					"Los miembros RAII ya copian y liberan correctamente"
+				],
+				[
+					"Destructor",
+					"Constructor de copia y asignación",
+					"La copia automática compartiría el recurso"
+				],
+				[
+					"Constructor de copia",
+					"Asignación y destructor",
+					"Misma razón: hay propiedad que controlar"
+				],
+				[
+					"Los tres de copia",
+					"Movimiento (regla de 5)",
+					"Rendimiento y transferencia de propiedad"
+				]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "los cinco miembros y los operadores",
+			"code": "class Vector2 {\npublic:\n    Vector2(double x, double y) : x_(x), y_(y) {}\n\n    Vector2(const Vector2& otro) = default;              // copia\n    Vector2& operator=(const Vector2& otro) = default;   // asignacion\n    Vector2(Vector2&& otro) noexcept = default;          // movimiento\n    Vector2& operator=(Vector2&& otro) noexcept = default;\n    ~Vector2() = default;                                // regla de cero\n\n    Vector2 operator+(const Vector2& otro) const {\n        return Vector2{x_ + otro.x_, y_ + otro.y_};\n    }\n\n    friend std::ostream& operator<<(std::ostream& os, const Vector2& v);\n\nprivate:\n    double x_;\n    double y_;\n};"
+		},
+		{
+			"type": "p",
+			"md": "`operator+` devuelve por valor un objeto nuevo: es la semántica correcta, porque el resultado no existe en ningún otro sitio. `operator=` devuelve `Vector2&` para permitir cadenas como `a = b = c`. `operator<<` se declara libre y amiga porque su operando izquierdo es un `std::ostream`, no un `Vector2`."
+		},
+		{
+			"type": "p",
+			"md": "Los operadores que modifican el objeto (`+=`, `-=`, `++`) suelen ser miembros y devuelven `*this`. Los que producen un valor nuevo (`+`, `-`, `==`) pueden ser miembros o libres. Los de flujo (`<<`, `>>`) deben ser libres. Y un operador debe respetar la semántica que su símbolo ya tiene: si `+` modifica el objeto, el lector se equivocará."
+		},
+		{
+			"type": "compare",
+			"title": "Aritmética de un tipo propio",
+			"python": {
+				"caption": "vector.py",
+				"code": "class Vector2:\n    def __init__(self, x, y):\n        self.x, self.y = x, y\n    def __add__(self, otro):\n        return Vector2(self.x + otro.x, self.y + otro.y)\n    def __eq__(self, otro):\n        return (self.x, self.y) == (otro.x, otro.y)\n    def __repr__(self):\n        return f\"({self.x}, {self.y})\"\n\nprint(Vector2(1, 2) + Vector2(3, 4))  # (4, 6)"
+			},
+			"cpp": {
+				"caption": "vector2.cpp",
+				"code": "class Vector2 {\npublic:\n    Vector2(double x, double y) : x_(x), y_(y) {}\n    Vector2 operator+(const Vector2& o) const {\n        return Vector2{x_ + o.x_, y_ + o.y_};\n    }\n    bool operator==(const Vector2& o) const {\n        return x_ == o.x_ && y_ == o.y_;\n    }\n    friend std::ostream& operator<<(std::ostream& os, const Vector2& v) {\n        return os << '(' << v.x_ << \", \" << v.y_ << ')';\n    }\nprivate:\n    double x_, y_;\n};"
+			},
+			"note": "Python usa métodos especiales con nombre fijo (`__add__`, `__eq__`, `__repr__`). C++ usa la palabra `operator` seguida del símbolo, y distingue entre operadores miembro y libres. En ambos casos, la regla es la misma: el operador debe comportarse como el símbolo sugiere."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: sumar e imprimir vectores"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "suma.cpp",
+			"code": "#include <iostream>\n\nclass Vector2 {\npublic:\n    Vector2(double x, double y) : x_(x), y_(y) {}\n\n    Vector2 operator+(const Vector2& otro) const {\n        return Vector2{x_ + otro.x_, y_ + otro.y_};\n    }\n\n    bool operator==(const Vector2& otro) const {\n        return x_ == otro.x_ && y_ == otro.y_;\n    }\n\n    friend std::ostream& operator<<(std::ostream& os, const Vector2& v) {\n        return os << '(' << v.x_ << \", \" << v.y_ << ')';\n    }\n\nprivate:\n    double x_;\n    double y_;\n};\n\nint main() {\n    const Vector2 a{1.5, 2.0};\n    const Vector2 b{0.5, 3.0};\n\n    std::cout << a + b << '\\n';\n    std::cout << (a == b) << '\\n';\n    return 0;\n}",
+			"highlight": [
+				8,
+				12,
+				15
+			]
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`a + b` llama a `operator+` con `b` como argumento y devuelve un `Vector2` nuevo por valor.",
+				"El objeto temporal se pasa a `operator<<`, que es libre y amigo: puede leer `x_` e `y_` porque la clase lo autoriza.",
+				"`operator<<` devuelve el mismo `std::ostream`, lo que permite encadenar más escrituras.",
+				"`a == b` compara estado y devuelve `false`, que se imprime como `0`."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `(2, 5)` y `0`. El temporal creado por `a + b` se destruye al final de la expresión completa, después de imprimirse; no hay ninguna fuga. Y `operator<<` no necesita ser amigo si expones `x()` e `y()`, pero ser amigo evita getters solo para imprimir."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: regla de 3 con un buffer"
+		},
+		{
+			"type": "p",
+			"md": "Aquí el recurso es un array de enteros reservado con `new[]`. El destructor lo libera, así que hay que escribir copia y asignación: sin ellas, el compilador generaría una copia superficial y el programa liberaría el mismo bloque dos veces."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "buffer.cpp",
+			"code": "#include <cstddef>\n#include <iostream>\n\nclass Buffer {\npublic:\n    explicit Buffer(std::size_t n) : datos_(new int[n]), n_(n) {\n        for (std::size_t i = 0; i < n_; ++i) {\n            datos_[i] = static_cast<int>(i + 1);\n        }\n    }\n\n    Buffer(const Buffer& otro) : datos_(new int[otro.n_]), n_(otro.n_) {\n        for (std::size_t i = 0; i < n_; ++i) {\n            datos_[i] = otro.datos_[i];\n        }\n    }\n\n    Buffer& operator=(const Buffer& otro) {\n        if (this != &otro) {\n            int* nuevos = new int[otro.n_];\n            for (std::size_t i = 0; i < otro.n_; ++i) {\n                nuevos[i] = otro.datos_[i];\n            }\n            delete[] datos_;\n            datos_ = nuevos;\n            n_ = otro.n_;\n        }\n        return *this;\n    }\n\n    ~Buffer() { delete[] datos_; }\n\n    int& operator[](std::size_t i) { return datos_[i]; }\n    const int& operator[](std::size_t i) const { return datos_[i]; }\n    std::size_t size() const { return n_; }\n\nprivate:\n    int* datos_;\n    std::size_t n_;\n};\n\nint main() {\n    Buffer a(3);\n    Buffer b = a;      // copia profunda\n    b[0] = 99;\n\n    std::cout << a[0] << ' ' << b[0] << '\\n';\n    std::cout << a.size() << '\\n';\n    return 0;\n}",
+			"highlight": [
+				12,
+				18,
+				22,
+				30,
+				47
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `1 99` y `3`. Modificar `b[0]` no toca `a` porque son bloques distintos. La asignación reserva primero el bloque nuevo, copia, y solo entonces libera el antiguo: si liberara antes y el origen fuera el mismo objeto, estaría leyendo memoria ya devuelta. La comprobación `this != &otro` evita justamente ese caso."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Asignar no es inicializar",
+			"md": "El constructor de copia construye un objeto que aún no tiene valor; la asignación escribe sobre uno que ya posee un recurso. Por eso la asignación debe liberar lo anterior, y el constructor no. Confundirlos produce fugas en un caso y dobles liberaciones en el otro."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: regla de 5 con movimiento"
+		},
+		{
+			"type": "p",
+			"md": "Copiar un buffer grande cuesta tiempo y memoria; moverlo solo copia dos campos. La clase `Secuencia` implementa los cinco miembros: copia profunda, asignación con copy-and-swap, movimiento que transfiere el puntero y destructor que libera si queda algo. El operador `<<` muestra el contenido sin exponer el puntero."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "secuencia.cpp",
+			"code": "#include <algorithm>\n#include <cstddef>\n#include <iostream>\n#include <utility>\n\nclass Secuencia {\npublic:\n    explicit Secuencia(std::size_t n) : datos_(new double[n]), n_(n) {\n        for (std::size_t i = 0; i < n_; ++i) {\n            datos_[i] = static_cast<double>(i);\n        }\n    }\n\n    Secuencia(const Secuencia& otro) : datos_(new double[otro.n_]), n_(otro.n_) {\n        std::copy(otro.datos_, otro.datos_ + otro.n_, datos_);\n    }\n\n    Secuencia& operator=(const Secuencia& otro) {\n        if (this != &otro) {\n            Secuencia tmp(otro);\n            std::swap(datos_, tmp.datos_);\n            std::swap(n_, tmp.n_);\n        }\n        return *this;\n    }\n\n    Secuencia(Secuencia&& otro) noexcept : datos_(otro.datos_), n_(otro.n_) {\n        otro.datos_ = nullptr;\n        otro.n_ = 0;\n    }\n\n    Secuencia& operator=(Secuencia&& otro) noexcept {\n        if (this != &otro) {\n            delete[] datos_;\n            datos_ = otro.datos_;\n            n_ = otro.n_;\n            otro.datos_ = nullptr;\n            otro.n_ = 0;\n        }\n        return *this;\n    }\n\n    ~Secuencia() { delete[] datos_; }\n\n    std::size_t size() const { return n_; }\n\n    friend std::ostream& operator<<(std::ostream& os, const Secuencia& s) {\n        os << '[';\n        for (std::size_t i = 0; i < s.n_; ++i) {\n            if (i > 0) {\n                os << ' ';\n            }\n            os << s.datos_[i];\n        }\n        return os << ']';\n    }\n\nprivate:\n    double* datos_;\n    std::size_t n_;\n};\n\nint main() {\n    Secuencia a(3);\n    Secuencia b = a;\n    Secuencia c = std::move(a);\n\n    std::cout << b << '\\n';\n    std::cout << c << '\\n';\n    std::cout << a.size() << ' ' << c.size() << '\\n';\n    return 0;\n}",
+			"highlight": [
+				24,
+				31,
+				38,
+				56,
+				68
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `[0 1 2]`, `[0 1 2]` y `0 3`. `b` es una copia independiente; `c` se queda con el bloque de `a` y `a` queda vacía, con tamaño 0. El destructor de `a` no libera nada porque el puntero es `nullptr`, y `delete[] nullptr` es una operación legal que no hace nada."
+		},
+		{
+			"type": "p",
+			"md": "La asignación de copia usa *copy-and-swap*: construye una copia temporal y luego intercambia los punteros. Si la reserva falla, el original queda intacto, y el temporal libera el bloque viejo al salir. Funciona incluso cuando el origen es el propio objeto."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "noexcept no es decorativo",
+			"md": "`std::vector` solo mueve tus objetos al crecer si el constructor de movimiento está marcado `noexcept`; si no, copia para mantener la garantía fuerte ante excepciones. Un `noexcept` olvidado convierte un crecimiento lineal en copias masivas."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: copia profunda y movimiento"
+		},
+		{
+			"type": "p",
+			"md": "La simulación sigue el mismo `Buffer` del ejemplo intermedio. En el paso de la copia, compara las direcciones: si fueran iguales, sería una copia superficial y el programa fallaría al destruir. En el movimiento, observa que no se reserva memoria nueva: solo cambia el dueño del bloque."
+		},
+		{
+			"type": "memory",
+			"title": "Dos dueños distintos y un puntero que se transfiere",
+			"lang": "cpp",
+			"code": "Buffer a(4);\nBuffer b = a;\nb[0] = 9;\nBuffer c = std::move(a);",
+			"steps": [
+				{
+					"note": "El constructor reserva 4 enteros en el heap con `new int[4]` y guarda la dirección 0x9000 en `datos_`. El objeto `a` vive en el stack.",
+					"stack": [
+						{
+							"name": "a",
+							"value": "{datos_: 0x9000, n_: 4}",
+							"addr": "0x7ffc1000",
+							"type": "Buffer"
+						}
+					],
+					"heap": [
+						{
+							"name": "a.datos_",
+							"value": "1 2 3 4",
+							"addr": "0x9000",
+							"type": "int[4]"
+						}
+					],
+					"arrows": [
+						{
+							"from": "a",
+							"to": "0x9000",
+							"label": "posee"
+						}
+					],
+					"highlight": [
+						"a",
+						"a.datos_"
+					]
+				},
+				{
+					"note": "La copia profunda reserva un bloque **nuevo** en 0x9100 y copia los valores. Ahora hay dos bloques y dos dueños.",
+					"stack": [
+						{
+							"name": "a",
+							"value": "{datos_: 0x9000, n_: 4}",
+							"addr": "0x7ffc1000",
+							"type": "Buffer"
+						},
+						{
+							"name": "b",
+							"value": "{datos_: 0x9100, n_: 4}",
+							"addr": "0x7ffc1020",
+							"type": "Buffer"
+						}
+					],
+					"heap": [
+						{
+							"name": "a.datos_",
+							"value": "1 2 3 4",
+							"addr": "0x9000",
+							"type": "int[4]"
+						},
+						{
+							"name": "b.datos_",
+							"value": "1 2 3 4",
+							"addr": "0x9100",
+							"type": "int[4]"
+						}
+					],
+					"arrows": [
+						{
+							"from": "a",
+							"to": "0x9000"
+						},
+						{
+							"from": "b",
+							"to": "0x9100"
+						}
+					],
+					"highlight": [
+						"b",
+						"b.datos_"
+					]
+				},
+				{
+					"note": "`b[0] = 9` escribe en el bloque de `b`. El de `a` sigue intacto: esa independencia es el objetivo de la copia profunda.",
+					"stack": [
+						{
+							"name": "a",
+							"value": "{datos_: 0x9000, n_: 4}",
+							"addr": "0x7ffc1000",
+							"type": "Buffer"
+						},
+						{
+							"name": "b",
+							"value": "{datos_: 0x9100, n_: 4}",
+							"addr": "0x7ffc1020",
+							"type": "Buffer"
+						}
+					],
+					"heap": [
+						{
+							"name": "a.datos_",
+							"value": "1 2 3 4",
+							"addr": "0x9000",
+							"type": "int[4]"
+						},
+						{
+							"name": "b.datos_",
+							"value": "9 2 3 4",
+							"addr": "0x9100",
+							"type": "int[4]"
+						}
+					],
+					"arrows": [
+						{
+							"from": "a",
+							"to": "0x9000"
+						},
+						{
+							"from": "b",
+							"to": "0x9100"
+						}
+					],
+					"highlight": [
+						"b.datos_"
+					]
+				},
+				{
+					"note": "El movimiento no reserva nada: `c` recibe 0x9000 y `a` se queda con `nullptr`. La dirección no cambia de sitio, solo de dueño.",
+					"stack": [
+						{
+							"name": "a",
+							"value": "{datos_: nullptr, n_: 0}",
+							"addr": "0x7ffc1000",
+							"type": "Buffer"
+						},
+						{
+							"name": "b",
+							"value": "{datos_: 0x9100, n_: 4}",
+							"addr": "0x7ffc1020",
+							"type": "Buffer"
+						},
+						{
+							"name": "c",
+							"value": "{datos_: 0x9000, n_: 4}",
+							"addr": "0x7ffc1040",
+							"type": "Buffer"
+						}
+					],
+					"heap": [
+						{
+							"name": "c.datos_",
+							"value": "1 2 3 4",
+							"addr": "0x9000",
+							"type": "int[4]"
+						},
+						{
+							"name": "b.datos_",
+							"value": "9 2 3 4",
+							"addr": "0x9100",
+							"type": "int[4]"
+						}
+					],
+					"arrows": [
+						{
+							"from": "b",
+							"to": "0x9100"
+						},
+						{
+							"from": "c",
+							"to": "0x9000",
+							"label": "dueño nuevo"
+						}
+					],
+					"highlight": [
+						"a",
+						"c"
+					]
+				},
+				{
+					"note": "Al final se destruyen `c`, `b` y `a`. Cada bloque se libera una sola vez: `a` no libera porque su puntero es nulo. Sin la copia profunda, aquí habría un doble `delete[]`.",
+					"stack": [
+						{
+							"name": "a",
+							"value": "destruido",
+							"addr": "—",
+							"type": "Buffer"
+						},
+						{
+							"name": "b",
+							"value": "destruido",
+							"addr": "—",
+							"type": "Buffer"
+						},
+						{
+							"name": "c",
+							"value": "destruido",
+							"addr": "—",
+							"type": "Buffer"
+						}
+					],
+					"heap": [],
+					"highlight": []
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Si en el segundo paso las dos flechas apuntaran a `0x9000`, la copia sería superficial: `b` y `a` compartirían bloque, el cambio de `b[0]` afectaría a `a` y la destrucción liberaría dos veces la misma dirección. Todo el capítulo se reduce a evitar que eso ocurra."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Error",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`free(): double free detected`",
+					"Copia superficial: dos objetos con el mismo puntero",
+					"Copia profunda o `unique_ptr`/`vector` en lugar de `new[]`"
+				],
+				[
+					"Fuga al asignar sobre un objeto con recurso",
+					"Se sobrescribe el puntero sin `delete[]` previo",
+					"Libera el anterior o usa copy-and-swap"
+				],
+				[
+					"`error: use of deleted function` al copiar un `unique_ptr`",
+					"`unique_ptr` no se puede copiar porque tiene un solo dueño",
+					"Mueve con `std::move` o clona el recurso"
+				],
+				[
+					"`error: 'operator<<' must take exactly one argument`",
+					"Se declaró como miembro y recibía dos",
+					"Decláralo libre (y `friend` si necesita acceso privado)"
+				],
+				[
+					"`warning: reference to local variable returned`",
+					"Un operador devuelve `const T&` a un temporal",
+					"Devuelve por valor los operadores que crean objetos"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El primero solo aparece en ejecución; los demás son errores o avisos del compilador. Prueba con AddressSanitizer (`-fsanitize=address`): detecta la doble liberación en el momento en que ocurre."
+		},
+		{
+			"type": "diff",
+			"title": "Comparar direcciones no es comparar valores",
+			"wrong": {
+				"caption": "Incorrecto: compara identidad",
+				"code": "#include <iostream>\n\nclass Punto {\npublic:\n    Punto(int x, int y) : x_(x), y_(y) {}\n\n    bool operator==(const Punto& otro) const {\n        return this == &otro;   // solo true si es el mismo objeto\n    }\n\nprivate:\n    int x_;\n    int y_;\n};\n\nint main() {\n    const Punto a{1, 2};\n    const Punto b{1, 2};\n    std::cout << (a == b) << '\\n';\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto: compara estado",
+				"code": "#include <iostream>\n\nclass Punto {\npublic:\n    Punto(int x, int y) : x_(x), y_(y) {}\n\n    bool operator==(const Punto& otro) const {\n        return x_ == otro.x_ && y_ == otro.y_;\n    }\n\nprivate:\n    int x_;\n    int y_;\n};\n\nint main() {\n    const Punto a{1, 2};\n    const Punto b{1, 2};\n    std::cout << (a == b) << '\\n';\n    return 0;\n}"
+			},
+			"explain": "La primera versión imprime `0`: dos puntos con las mismas coordenadas no son iguales porque están en direcciones distintas. La segunda imprime `1`. La igualdad de un tipo de valor debe comparar su estado; para identidad ya existe comparar direcciones con `&a == &b`."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Prefiere la regla de 0: usa `std::vector`, `std::string` y punteros inteligentes como miembros.",
+				"Si gestionas un recurso, escribe los cinco miembros o ninguno; nunca solo el destructor.",
+				"Reserva antes de liberar en la asignación, o usa copy-and-swap.",
+				"Comprueba `this != &otro` en la asignación o evita el problema con el intercambio.",
+				"Marca el movimiento como `noexcept` para que los contenedores lo aprovechen.",
+				"Devuelve por valor los operadores que crean objetos; por referencia, solo `*this`.",
+				"Define `operator<<` como función libre y no lo uses para lógica de negocio."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Fracciones con operadores",
+			"md": "Escribe una clase `Racional` con numerador y denominador privados que simplifique en el constructor usando `std::gcd`. Sobrecarga `operator+`, `operator==` y `operator<<` para que `1/2 + 1/3` se imprima como `5/6`. Comprueba también que `1/2` no es igual a `1/3` y que la suma sí es igual a `5/6`.",
+			"hint": "La suma es `(a/b) + (c/d) = (a*d + c*b) / (b*d)`; construye el resultado con el constructor para que se simplifique solo. `std::gcd` está en `<numeric>`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "racional.cpp",
+				"code": "#include <iostream>\n#include <numeric>\n\nclass Racional {\npublic:\n    Racional(int num, int den) : num_(num), den_(den == 0 ? 1 : den) {\n        simplificar();\n    }\n\n    Racional operator+(const Racional& otro) const {\n        return Racional{num_ * otro.den_ + otro.num_ * den_, den_ * otro.den_};\n    }\n\n    bool operator==(const Racional& otro) const {\n        return num_ == otro.num_ && den_ == otro.den_;\n    }\n\n    friend std::ostream& operator<<(std::ostream& os, const Racional& r) {\n        return os << r.num_ << '/' << r.den_;\n    }\n\nprivate:\n    void simplificar() {\n        const int divisor = std::gcd(num_, den_);\n        if (divisor != 0) {\n            num_ /= divisor;\n            den_ /= divisor;\n        }\n        if (den_ < 0) {\n            num_ = -num_;\n            den_ = -den_;\n        }\n    }\n\n    int num_;\n    int den_;\n};\n\nint main() {\n    const Racional a{1, 2};\n    const Racional b{1, 3};\n\n    std::cout << a + b << '\\n';\n    std::cout << (a == b) << '\\n';\n    std::cout << (a + b == Racional{5, 6}) << '\\n';\n    return 0;\n}",
+				"explain": "La salida es `5/6`, `0` y `1`. El constructor simplifica siempre, así que `6/12` se guarda como `1/2` y la igualdad puede comparar numerador y denominador directamente. `std::gcd` con signos negativos devuelve un valor positivo, y el ajuste final mueve el signo al numerador."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Arreglo con regla de 5",
+			"md": "Implementa una clase `Arreglo` que posea un `int*` reservado con `new[]`. Escribe constructor, copia profunda, asignación con copy-and-swap, constructor y asignación de movimiento con `noexcept`, destructor y `operator[]` const y no const. Comprueba que la copia es independiente, que el movimiento deja el origen con tamaño 0 y que el destino conserva el valor 7.",
+			"hint": "En el movimiento, asigna el puntero, copia el tamaño y deja el origen en `nullptr` y 0. En la asignación de copia, crea un temporal y usa `std::swap` sobre los dos campos.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "arreglo.cpp",
+				"code": "#include <algorithm>\n#include <cstddef>\n#include <iostream>\n#include <utility>\n\nclass Arreglo {\npublic:\n    explicit Arreglo(std::size_t n) : datos_(new int[n]), n_(n) {\n        std::fill(datos_, datos_ + n_, 0);\n    }\n\n    Arreglo(const Arreglo& otro) : datos_(new int[otro.n_]), n_(otro.n_) {\n        std::copy(otro.datos_, otro.datos_ + otro.n_, datos_);\n    }\n\n    Arreglo& operator=(const Arreglo& otro) {\n        if (this != &otro) {\n            Arreglo tmp(otro);\n            std::swap(datos_, tmp.datos_);\n            std::swap(n_, tmp.n_);\n        }\n        return *this;\n    }\n\n    Arreglo(Arreglo&& otro) noexcept : datos_(otro.datos_), n_(otro.n_) {\n        otro.datos_ = nullptr;\n        otro.n_ = 0;\n    }\n\n    Arreglo& operator=(Arreglo&& otro) noexcept {\n        if (this != &otro) {\n            delete[] datos_;\n            datos_ = otro.datos_;\n            n_ = otro.n_;\n            otro.datos_ = nullptr;\n            otro.n_ = 0;\n        }\n        return *this;\n    }\n\n    ~Arreglo() { delete[] datos_; }\n\n    int& operator[](std::size_t i) { return datos_[i]; }\n    int operator[](std::size_t i) const { return datos_[i]; }\n    std::size_t size() const { return n_; }\n\nprivate:\n    int* datos_;\n    std::size_t n_;\n};\n\nint main() {\n    Arreglo a(3);\n    a[2] = 7;\n\n    Arreglo b = a;\n    Arreglo c = std::move(a);\n\n    std::cout << b[2] << ' ' << c[2] << '\\n';\n    std::cout << a.size() << ' ' << c.size() << '\\n';\n    return 0;\n}",
+				"explain": "La salida es `7 7` y `0 3`. `b` copió el contenido y `c` se quedó con el bloque original. Después del movimiento, `a` está vacía pero es un objeto válido: se puede destruir y volver a asignar. El `operator[]` const devuelve por valor para que no se pueda escribir a través de un objeto const."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa los operadores",
+			"lang": "cpp",
+			"code": "class Punto {\npublic:\n    Punto(int x, int y) : x_(x), y_(y) {}\n\n    Punto ___+(const Punto& otro) const {\n        return Punto{x_ + otro.x_, y_ + otro.y_};\n    }\n\n    ___ std::ostream& operator<<(std::ostream& os, const Punto& p) {\n        return os << p.x_ << ',' << p.y_;\n    }\n\nprivate:\n    int x_;\n    int y_;\n};",
+			"answers": [
+				"operator",
+				"friend"
+			],
+			"hint": "La suma se declara con la palabra que introduce cualquier sobrecarga; el operador de flujo necesita acceso a los miembros privados.",
+			"explain": "`operator+` es el nombre que el compilador busca al escribir `a + b`. `friend` permite que `operator<<`, que no es miembro, lea `x_` e `y_`. Sin `friend` habría que exponer getters o hacer públicos los datos."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el racional, simplificar en el constructor mantiene un invariante: cada fracción se guarda en forma canónica. Gracias a eso, `operator==` puede comparar campo a campo sin calcular productos cruzados. Si la simplificación estuviera solo en `operator+`, dos fracciones equivalentes construidas de otra forma no serían iguales, y el bug aparecería mucho después."
+		},
+		{
+			"type": "p",
+			"md": "En el arreglo, el orden de las operaciones del movimiento es el contrato completo: transferir, copiar el tamaño y anular el origen. Si olvidas anular el puntero, el destructor del origen libera el bloque que ahora usa el destino y el programa falla al final; si olvidas el tamaño, el objeto movido miente sobre su contenido. El `noexcept` permite que `std::vector<Arreglo>` mueva en lugar de copiar al crecer."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"La copia automática copia el puntero, no el recurso: eso produce dobles liberaciones.",
+				"Regla de 0: no escribas miembros especiales si tus miembros ya gestionan sus recursos.",
+				"Regla de 3: destructor, copia y asignación van siempre juntos.",
+				"Regla de 5: añade movimiento con `noexcept` para transferir en lugar de copiar.",
+				"En la asignación, libera después de reservar y copiar, o usa copy-and-swap.",
+				"`operator+` devuelve por valor; `operator=` devuelve `*this`; `operator<<` es libre y amigo.",
+				"La igualdad compara estado, no direcciones."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Una clase reserva memoria con `new[]` en su constructor. ¿Qué debe declarar además del destructor?",
+			"options": [
+				"Solo un constructor por defecto",
+				"El constructor de copia y el operador de asignación de copia",
+				"Nada: el compilador genera una copia profunda automáticamente",
+				"Únicamente `operator<<`"
+			],
+			"answer": 1,
+			"explain": "La copia y la asignación generadas copian el puntero, no el bloque. Con dos objetos apuntando a la misma memoria, el destructor libera dos veces. Esa es la regla de 3: destructor, copia y asignación se escriben juntos."
+		},
+		{
+			"type": "quiz",
+			"question": "Después de `Secuencia c = std::move(a);`, ¿qué se puede afirmar de `a`?",
+			"options": [
+				"Contiene una copia de los datos y sigue siendo válida",
+				"Queda en un estado válido pero no especificado; en esta implementación, vacía",
+				"Ya no se puede destruir ni reasignar",
+				"`std::move` garantiza que conserva el mismo tamaño"
+			],
+			"answer": 1,
+			"explain": "El movimiento transfiere la propiedad y deja el origen en un estado válido pero sin contenido garantizado. En `Secuencia`, el puntero queda en `nullptr` y el tamaño en 0; el destructor funciona sin liberar nada."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `operator<<` se declara como función libre y no como método de la clase?",
+			"options": [
+				"Porque los operadores de flujo no pueden ser amigos",
+				"Porque el operando izquierdo es `std::ostream`, no el objeto de la clase",
+				"Porque un método no puede devolver una referencia",
+				"Porque el compilador prohíbe sobrecargar `<<`"
+			],
+			"answer": 1,
+			"explain": "En `os << objeto`, el operando izquierdo es el stream. Un método de la clase convertiría al objeto en operando izquierdo, y la llamada `std::cout << p` no encontraría la función. Como función libre, ambos operandos se deducen bien."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference: regla de tres/cinco/cero",
+					"url": "https://en.cppreference.com/w/cpp/language/rule_of_three",
+					"note": "guía de miembros especiales"
+				},
+				{
+					"label": "cppreference: sobrecarga de operadores",
+					"url": "https://en.cppreference.com/w/cpp/language/operators",
+					"note": "firmas y restricciones"
+				},
+				{
+					"label": "C++ Core Guidelines: semántica de valor",
+					"url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-copy-semantic",
+					"note": "copia y movimiento"
+				}
+			]
+		}
+	]
+}

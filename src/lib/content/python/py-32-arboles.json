@@ -1,0 +1,461 @@
+{
+	"id": "py-32-arboles",
+	"track": "python",
+	"order": 32,
+	"title": "Árboles de decisión y Random Forest",
+	"subtitle": "De una tabla a preguntas encadenadas, y de un árbol a un bosque que no memoriza",
+	"level": "intermedio",
+	"minutes": 45,
+	"tags": ["árboles", "random forest", "gini", "bagging"],
+	"keywords": [
+		"árbol de decisión",
+		"impureza gini",
+		"entropía",
+		"ganancia de información",
+		"profundidad del árbol",
+		"sobreajuste en árboles",
+		"random forest",
+		"bagging",
+		"importancia de variables",
+		"DecisionTreeClassifier",
+		"RandomForestClassifier"
+	],
+	"summary": "Un árbol de decisión es una cadena de preguntas que reparte los datos hasta dejarlos en grupos puros. Aprenderás a medir esa pureza con Gini, a controlar la profundidad para no memorizar y a combinar muchos árboles en un Random Forest que generaliza mejor.",
+	"objectives": [
+		"Calcular la impureza Gini de un nodo y la ganancia de una división",
+		"Interpretar un árbol como reglas if/else y seguirlo para un caso nuevo",
+		"Elegir `max_depth` y otras podas para controlar el sobreajuste",
+		"Explicar cómo el bagging construye un Random Forest",
+		"Leer la importancia de variables sin sobreinterpretarla"
+	],
+	"prerequisites": [
+		"Fundamentos de Machine Learning",
+		"Regresión lineal y logística"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Si has jugado a «adivina quién», ya conoces la idea: haces preguntas que partan el grupo en dos y eliges la que deja menos dudas. Un árbol de decisión hace exactamente eso, pero elige las preguntas con una medida de impureza en lugar de intuición."
+		},
+		{
+			"type": "p",
+			"md": "Su gran ventaja es que se puede leer en voz alta: «si la asistencia supera 67 %, aprueba». Su gran riesgo es aprenderse la tabla de memoria. Esta lección cubre las dos caras y termina con el bosque que corrige la segunda."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un árbol de decisión?"
+		},
+		{
+			"type": "p",
+			"md": "Un **árbol de decisión** es un modelo que divide el espacio de características con cortes sucesivos. Cada **nodo interno** pregunta por una variable y un umbral; cada **rama** es la respuesta; cada **hoja** devuelve una predicción: una clase o un número. Para clasificar, la hoja devuelve la clase mayoritaria de los ejemplos que llegaron a ella."
+		},
+		{
+			"type": "p",
+			"md": "El árbol se construye de arriba abajo. En cada nodo prueba todos los cortes posibles de todas las variables, elige el que más reduce la impureza y repite el proceso en cada hijo hasta que se cumple una condición de parada: profundidad máxima, mínimo de ejemplos por hoja o pureza total."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Decisiones explicables**: aprobar un crédito, asignar una beca o priorizar una inspección y poder justificar el porqué.",
+				"**Datos tabulares mezclados**: números y categorías sin necesidad de escalar, algo que la regresión logística agradece pero no exige.",
+				"**Relaciones no lineales**: umbrales del tipo «a partir de 67 % de asistencia cambia la decisión».",
+				"**Selección de variables**: la importancia que calcula el bosque orienta qué medir mejor."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? Impureza y ganancia"
+		},
+		{
+			"type": "p",
+			"md": "La **impureza Gini** mide cuán mezclado está un nodo. Si `p` es la proporción de la clase positiva, `Gini = 1 − (p² + (1 − p)²)`. Un nodo puro tiene Gini 0; uno con 50/50 llega a 0.5, el máximo en clasificación binaria. La **entropía** mide lo mismo con logaritmos y su máximo es 1 bit, pero la conclusión práctica es idéntica."
+		},
+		{
+			"type": "p",
+			"md": "La **ganancia** de una división es la impureza del padre menos la impureza de los hijos ponderada por su tamaño. El árbol elige el corte con mayor ganancia. Ese cálculo es voraz: cada nodo decide lo mejor para sí mismo, sin ver el árbol completo, y por eso no garantiza el óptimo global."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: dos modelos, un mismo bosque"
+		},
+		{
+			"type": "p",
+			"md": "Si aún no tienes la biblioteca, instálala una vez; después basta con crear el modelo, `fit` y `predict`:"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalación",
+			"code": "python -m pip install scikit-learn"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "arbol_y_bosque.py",
+			"code": "from sklearn.tree import DecisionTreeClassifier\nfrom sklearn.ensemble import RandomForestClassifier\n\nX = [[1, 50], [2, 55], [2, 60], [6, 60], [3, 65], [4, 70], [2, 85], [1, 90]]\ny = [0, 0, 0, 1, 0, 1, 1, 1]\n\n# Un árbol: fácil de leer, fácil de sobreajustar\narbol = DecisionTreeClassifier(max_depth=3, random_state=0)\narbol.fit(X, y)\n\n# Un bosque: muchos árboles con muestras distintas\nbosque = RandomForestClassifier(n_estimators=200, random_state=0)\nbosque.fit(X, y)\n\nprint(\"árboles en el bosque:\", len(bosque.estimators_))",
+			"highlight": [9, 13]
+		},
+		{
+			"type": "p",
+			"md": "`max_depth` limita cuántas preguntas se pueden encadenar. `n_estimators` es cuántos árboles forman el bosque. `random_state` fija el azar de la inicialización y del muestreo. Los dos modelos comparten `fit`, `predict` y `predict_proba`, así que puedes intercambiarlos sin reescribir el resto del código."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: la impureza de un nodo"
+		},
+		{
+			"type": "p",
+			"md": "Ocho estudiantes, cuatro aprueban y cuatro no: el nodo raíz está tan mezclado como puede estar. Si lo divides por asistencia en 67 %, el grupo de la izquierda queda con cuatro fallos y un aprobado, y el de la derecha con tres aprobados."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "gini.py",
+			"code": "def gini(etiquetas):\n    p = sum(etiquetas) / len(etiquetas)\n    return 1 - (p ** 2 + (1 - p) ** 2)\n\nraiz = [0, 0, 0, 0, 1, 1, 1, 1]\nizquierda = [0, 0, 0, 1, 0]   # asistencia <= 67.5\nderecha = [1, 1, 1]           # asistencia > 67.5\n\nprint(\"raíz:\", round(gini(raiz), 2))\nprint(\"izquierda:\", round(gini(izquierda), 2))\nprint(\"derecha:\", round(gini(derecha), 2))\n\nponderado = (5 / 8) * gini(izquierda) + (3 / 8) * gini(derecha)\nprint(\"ganancia:\", round(gini(raiz) - ponderado, 4))",
+			"highlight": [13, 14]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `raíz: 0.5`, `izquierda: 0.32`, `derecha: 0.0` y `ganancia: 0.3`. Dividir por horas en 3.5 daría `0.1667`: también buena, pero menor. Con esa diferencia el árbol elige la asistencia, y esa es la razón por la que dos algoritmos con los mismos datos pueden producir árboles distintos."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: los datos de la tabla"
+		},
+		{
+			"type": "matrix",
+			"title": "Ocho estudiantes: horas, asistencia y resultado",
+			"data": [[1, 50, 0], [2, 55, 0], [2, 60, 0], [6, 60, 1], [3, 65, 0], [4, 70, 1], [2, 85, 1], [1, 90, 1]],
+			"rowLabels": ["e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"],
+			"colLabels": ["horas", "asistencia (%)", "aprueba"],
+			"steps": [
+				{
+					"note": "El nodo raíz usa `asistencia <= 67.5`: estas cinco filas van a la izquierda. Cuatro fallan y una aprueba, así que el nodo no es puro.",
+					"highlight": [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1]]
+				},
+				{
+					"note": "Las tres filas restantes tienen asistencia alta y aprueban todas: es una hoja pura, con Gini 0.",
+					"highlight": [[5, 1], [6, 1], [7, 1]]
+				},
+				{
+					"note": "Dentro del nodo izquierdo, las horas separan: con 1, 2 y 3 horas se falla; la fila de 6 horas aprueba.",
+					"highlight": [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]]
+				},
+				{
+					"note": "El árbol final tiene dos niveles y tres hojas: dos dicen «no aprueba» y una dice «aprueba»."
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "La matriz deja ver por qué hacen falta dos preguntas: ninguna columna ordena las etiquetas por sí sola. La asistencia separa el grupo grande y las horas resuelven el pequeño. Los árboles no necesitan que las columnas estén en la misma escala, porque cada pregunta usa una sola columna."
+		},
+		{
+			"type": "h",
+			"text": "Traza: una decisión paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "Un estudiante nuevo estudió 5 horas pero asistió solo al 62 %. Recorre el árbol como lo haría el modelo:"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Recorrido del árbol para un caso nuevo",
+			"code": "horas = 5\nasistencia = 62\n\nif asistencia > 67.5:\n    pred = \"aprueba\"\nelif horas > 4.5:\n    pred = \"aprueba\"\nelse:\n    pred = \"no aprueba\"\n\nprint(pred)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Entra el caso nuevo con `horas = 5`, el valor de la primera característica.",
+					"vars": { "horas": "5" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "La segunda característica es una asistencia del 62 %.",
+					"vars": { "horas": "5", "asistencia": "62" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Primera pregunta: ¿`62 > 67.5`? Falso. El caso baja por la rama izquierda, la de asistencia baja.",
+					"vars": { "horas": "5", "asistencia": "62" },
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Segunda pregunta: ¿`5 > 4.5`? Verdadero. Las horas de estudio compensan la asistencia.",
+					"vars": { "horas": "5", "asistencia": "62" },
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "Se asigna la etiqueta de la hoja. La rama del `else` ya no se ejecuta.",
+					"vars": { "horas": "5", "asistencia": "62", "pred": "\"aprueba\"" },
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "Se imprime la predicción. Todo el modelo cabe en cuatro líneas de `if`/`elif`.",
+					"vars": { "horas": "5", "asistencia": "62", "pred": "\"aprueba\"" },
+					"output": "aprueba\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Cambia la asistencia a 90 y el recorrido termina en la primera pregunta: la rama derecha es pura y no hace falta mirar las horas. Esa es la ventaja del árbol: cada caso recorre solo unas pocas preguntas, aunque el modelo tenga cientos de nodos."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: entrenar, medir y podar"
+		},
+		{
+			"type": "p",
+			"md": "Sin límite de profundidad, un árbol crece hasta que cada hoja tiene un solo ejemplo. Con estos ocho datos, eso significa memorizar y acertar el 100 % en entrenamiento. Limitar la profundidad a 2 lo obliga a generalizar:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "profundidad.py",
+			"code": "from sklearn.tree import DecisionTreeClassifier\nfrom sklearn.metrics import accuracy_score\n\nX = [[1, 50], [2, 55], [2, 60], [6, 60], [3, 65], [4, 70], [2, 85], [1, 90]]\ny = [0, 0, 0, 1, 0, 1, 1, 1]\n\nfor d in [1, 2]:\n    arbol = DecisionTreeClassifier(max_depth=d, random_state=0)\n    arbol.fit(X, y)\n    pred = arbol.predict(X)\n    print(d, round(accuracy_score(y, pred), 2))",
+			"highlight": [8, 9, 11]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `1 0.88` y `2 1.0`. Con una sola pregunta el árbol acierta 7 de 8: deja un aprobado en el grupo de asistencia baja. Con la segunda, separa ese caso por horas. Aquí la profundidad 2 es la receta exacta para estos datos, pero en un problema real ese 1.0 en entrenamiento es una señal de alarma, no una meta."
+		},
+		{
+			"type": "p",
+			"md": "Un árbol sin poda tiene **varianza alta**: si cambias diez filas, la estructura entera puede reorganizarse, porque cada división depende de las anteriores. Los parámetros que controlan ese crecimiento son `max_depth`, `min_samples_leaf` (mínimo de ejemplos por hoja), `min_samples_split` (mínimo para intentar dividir) y `ccp_alpha` (podado por coste-complejidad)."
+		},
+		{
+			"type": "h",
+			"text": "Random Forest: muchos árboles con bagging"
+		},
+		{
+			"type": "p",
+			"md": "Un solo árbol es inestable. Un **Random Forest** entrena cientos de árboles, cada uno con una muestra aleatoria con reemplazo (bagging) y, en cada división, con un subconjunto aleatorio de variables. Después promedia las probabilidades o vota. Al promediar modelos con errores distintos, la varianza baja y el resultado se estabiliza."
+		},
+		{
+			"type": "p",
+			"md": "El costo es la interpretabilidad: ya no hay un árbol que puedas dibujar. A cambio ganas robustez y una medida de importancia por variable, que se calcula sumando cuánto reduce la impureza cada variable en todos los árboles y normalizando para que sume 1."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "bosque.py",
+			"code": "from sklearn.ensemble import RandomForestClassifier\n\nX = [[1, 50], [2, 55], [2, 60], [6, 60], [3, 65], [4, 70], [2, 85], [1, 90]]\ny = [0, 0, 0, 1, 0, 1, 1, 1]\n\nbosque = RandomForestClassifier(n_estimators=100, random_state=0)\nbosque.fit(X, y)\n\nhoras, asistencia = bosque.feature_importances_\nprint(\"horas:\", round(horas, 2))\nprint(\"asistencia:\", round(asistencia, 2))\nprint(\"suma:\", round(horas + asistencia, 2))",
+			"highlight": [9, 12]
+		},
+		{
+			"type": "p",
+			"md": "La tercera línea imprime `suma: 1.0`, porque las importancias se normalizan. Compara las dos primeras: la que se acerque más a 1 concentra las decisiones del bosque. En este conjunto, la asistencia separa cinco filas de golpe y suele llevarse el peso mayor."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La importancia no es causalidad",
+			"md": "La importancia mide cuánto ayuda una variable a dividir **estos** datos. Si dos columnas están correlacionadas, el peso se reparte entre ambas y ninguna parece importante. Y una variable puede ser importante para predecir sin ser la causa de nada."
+		},
+		{
+			"type": "h",
+			"text": "Árbol y bosque frente a frente"
+		},
+		{
+			"type": "table",
+			"head": ["Aspecto", "Árbol de decisión", "Random Forest"],
+			"rows": [
+				["Interpretación", "reglas legibles", "caja negra con importancias"],
+				["Sobreajuste", "alto si no se poda", "más resistente por el promedio"],
+				["Estabilidad", "cambia con pocas filas", "estable entre ejecuciones"],
+				["Coste", "entrenamiento rápido", "cien veces más árboles"],
+				["Uso típico", "explicar una decisión", "predecir con datos tabulares"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: el árbol es un if/else"
+		},
+		{
+			"type": "p",
+			"md": "Una vez entrenado y podado, el árbol se puede traducir a una función. Eso permite incrustarlo en cualquier sistema sin cargar la biblioteca, y también revisar si las reglas tienen sentido para el negocio."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "regla_de_negocio.py",
+			"code": "def aprobo(horas, asistencia):\n    if asistencia > 67.5:\n        return \"aprueba\"\n    if horas > 4.5:\n        return \"aprueba\"\n    return \"no aprueba\"\n\ncasos = [(5, 62), (3, 65), (2, 80)]\nfor horas, asistencia in casos:\n    print(horas, asistencia, \"->\", aprobo(horas, asistencia))",
+			"highlight": [2, 4]
+		},
+		{
+			"type": "compare",
+			"title": "La misma regla en los dos lenguajes",
+			"python": {
+				"caption": "regla.py",
+				"code": "def aprobo(horas, asistencia):\n    if asistencia > 67.5:\n        return True\n    return horas > 4.5"
+			},
+			"cpp": {
+				"caption": "regla.cpp",
+				"code": "#include <iostream>\n\nbool aprobo(double horas, double asistencia) {\n    if (asistencia > 67.5) return true;\n    return horas > 4.5;\n}\n\nint main() {\n    std::cout << aprobo(5, 62) << '\\n';\n}"
+			},
+			"note": "La lógica es idéntica; cambian la declaración de tipos y la forma de imprimir. Esto explica por qué un árbol pequeño se puede portar a producción en cualquier lenguaje, sin depender de scikit-learn."
+		},
+		{
+			"type": "p",
+			"md": "La salida del ejemplo es `5 62 -> aprueba`, `3 65 -> no aprueba` y `2 80 -> aprueba`: el tercer caso ni siquiera consulta las horas. Si esta regla decide una beca, conviene preguntarse si tiene sentido que 5 horas con 62 % de asistencia basten para aprobar. El árbol encontró un patrón; aprobarlo es tu decisión."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Dejar crecer el árbol sin límite**: memoriza, se vuelve enorme y falla fuera de la tabla.",
+				"**Podar mirando el test**: elige la profundidad con validación, nunca con el conjunto que vas a reportar.",
+				"**Interpretar una hoja con dos ejemplos como una ley**: con pocos casos, la regla es ruido.",
+				"**Olvidar `random_state` en el bosque**: dos ejecuciones dan importancias distintas y la comparación se vuelve imposible.",
+				"**Usar árboles con miles de columnas dispersas**: los bosques rinden mejor con variables densas y con sentido."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Empieza con un árbol de profundidad 2 o 3 para ver la estructura antes de complicarla.",
+				"Elige la profundidad con validación cruzada y grafica el error de train y de validación juntos.",
+				"Exige un mínimo de ejemplos por hoja (`min_samples_leaf`) si vas a explicar las reglas a alguien.",
+				"Compara siempre con la regresión logística: si el árbol no mejora, prefiere el modelo simple.",
+				"Guarda el bosque con `joblib` y la versión de scikit-learn: los modelos no siempre son compatibles entre versiones."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Compara dos divisiones",
+			"md": "En el mismo nodo raíz de ocho estudiantes (cuatro y cuatro), calcula la ganancia de dividir por `horas <= 3.5`, que deja `[0, 0, 0, 0, 1, 1]` a la izquierda y `[1, 1]` a la derecha. Imprime la impureza ponderada y la ganancia con cuatro decimales.",
+			"hint": "Pondera cada Gini por su peso: 6/8 y 2/8. La ganancia es `0.5` menos el resultado.",
+			"solution": {
+				"lang": "python",
+				"caption": "division_horas.py",
+				"code": "def gini(etiquetas):\n    p = sum(etiquetas) / len(etiquetas)\n    return 1 - (p ** 2 + (1 - p) ** 2)\n\nraiz = [0, 0, 0, 0, 1, 1, 1, 1]\nizquierda = [0, 0, 0, 0, 1, 1]\nderecha = [1, 1]\n\nponderado = (6 / 8) * gini(izquierda) + (2 / 8) * gini(derecha)\nprint(\"ponderado:\", round(ponderado, 4))\nprint(\"ganancia:\", round(gini(raiz) - ponderado, 4))",
+				"explain": "El nodo derecho es puro (`Gini 0`) y el izquierdo tiene dos unos de seis (`Gini 0.4444`). La impureza ponderada es `0.3333` y la ganancia `0.1667`, menor que los `0.3` de la división por asistencia. Por eso el árbol elige asistencia primero: la ganancia es el árbitro."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "El precio de una pregunta",
+			"md": "Entrena dos árboles, uno con `max_depth=1` y otro con `max_depth=3`, sobre los ocho estudiantes. Imprime la exactitud de entrenamiento de cada uno redondeada a dos decimales y explica qué cambia.",
+			"hint": "Reutiliza las listas del ejemplo. Con `max_depth=3` el árbol puede memorizar los ocho casos.",
+			"solution": {
+				"lang": "python",
+				"caption": "dos_profundidades.py",
+				"code": "from sklearn.tree import DecisionTreeClassifier\nfrom sklearn.metrics import accuracy_score\n\nX = [[1, 50], [2, 55], [2, 60], [6, 60], [3, 65], [4, 70], [2, 85], [1, 90]]\ny = [0, 0, 0, 1, 0, 1, 1, 1]\n\nfor d in [1, 3]:\n    arbol = DecisionTreeClassifier(max_depth=d, random_state=0)\n    arbol.fit(X, y)\n    print(d, round(accuracy_score(y, arbol.predict(X)), 2))",
+				"explain": "La salida es `1 0.88` y `3 1.0`. La primera pregunta deja un aprobado mal clasificado en el grupo de asistencia baja; la segunda división por horas lo separa y el árbol ya acierta todo. Ese 1.0 no es una mejora real: es el síntoma de que el árbol puede describir cada fila por separado."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la impureza",
+			"lang": "python",
+			"code": "def gini(etiquetas):\n    p = sum(etiquetas) / len(etiquetas)\n    return 1 - (p ** 2 + (___ - p) ** 2)\n\nnodo = [1, 1, 1, 0]\nprint(round(gini(nodo), 3))",
+			"answers": ["1"],
+			"hint": "La segunda proporción es la de la clase negativa.",
+			"explain": "Con tres unos de cuatro, `p = 0.75`; la impureza es `1 − (0.5625 + 0.0625) = 0.375`. Ese nodo no es puro, pero está más cerca de serlo que el raíz 50/50."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la comparación importa más que el resultado: `0.1667` frente a `0.3` explica por qué el árbol prefiere la asistencia. Si los datos fueran otros, las horas podrían ganar por un margen igual de pequeño, y el árbol cambiaría por completo. Esa fragilidad es la razón por la que un bosque promedia cien versiones."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la exactitud de entrenamiento sube con la profundidad por construcción: cada pregunta adicional puede separar más casos. Para saber si esa mejora sirve, compara la exactitud de validación. Si la de entrenamiento sube y la de validación baja, la pregunta extra solo está memorizando."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un árbol divide el espacio con preguntas binarias y predice con la hoja alcanzada.",
+				"Gini mide la mezcla de un nodo: 0 es puro y 0.5 es el máximo binario.",
+				"La ganancia es la reducción de impureza ponderada; el árbol elige el corte con mayor ganancia.",
+				"Sin poda, el árbol memoriza; `max_depth` y `min_samples_leaf` controlan el crecimiento.",
+				"Random Forest combina árboles entrenados con muestras y variables aleatorias para reducir la varianza.",
+				"La importancia de variables reparte el peso y suma 1; no demuestra causalidad."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Un nodo contiene 6 ejemplos de la clase 1 y 2 de la clase 0. ¿Cuál es su Gini?",
+			"options": ["0.5", "0.375", "0.25", "0.75"],
+			"answer": 1,
+			"explain": "`p = 6/8 = 0.75`, así que `Gini = 1 − (0.75² + 0.25²) = 1 − 0.625 = 0.375`. El 0.5 corresponde a un nodo 50/50 y el 0.25 no aparece en este cálculo."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace el bagging en un Random Forest?",
+			"options": [
+				"Elimina las variables menos importantes antes de entrenar",
+				"Entrena cada árbol con una muestra aleatoria con reemplazo",
+				"Obliga a todos los árboles a usar las mismas divisiones",
+				"Reduce la profundidad de cada árbol a la mitad"
+			],
+			"answer": 1,
+			"explain": "Cada árbol ve una muestra distinta extraída con reemplazo y, además, un subconjunto de variables en cada división. Al promediar modelos con errores distintos, el bosque reduce la varianza."
+		},
+		{
+			"type": "quiz",
+			"question": "Tu árbol acierta 1.0 en entrenamiento y 0.68 en validación. ¿Qué harías primero?",
+			"options": [
+				"Aumentar la profundidad para aprovechar más los datos",
+				"Reducir la profundidad o exigir más ejemplos por hoja",
+				"Eliminar el conjunto de validación",
+				"Cambiar las etiquetas de validación"
+			],
+			"answer": 1,
+			"explain": "La brecha indica sobreajuste. Podar el árbol reduce su capacidad de memorizar; añadir datos también ayuda. Aumentar la profundidad empeoraría la brecha."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "scikit-learn: DecisionTreeClassifier",
+					"url": "https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html",
+					"note": "parámetros de poda y atributos del árbol"
+				},
+				{
+					"label": "scikit-learn: RandomForestClassifier",
+					"url": "https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html",
+					"note": "bosques, importancias y oob_score"
+				},
+				{
+					"label": "scikit-learn: importancia de variables",
+					"url": "https://scikit-learn.org/stable/auto_examples/ensemble/plot_forest_importances.html",
+					"note": "ejemplo oficial con bosques e importancias"
+				}
+			]
+		}
+	]
+}

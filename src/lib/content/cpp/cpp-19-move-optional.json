@@ -1,0 +1,475 @@
+{
+	"id": "cpp-19-move-optional",
+	"track": "cpp",
+	"order": 19,
+	"title": "Move semantics, optional y variant",
+	"subtitle": "Transferir recursos sin copiarlos y representar valores que pueden faltar o cambiar de tipo",
+	"level": "avanzado",
+	"minutes": 48,
+	"tags": ["move", "optional", "variant", "rvalue"],
+	"keywords": [
+		"qué es un rvalue",
+		"lvalue vs rvalue",
+		"std::move",
+		"move constructor",
+		"perfect forwarding",
+		"std::optional",
+		"std::variant",
+		"std::visit",
+		"RVO",
+		"cuándo usar std::move",
+		"semántica de movimiento c++"
+	],
+	"summary": "Copiar un vector grande cuesta tiempo y memoria; moverlo solo transfiere su puntero interno. Aquí verás cómo funcionan los rvalue, cómo escribir un constructor de movimiento correcto y cómo expresar «puede no haber valor» o «puede ser de varios tipos» sin punteros sueltos.",
+	"objectives": [
+		"Distinguir lvalue de rvalue y explicar qué hace std::move en realidad",
+		"Escribir un constructor y una asignación de movimiento con noexcept",
+		"Reconocer cuándo el compilador elide la copia y cuándo no",
+		"Representar ausencia de valor con std::optional sin usar punteros",
+		"Guardar alternativas de tipo en std::variant y visitarlas"
+	],
+	"prerequisites": ["Regla de 0/3/5 y sobrecarga de operadores", "RAII y punteros inteligentes"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un `std::vector` de un millón de `double` guarda sus datos en el heap y en el stack solo lleva tres cosas: el puntero al buffer, el tamaño y la capacidad. Copiarlo implica reservar otro millón de `double` y copiarlos uno a uno. Moverlo consiste en copiar esos tres valores y dejar el original vacío. Esa es toda la idea de **move semantics**."
+		},
+		{
+			"type": "p",
+			"md": "El lenguaje necesita distinguir entre un objeto que seguirás usando y uno que ya no necesitas. A esa distinción la llamamos **categoría de valor**: un `lvalue` tiene nombre y dirección estable; un `rvalue` es un temporal que está a punto de desaparecer. `std::move` no mueve nada: convierte una expresión en un rvalue para que el compilador elija la versión de movimiento."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un rvalue?"
+		},
+		{
+			"type": "p",
+			"md": "Mira la expresión `int x = 1 + 2;`. `x` es un lvalue: puedes tomar su dirección, asignarle otro valor y seguir usándolo. `1 + 2` es un rvalue: no tiene nombre ni dirección propia, existe solo mientras se evalúa la expresión. Del mismo modo, `std::string(\"hola\")` es un temporal, y el resultado de una función que devuelve por valor también lo es."
+		},
+		{
+			"type": "p",
+			"md": "La biblioteca estándar aprovecha esa diferencia con la sobrecarga: si una función recibe `T&`, solo acepta lvalues; si recibe `T&&`, solo acepta rvalues. Así un contenedor puede copiar cuando le pasas algo que vas a conservar y robar los recursos cuando le pasas un temporal que ya nadie más va a usar."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "categorias.cpp",
+			"code": "#include <iostream>\n#include <utility>\n\nvoid tipo(int&)  { std::cout << \"lvalue\\n\"; }\nvoid tipo(int&&) { std::cout << \"rvalue\\n\"; }\n\nint main() {\n    int x = 1;\n\n    tipo(x);             // lvalue: tiene nombre\n    tipo(2);             // rvalue: literal temporal\n    tipo(std::move(x));  // rvalue: lo declaramos prescindible\n    return 0;\n}"
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "std::move no mueve nada",
+			"md": "`std::move(x)` es solo un `static_cast` a `T&&`. No toca la memoria ni llama a ningún constructor. Lo que cambia es la sobrecarga que se elige después. Si el tipo no tiene constructor de movimiento, la operación acabará copiando igualmente."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve mover?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Evitar copias costosas**: devolver un `vector` de una función, insertarlo en otro contenedor o reasignarlo no duplica el buffer.",
+				"**Transferir propiedad**: un `unique_ptr` no se puede copiar, pero sí mover; el movimiento expresa «ahora el recurso es tuyo».",
+				"**Hacer eficientes los contenedores**: cuando un `vector` crece, mueve sus elementos al buffer nuevo si el movimiento es `noexcept`; si no, los copia.",
+				"**Separar lectura de consumo**: una función que recibe `const T&` observa; una que recibe `T&&` puede quedarse con el recurso.",
+				"**Modelar resultados**: `std::optional` evita valores centinela y `std::variant` guarda alternativas sin jerarquía de clases."
+			]
+		},
+		{
+			"type": "table",
+			"head": ["Situación", "Qué hacer", "Por qué"],
+			"rows": [
+				["Vas a seguir usando el objeto", "Copiar o pasar `const T&`", "Mover lo dejaría en estado no especificado"],
+				["Es un temporal o ya no lo necesitas", "Mover o dejar que el compilador elida", "Se transfiere el recurso en vez de duplicarlo"],
+				["Devuelves una local por valor", "`return local;`", "RVO o movimiento implícito; `std::move` lo estorba"],
+				["Guardas en un contenedor", "`push_back(std::move(obj))`", "Evita copiar el buffer interno"],
+				["El tipo es trivial (`int`, `double`)", "Copiar sin preocuparte", "Mover y copiar cuestan lo mismo"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: robo de recursos y RVO"
+		},
+		{
+			"type": "p",
+			"md": "Un constructor de movimiento recibe `T&&`, copia los punteros del origen y deja el origen en un estado válido pero vacío. «Válido» significa que puedes destruirlo o asignarle un valor nuevo; «no especificado» significa que no debes asumir que conserva el contenido anterior. Para un `std::string`, el estándar permite que el origen quede vacío, pero no lo garantiza en todas las implementaciones."
+		},
+		{
+			"type": "p",
+			"md": "El movimiento debe ser `noexcept` siempre que sea posible. `std::vector` lo comprueba: al reasignar, si el constructor de movimiento puede lanzar, prefiere copiar para mantener la garantía fuerte de excepción. Un `noexcept` ausente puede convertir una operación lineal en una copia completa sin que te des cuenta."
+		},
+		{
+			"type": "p",
+			"md": "La otra pieza es la **elisión de copia**. Desde C++17, `Buffer b = crear();` construye el objeto directamente en el destino: no hay copia ni movimiento que elidir, es obligatorio. Por eso nunca escribas `return std::move(local);` dentro de una función que devuelve por valor: impides la elisión y fuerzas un movimiento que no hacía falta."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: std::move, constructor de movimiento y forwarding"
+		},
+		{
+			"type": "p",
+			"md": "Un constructor de movimiento se declara `T(T&& otro) noexcept`. Si escribes uno, el compilador no genera la copia; si quieres prohibirla, bórrala con `= delete`. La asignación de movimiento debe liberar el recurso actual antes de robar el del otro y comprobar la autoasignación."
+		},
+		{
+			"type": "p",
+			"md": "El **forwarding perfecto** aparece en plantillas que reenvían argumentos sin perder su categoría. `T&&` en un contexto deducido es una *referencia universal*: si le pasas un lvalue, `T` se deduce como `U&` y la referencia colapsa a `U&`; si le pasas un rvalue, `T` es `U` y queda `U&&`. `std::forward<T>` conserva esa categoría al llamar a la siguiente función."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "forwarding.cpp",
+			"code": "#include <iostream>\n#include <utility>\n\nvoid procesar(int&)  { std::cout << \"lvalue\\n\"; }\nvoid procesar(int&&) { std::cout << \"rvalue\\n\"; }\n\ntemplate <typename T>\nvoid envolver(T&& valor) {\n    procesar(std::forward<T>(valor));\n}\n\nint main() {\n    int x = 1;\n    envolver(x);   // lvalue\n    envolver(2);   // rvalue\n    return 0;\n}"
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: mover un buffer"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "buffer.cpp",
+			"code": "#include <cstddef>\n#include <iostream>\n#include <utility>\n\nclass Buffer {\npublic:\n    explicit Buffer(std::size_t n) : datos_(new int[n]), n_(n) {\n        std::cout << \"constructor \" << n_ << '\\n';\n    }\n    ~Buffer() { delete[] datos_; }\n\n    Buffer(const Buffer&) = delete;\n    Buffer& operator=(const Buffer&) = delete;\n\n    Buffer(Buffer&& otro) noexcept : datos_(otro.datos_), n_(otro.n_) {\n        otro.datos_ = nullptr;\n        otro.n_ = 0;\n        std::cout << \"move \" << n_ << '\\n';\n    }\n\n    Buffer& operator=(Buffer&& otro) noexcept {\n        if (this != &otro) {\n            delete[] datos_;\n            datos_ = otro.datos_;\n            n_ = otro.n_;\n            otro.datos_ = nullptr;\n            otro.n_ = 0;\n        }\n        return *this;\n    }\n\n    std::size_t tamano() const { return n_; }\n\nprivate:\n    int* datos_;\n    std::size_t n_;\n};\n\nBuffer crear(std::size_t n) {\n    return Buffer(n);   // elision garantizada: no hay move\n}\n\nint main() {\n    Buffer a(4);\n    Buffer b(std::move(a));\n    std::cout << a.tamano() << ' ' << b.tamano() << '\\n'; // 0 4\n\n    Buffer c = crear(3);\n    std::cout << c.tamano() << '\\n';                      // 3\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Al ejecutar este programa, la salida es `constructor 4`, `move 4`, `0 4`, `constructor 3` y `3`. Fíjate en que `crear(3)` imprime el constructor pero ningún `move`: la elisión construyó `c` directamente. Esa es la diferencia entre mover y no mover en absoluto."
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`Buffer a(4)` reserva 4 enteros y guarda el puntero en `a`.",
+				"`Buffer b(std::move(a))` elige el constructor `Buffer&&`; `b` copia el puntero y `a` se queda con `nullptr`.",
+				"`a.tamano()` devuelve 0 y `b.tamano()` devuelve 4: el recurso cambió de dueño.",
+				"`crear(3)` devuelve un prvalue; el compilador construye `c` en su lugar final sin llamar al constructor de movimiento.",
+				"Al final del programa, los destructores liberan cada buffer una sola vez: `a` libera `nullptr` y `b` libera el bloque original."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: optional y variant"
+		},
+		{
+			"type": "p",
+			"md": "`std::optional<T>` representa un `T` que puede no existir. Sustituye a los centinelas (`-1`, cadena vacía, `NaN`) y obliga a comprobar antes de leer. Tiene un coste: guarda el valor y un booleano, y no reserva en el heap."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "optional.cpp",
+			"code": "#include <iostream>\n#include <optional>\n\nstd::optional<double> dividir(double a, double b) {\n    if (b == 0.0) {\n        return std::nullopt;\n    }\n    return a / b;\n}\n\nint main() {\n    if (auto r = dividir(10.0, 4.0)) {\n        std::cout << *r << '\\n';        // 2.5\n    }\n\n    if (!dividir(1.0, 0.0)) {\n        std::cout << \"sin resultado\\n\";\n    }\n\n    auto r = dividir(9.0, 3.0);\n    std::cout << r.value_or(-1.0) << '\\n'; // 3\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`std::variant<A, B, C>` guarda exactamente una de las alternativas, sin herencia ni punteros. Es una unión segura: sabe qué tipo contiene y lo destruye correctamente. Para operar sobre él se usa `std::visit`, que llama a un callable con el valor activo, o `std::get_if` cuando quieres comprobar sin excepciones."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "variant.cpp",
+			"code": "#include <iostream>\n#include <string>\n#include <variant>\n\nusing Valor = std::variant<int, double, std::string>;\n\nvoid imprimir(const Valor& v) {\n    std::visit([](const auto& x) {\n        std::cout << x << '\\n';\n    }, v);\n}\n\nint main() {\n    Valor a = 42;\n    Valor b = 3.5;\n    Valor c = std::string(\"modelo\");\n\n    imprimir(a);\n    imprimir(b);\n    imprimir(c);\n\n    std::cout << std::get<double>(b) << '\\n'; // 3.5\n\n    if (const auto* p = std::get_if<int>(&a)) {\n        std::cout << *p + 1 << '\\n';          // 43\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un valor de configuración"
+		},
+		{
+			"type": "p",
+			"md": "Imagina un parámetro de un modelo que puede venir como entero, como real o como texto: el número de árboles, la tasa de aprendizaje o el nombre de la función de pérdida. Un `variant` modela esa situación sin una jerarquía de clases y sin `void*`. La visita con sobrecargas devuelve una descripción legible."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "config.cpp",
+			"code": "#include <iomanip>\n#include <iostream>\n#include <sstream>\n#include <string>\n#include <variant>\n\nusing Config = std::variant<int, double, std::string>;\n\nstruct Describir {\n    std::string operator()(int v) const {\n        return \"entero: \" + std::to_string(v);\n    }\n    std::string operator()(double v) const {\n        std::ostringstream os;\n        os << std::fixed << std::setprecision(1) << v;\n        return \"real: \" + os.str();\n    }\n    std::string operator()(const std::string& v) const {\n        return \"texto: \" + v;\n    }\n};\n\nint main() {\n    Config a = 100;\n    Config b = 0.05;\n    Config c = std::string(\"mse\");\n\n    for (const Config& valor : {a, b, c}) {\n        std::cout << std::visit(Describir{}, valor) << '\\n';\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "La salida es `entero: 100`, `real: 0.1` y `texto: mse`. Ojo con el redondeo: `0.05` con una cifra decimal se muestra como `0.1` por la regla de redondeo de la biblioteca. Si el formato importa, usa más precisión o formatea en la capa de presentación, no en la lógica."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el robo de un recurso"
+		},
+		{
+			"type": "p",
+			"md": "Este mapa muestra qué ocurre con el puntero interno cuando un `Buffer` se mueve. Ningún byte del array se copia: solo cambia quién lo posee. Avanza paso a paso y compara las direcciones."
+		},
+		{
+			"type": "memory",
+			"title": "Mover un Buffer transfiere el puntero",
+			"lang": "cpp",
+			"code": "Buffer a(4);\nBuffer b(std::move(a));\nstd::cout << a.tamano() << ' ' << b.tamano();\nBuffer c = crear(3);",
+			"steps": [
+				{
+					"note": "`Buffer a(4)` reserva 4 ints en el heap. `a` guarda el puntero 0x5500 y el tamaño 4.",
+					"stack": [
+						{ "name": "a", "value": "{0x5500, 4}", "addr": "0x7ffc1000", "type": "Buffer" }
+					],
+					"heap": [
+						{ "name": "bloque[4]", "value": "4 ints sin inicializar", "addr": "0x5500", "type": "int[4]" }
+					],
+					"arrows": [{ "from": "a", "to": "0x5500", "label": "datos_" }],
+					"highlight": ["a", "bloque[4]"]
+				},
+				{
+					"note": "Empieza `Buffer b(std::move(a))`. `b` aún no tiene recursos propios; el constructor de movimiento va a tomar los de `a`.",
+					"stack": [
+						{ "name": "a", "value": "{0x5500, 4}", "addr": "0x7ffc1000", "type": "Buffer" },
+						{ "name": "b", "value": "{?, ?}", "addr": "0x7ffc1010", "type": "Buffer" }
+					],
+					"heap": [
+						{ "name": "bloque[4]", "value": "4 ints sin inicializar", "addr": "0x5500", "type": "int[4]" }
+					],
+					"arrows": [{ "from": "a", "to": "0x5500", "label": "datos_" }],
+					"highlight": ["b"]
+				},
+				{
+					"note": "El constructor copia el puntero y el tamaño a `b`. Ahora dos objetos miran el mismo bloque, pero solo uno debe liberarlo.",
+					"stack": [
+						{ "name": "a", "value": "{0x5500, 4}", "addr": "0x7ffc1000", "type": "Buffer" },
+						{ "name": "b", "value": "{0x5500, 4}", "addr": "0x7ffc1010", "type": "Buffer" }
+					],
+					"heap": [
+						{ "name": "bloque[4]", "value": "4 ints sin inicializar", "addr": "0x5500", "type": "int[4]" }
+					],
+					"arrows": [
+						{ "from": "a", "to": "0x5500", "label": "todavía" },
+						{ "from": "b", "to": "0x5500", "label": "nuevo dueño" }
+					],
+					"highlight": ["a", "b"]
+				},
+				{
+					"note": "El constructor anula el origen: `a` queda con `nullptr` y tamaño 0. `delete[] nullptr` es seguro, así que el destructor de `a` no liberará nada.",
+					"stack": [
+						{ "name": "a", "value": "{nullptr, 0}", "addr": "0x7ffc1000", "type": "Buffer" },
+						{ "name": "b", "value": "{0x5500, 4}", "addr": "0x7ffc1010", "type": "Buffer" }
+					],
+					"heap": [
+						{ "name": "bloque[4]", "value": "4 ints, dueño b", "addr": "0x5500", "type": "int[4]" }
+					],
+					"arrows": [{ "from": "b", "to": "0x5500", "label": "datos_" }],
+					"highlight": ["a", "b"]
+				},
+				{
+					"note": "La salida confirma la transferencia: `0 4`. El recurso sigue vivo y nadie lo comparte.",
+					"stack": [
+						{ "name": "a", "value": "{nullptr, 0}", "addr": "0x7ffc1000", "type": "Buffer" },
+						{ "name": "b", "value": "{0x5500, 4}", "addr": "0x7ffc1010", "type": "Buffer" }
+					],
+					"heap": [
+						{ "name": "bloque[4]", "value": "4 ints, dueño b", "addr": "0x5500", "type": "int[4]" }
+					],
+					"arrows": [{ "from": "b", "to": "0x5500", "label": "datos_" }],
+					"highlight": ["b"]
+				},
+				{
+					"note": "`Buffer c = crear(3)` construye el buffer directamente en `c` (elisión). No aparece un tercer puntero temporal ni se llama al move.",
+					"stack": [
+						{ "name": "a", "value": "{nullptr, 0}", "addr": "0x7ffc1000", "type": "Buffer" },
+						{ "name": "b", "value": "{0x5500, 4}", "addr": "0x7ffc1010", "type": "Buffer" },
+						{ "name": "c", "value": "{0x5a00, 3}", "addr": "0x7ffc1020", "type": "Buffer" }
+					],
+					"heap": [
+						{ "name": "bloque[4]", "value": "4 ints, dueño b", "addr": "0x5500", "type": "int[4]" },
+						{ "name": "bloque[3]", "value": "3 ints, dueño c", "addr": "0x5a00", "type": "int[3]" }
+					],
+					"arrows": [
+						{ "from": "b", "to": "0x5500", "label": "datos_" },
+						{ "from": "c", "to": "0x5a00", "label": "datos_" }
+					],
+					"highlight": ["c", "bloque[3]"]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Si en lugar de mover hubieras copiado, el paso 3 tendría un bloque nuevo en otra dirección y los dos objetos serían independientes. Mover no reduce el trabajo de reservar: lo elimina. Esa es la razón por la que importa en rutas calientes."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Creer que `std::move` mueve**: solo cambia la categoría de la expresión. Si el tipo no tiene move, se copia y el programa sigue siendo correcto, solo más lento.",
+				"**Usar el objeto de origen después de moverlo**: su estado es válido pero no especificado. No asumas que conserva el contenido ni que está vacío.",
+				"**Escribir `return std::move(local);`**: impide la elisión de copia y puede empeorar el rendimiento. Devuelve `local` directamente.",
+				"**Mover un objeto `const`**: `std::move(const T)` produce `const T&&`, que no enlaza con `T&&`; el constructor de copia se elige y no hay transferencia.",
+				"**Olvidar `noexcept` en el move**: `std::vector` copiará al crecer. Es una penalización silenciosa y fácil de medir con un contador.",
+				"**Acceder a un `optional` vacío con `*` o `value()`**: `*` es comportamiento indefinido y `value()` lanza `std::bad_optional_access`. Comprueba con `if` o usa `value_or`.",
+				"**Usar `std::get<T>` con el tipo equivocado en un `variant`**: lanza `std::bad_variant_access`. Si el tipo es dinámico, usa `std::get_if` o `std::visit`."
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Mover el retorno no ayuda",
+			"wrong": {
+				"caption": "Incorrecto: bloquea la elisión",
+				"code": "std::vector<int> crear() {\n    std::vector<int> v(1000);\n    return std::move(v);\n}"
+			},
+			"right": {
+				"caption": "Correcto: elisión o movimiento implícito",
+				"code": "std::vector<int> crear() {\n    std::vector<int> v(1000);\n    return v;\n}"
+			},
+			"explain": "El estándar permite y C++17 garantiza la elisión al devolver un prvalue, pero un `std::move` explícito convierte el retorno en una referencia rvalue y obliga a llamar al constructor de movimiento. El resultado es correcto, pero se hace trabajo extra."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Marca los constructores y asignaciones de movimiento como `noexcept`; es la señal que los contenedores necesitan.",
+				"Deja el origen en un estado válido y documentado: `nullptr` y tamaño 0 es la convención más clara.",
+				"Sigue la regla de cero: si puedes usar `std::vector`, `std::string` o `unique_ptr`, no escribas tu propio destructor ni tu propio move.",
+				"Recibe `const T&` para observar y `T&&` solo cuando vayas a quedarte con el recurso.",
+				"Usa `std::forward<T>` en plantillas que reenvían; `std::move` siempre convertiría, incluso los lvalues.",
+				"Prefiere `optional` a punteros para valores ausentes y `variant` a jerarquías cuando las alternativas son cerradas.",
+				"Visita el `variant` con `std::visit` y sobrecargas; evita cadenas de `holds_alternative` que crecen con cada tipo nuevo."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Ausencia de valor en Python y en C++",
+			"python": {
+				"caption": "opcional.py",
+				"code": "def dividir(a, b):\n    if b == 0:\n        return None\n    return a / b\n\nr = dividir(10, 4)\nprint(r if r is not None else \"sin resultado\")"
+			},
+			"cpp": {
+				"caption": "opcional.cpp",
+				"code": "std::optional<double> dividir(double a, double b) {\n    if (b == 0.0) return std::nullopt;\n    return a / b;\n}\n\nauto r = dividir(10.0, 4.0);\nif (r) std::cout << *r;"
+			},
+			"note": "`None` es un valor universal y el tipo no avisa de que la función puede no devolver nada. `std::optional` forma parte de la firma: quien llama sabe que debe comprobar, y el compilador no permite usar el valor sin desenvolverlo."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Mueve un buffer con asignación",
+			"md": "Implementa una clase `Buffer` con un array dinámico de `int`, constructor por tamaño, destructor, copia prohibida, constructor de movimiento y asignación de movimiento. En `main`, crea `a(5)` y `b(2)`, asigna `b = std::move(a)` y comprueba que `a` queda con tamaño 0 y `b` con 5. Evita fugas y autoasignación.",
+			"hint": "En la asignación, libera el array actual antes de copiar el puntero del otro, pero solo si `this != &otro`. Anula el origen al final.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "buffer_move.cpp",
+				"code": "#include <cstddef>\n#include <iostream>\n#include <utility>\n\nclass Buffer {\npublic:\n    explicit Buffer(std::size_t n) : datos_(new int[n]), n_(n) {}\n    ~Buffer() { delete[] datos_; }\n\n    Buffer(const Buffer&) = delete;\n    Buffer& operator=(const Buffer&) = delete;\n\n    Buffer(Buffer&& otro) noexcept : datos_(otro.datos_), n_(otro.n_) {\n        otro.datos_ = nullptr;\n        otro.n_ = 0;\n    }\n\n    Buffer& operator=(Buffer&& otro) noexcept {\n        if (this != &otro) {\n            delete[] datos_;\n            datos_ = otro.datos_;\n            n_ = otro.n_;\n            otro.datos_ = nullptr;\n            otro.n_ = 0;\n        }\n        return *this;\n    }\n\n    std::size_t tamano() const { return n_; }\n\nprivate:\n    int* datos_;\n    std::size_t n_;\n};\n\nint main() {\n    Buffer a(5);\n    Buffer b(2);\n    b = std::move(a);\n\n    std::cout << a.tamano() << ' ' << b.tamano() << '\\n'; // 0 5\n    return 0;\n}",
+				"explain": "La asignación libera el buffer viejo de `b` para no filtrarlo, toma el de `a` y deja `a` vacío. La comprobación `this != &otro` evita liberar el recurso cuando alguien escribe `b = std::move(b)`. `noexcept` permite que `std::vector<Buffer>` mueva al crecer."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Describe un variant de configuración",
+			"md": "Define `using Config = std::variant<int, double, std::string>;` y una función `std::string describir(const Config&)` que devuelva `entero: N`, `real: X` con una cifra decimal o `texto: S`. Implementa la visita con un struct de sobrecargas y pruébala con los tres tipos.",
+			"hint": "Un struct con tres `operator()` const permite que `std::visit` elija la sobrecarga correcta. Para el `double`, usa `std::ostringstream` con `std::fixed` y `std::setprecision(1)`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "describir.cpp",
+				"code": "#include <iomanip>\n#include <iostream>\n#include <sstream>\n#include <string>\n#include <variant>\n\nusing Config = std::variant<int, double, std::string>;\n\nstruct Describir {\n    std::string operator()(int v) const {\n        return \"entero: \" + std::to_string(v);\n    }\n    std::string operator()(double v) const {\n        std::ostringstream os;\n        os << std::fixed << std::setprecision(1) << v;\n        return \"real: \" + os.str();\n    }\n    std::string operator()(const std::string& v) const {\n        return \"texto: \" + v;\n    }\n};\n\nstd::string describir(const Config& c) {\n    return std::visit(Describir{}, c);\n}\n\nint main() {\n    Config a = 7;\n    Config b = 2.5;\n    Config c = std::string(\"mse\");\n\n    std::cout << describir(a) << '\\n'; // entero: 7\n    std::cout << describir(b) << '\\n'; // real: 2.5\n    std::cout << describir(c) << '\\n'; // texto: mse\n    return 0;\n}",
+				"explain": "Cada sobrecarga conoce su alternativa y el compilador comprueba que `std::visit` cubre los tres tipos. Si añades un cuarto tipo al `variant`, el struct deja de ser visitable y el error aparece en la compilación, no en ejecución: esa es la ventaja frente a una cadena de `if`."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el código",
+			"lang": "cpp",
+			"code": "std::___<double> resultado = dividir(8.0, 2.0);\n\nif (resultado) {\n    std::cout << ___resultado;   // 4\n}\n\nstd::string nombre = \"modelo\";\nstd::string copia = std::___(nombre);   // transferir, no copiar",
+			"answers": ["optional", "*", "move"],
+			"hint": "El tipo que puede no tener valor es `optional`; para leerlo se desreferencia; la función que convierte a rvalue es `std::move`.",
+			"explain": "`std::optional` envuelve el resultado, `*` accede al valor y `std::move` permite que el constructor de `copia` robe el buffer de `nombre`. Después del movimiento, `nombre` sigue siendo válido pero su contenido no está especificado."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio del buffer, la parte delicada es la asignación: si liberas antes de comprobar la autoasignación, `b = std::move(b)` destruiría su propio recurso y luego lo copiaría de sí mismo. La comprobación de identidad evita ese caso. Anular el origen no es opcional: si el destructor de `a` ejecutara `delete[]` sobre el mismo puntero que ahora usa `b`, tendrías una doble liberación."
+		},
+		{
+			"type": "p",
+			"md": "En el `variant`, el struct de sobrecargas hace que el compilador elija la función según el tipo activo. La alternativa sería una lambda genérica con `if constexpr`, útil cuando las tres ramas son muy parecidas; con lógica distinta, las sobrecargas separadas se leen mejor. Si añades un tipo y olvidas la sobrecarga, el error de compilación es la señal de que el visitante está incompleto."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un lvalue tiene nombre y dirección; un rvalue es un temporal o algo declarado prescindible.",
+				"`std::move` es una conversión a `T&&`; el movimiento real lo hace el constructor o la asignación.",
+				"Un move transfiere punteros y deja el origen válido pero sin recursos.",
+				"`noexcept` en el move permite que los contenedores muevan en lugar de copiar al crecer.",
+				"La elisión de copia construye el objeto en su destino; no escribas `return std::move(local)`.",
+				"`std::optional` modela un valor que puede faltar y obliga a comprobarlo.",
+				"`std::variant` guarda una alternativa cerrada y `std::visit` la procesa sin herencia."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace exactamente `std::move(x)`?",
+			"options": [
+				"Mueve la memoria de `x` a otra dirección",
+				"Convierte `x` en una referencia rvalue para que se elija la sobrecarga de movimiento",
+				"Llama al destructor de `x` inmediatamente",
+				"Copia `x` y luego la borra"
+			],
+			"answer": 1,
+			"explain": "`std::move` es un cast a `T&&`; no toca la memoria. El movimiento ocurre si después se llama a un constructor o asignación que acepte esa referencia y tenga una implementación de transferencia."
+		},
+		{
+			"type": "quiz",
+			"question": "Después de `std::string a = \"modelo\"; std::string b = std::move(a);`, ¿qué puedes afirmar de `a`?",
+			"options": [
+				"Conserva exactamente \"modelo\"",
+				"Está vacía siempre, garantizado por el estándar",
+				"Es válida, pero su contenido no está especificado",
+				"Ya no se puede destruir"
+			],
+			"answer": 2,
+			"explain": "El estándar exige que el objeto movido siga siendo válido, pero no fija su contenido. Puedes destruirlo o asignarle otro valor; no debes leerlo esperando el valor anterior."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la forma correcta de devolver un vector local por valor?",
+			"options": [
+				"`return std::move(v);` para forzar el movimiento",
+				"`return v;` y dejar que la elisión o el movimiento implícito actúen",
+				"`return std::forward<std::vector<int>>(v);`",
+				"Reservar con `new` y devolver un puntero"
+			],
+			"answer": 1,
+			"explain": "Devolver el nombre directamente permite la elisión de copia y, si no se aplica, el movimiento implícito. `std::move` explícito impide la elisión y no aporta nada."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · std::move",
+					"url": "https://en.cppreference.com/w/cpp/utility/move",
+					"note": "conversión a rvalue"
+				},
+				{
+					"label": "cppreference · std::optional",
+					"url": "https://en.cppreference.com/w/cpp/utility/optional",
+					"note": "valor opcional"
+				},
+				{
+					"label": "cppreference · std::variant",
+					"url": "https://en.cppreference.com/w/cpp/utility/variant",
+					"note": "unión segura de tipos"
+				}
+			]
+		}
+	]
+}

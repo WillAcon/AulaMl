@@ -1,0 +1,685 @@
+{
+	"id": "py-35-pytorch",
+	"track": "python",
+	"order": 35,
+	"title": "Redes neuronales con PyTorch",
+	"subtitle": "Tensores, gradientes automáticos y un perceptrón multicapa entrenado de principio a fin",
+	"level": "avanzado",
+	"minutes": 55,
+	"tags": [
+		"pytorch",
+		"redes neuronales",
+		"tensores",
+		"autograd"
+	],
+	"keywords": [
+		"qué es pytorch",
+		"tensor pytorch",
+		"autograd",
+		"requires_grad",
+		"nn.Linear",
+		"descenso de gradiente",
+		"epoch y batch",
+		"optimizador Adam",
+		"entrenar red neuronal",
+		"pytorch gpu mps",
+		"sobreajuste red neuronal",
+		"perceptrón multicapa"
+	],
+	"summary": "PyTorch convierte una red neuronal en un programa: tensores que guardan datos, autograd que calcula derivadas y un bucle que repite forward, pérdida y actualización. Entrenarás un perceptrón multicapa completo, entenderás qué hace cada línea y sabrás leer las formas de cada capa.",
+	"objectives": [
+		"Crear tensores y distinguir forma, tipo y dispositivo",
+		"Explicar cómo autograd obtiene gradientes con `backward()` y por qué hay que ponerlos a cero",
+		"Construir un perceptrón multicapa con `nn.Sequential` y elegir pérdida y optimizador",
+		"Escribir el bucle de entrenamiento con epochs, batches y evaluación sin gradientes",
+		"Detectar sobreajuste y trasladar el modelo a GPU cuando esté disponible"
+	],
+	"prerequisites": [
+		"Validación y evaluación de modelos"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Una red neuronal no es magia: es una función con muchos parámetros que se ajustan por descenso de gradiente. Lo difícil es calcular esas derivadas a mano cuando la función tiene cientos de miles de operaciones. **PyTorch** resuelve justo esa parte: registra lo que haces con los tensores y te devuelve los gradientes sin que derives nada."
+		},
+		{
+			"type": "p",
+			"md": "En esta lección pasarás de un tensor suelto a un modelo entrenado. El objetivo no es memorizar la API, sino entender el ciclo que se repite en todo proyecto de aprendizaje profundo: preparar datos, predecir, medir el error, calcular gradientes y actualizar pesos."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es PyTorch?"
+		},
+		{
+			"type": "p",
+			"md": "Es una biblioteca de Python para cálculo numérico con **tensores** (arrays multidimensionales) que puede ejecutarse en CPU o GPU y que incorpora **autograd**, un motor de diferenciación automática. Incluye `torch.nn` para construir capas y funciones de pérdida, y `torch.optim` con los optimizadores habituales. Todo el código que escribas es Python normal: bucles, condicionales y depuración con `print`."
+		},
+		{
+			"type": "p",
+			"md": "Un tensor se parece a un array de NumPy, pero añade dos cosas: puede vivir en la GPU y puede recordar las operaciones para derivarlas. Esa memoria de operaciones es lo que se llama **grafo computacional**, y es la razón por la que PyTorch puede entrenar modelos sin que tú escribas una sola derivada."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Clasificación y regresión** con redes densas, convolucionales o recurrentes.",
+				"**Visión artificial**: detección de objetos, segmentación, clasificación de imágenes.",
+				"**Procesamiento de lenguaje**: el sustrato sobre el que se entrenan los Transformers de la siguiente lección.",
+				"**Investigación**: probar arquitecturas nuevas sin salir de Python.",
+				"**Prototipos rápidos**: pasar de una idea a un modelo entrenado en una tarde.",
+				"**Producción**: exportar a TorchScript u ONNX y servir el modelo desde una API."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cada tensor guarda datos, forma (`shape`), tipo (`dtype`) y dispositivo (`device`). Una capa `nn.Linear(4, 5)` contiene una matriz de pesos de forma `(5, 4)` y un sesgo de forma `(5,)`; al aplicarla a un lote de forma `(3, 4)` produce `(3, 5)`. Las dimensiones deben encajar: la última del lote tiene que coincidir con la segunda de los pesos."
+		},
+		{
+			"type": "p",
+			"md": "Con `requires_grad=True`, cada operación añade un nodo al grafo. Al llamar a `loss.backward()`, PyTorch recorre ese grafo al revés y aplica la regla de la cadena, dejando el resultado en `tensor.grad`. Los gradientes **se acumulan**: si no los pones a cero antes de cada paso, el cálculo mezcla el lote actual con los anteriores."
+		},
+		{
+			"type": "p",
+			"md": "El entrenamiento repite siempre la misma secuencia: `forward` para obtener predicciones, cálculo de la pérdida, `zero_grad`, `backward` y `step` del optimizador. Una **época** recorre todo el conjunto; un **batch** es el trozo que se procesa en cada paso. Con 800 ejemplos y `batch_size=64` hay 13 batches por época, y el último puede ser más pequeño."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "PyTorch no entrena: deriva",
+			"md": "PyTorch calcula gradientes y aplica la regla de actualización que le indiques. Elegir la pérdida, el optimizador, las épocas y detectar el sobreajuste sigue siendo tu trabajo. Un `lr` demasiado alto hace que la pérdida oscile; uno demasiado bajo la deja plana."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: instalar y crear tensores"
+		},
+		{
+			"type": "p",
+			"md": "PyTorch no viene con Python. Instálalo en un entorno virtual; la rueda por defecto ya incluye lo necesario para CPU. Para CUDA necesitas la versión y el índice que correspondan a tu driver, según la tabla oficial de instalación."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Instalación de PyTorch",
+			"code": "python3 -m venv .venv\nsource .venv/bin/activate      # Windows: .venv\\Scripts\\activate\npip install torch scikit-learn\npython -c \"import torch; print(torch.__version__)\""
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "tensores.py",
+			"code": "import torch\n\ntorch.manual_seed(0)                         # misma semilla, mismos valores\na = torch.tensor([[1.0, 2.0], [3.0, 4.0]])   # infiere dtype float32\nb = torch.zeros(2, 3)\nc = torch.arange(6).reshape(2, 3)            # enteros\n\nprint(a.shape, a.dtype, a.device)\nprint(c.shape, c.dtype)\nprint(a.T)                                   # transpuesta\nprint((a @ a).shape)                         # producto matricial\nprint(torch.rand(2, 2))                      # reproducible por la semilla",
+			"highlight": [
+				3,
+				10,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "`a.shape` es `torch.Size([2, 2])`, `a.dtype` es `torch.float32` y `a.device` es `cpu`. `torch.arange(6)` produce enteros de 64 bits (`int64`), que es el tipo que esperan las etiquetas de clasificación. `@` es el producto matricial; `*` sería producto elemento a elemento. Si mezclas `float32` con `float64`, PyTorch lanza un error de tipos."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: un tensor y una operación"
+		},
+		{
+			"type": "p",
+			"md": "Una **capa lineal** es una multiplicación de matrices más un sesgo. Con tres muestras de cuatro características y una capa de cuatro entradas y cinco salidas, la forma del resultado es `(3, 5)`: una fila por muestra y una columna por neurona."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "capa_lineal.py",
+			"code": "import torch\nfrom torch import nn\n\ntorch.manual_seed(0)\nx = torch.randn(3, 4)          # 3 muestras, 4 características\ncapa = nn.Linear(4, 5)         # 20 pesos + 5 sesgos\nz = capa(x)\n\nprint(x.shape, \"->\", z.shape)  # (3, 4) -> (3, 5)\nprint(capa.weight.shape, capa.bias.shape)  # (5, 4) y (5,)\nprint(sum(p.numel() for p in capa.parameters()))  # 25",
+			"highlight": [
+				5,
+				6,
+				9,
+				10
+			]
+		},
+		{
+			"type": "p",
+			"md": "La capa guarda 25 parámetros: 20 pesos y 5 sesgos. `capa(x)` equivale a `x @ capa.weight.T + capa.bias`, y por eso la segunda dimensión de `weight` coincide con la última de `x`. Si pasaras un lote de forma `(3, 5)` a esta capa, obtendrías `RuntimeError: mat1 and mat2 shapes cannot be multiplied`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: autograd a mano"
+		},
+		{
+			"type": "p",
+			"md": "Antes de usar un modelo, conviene ver el mecanismo desnudo. Ajustamos `w` y `b` para que `w·x + b` se acerque a `y`, con error cuadrático medio. No hay optimizador: solo gradientes, para que compruebes que coinciden con la derivada que harías en papel."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "autograd.py",
+			"code": "import torch\n\nw = torch.tensor(2.0, requires_grad=True)\nb = torch.tensor(1.0, requires_grad=True)\nx = torch.tensor([1.0, 2.0, 3.0])\ny = torch.tensor([3.0, 5.0, 8.0])\n\npred = w * x + b              # tensor([3., 5., 7.])\nloss = ((pred - y) ** 2).mean()\nloss.backward()\n\nprint(w.grad, b.grad)         # tensor(-2.) tensor(-0.6667)\n\ntasa = 0.1\nwith torch.no_grad():\n    w -= tasa * w.grad\n    b -= tasa * b.grad\nprint(round(w.item(), 4), round(b.item(), 4))   # 2.2 1.0667",
+			"highlight": [
+				9,
+				10,
+				12,
+				16
+			]
+		},
+		{
+			"type": "p",
+			"md": "La pérdida es `(0² + 0² + (−1)²) / 3 = 1/3 ≈ 0.3333`. Su derivada respecto a `w` es `(2/3)·Σ(pred−y)·x = (2/3)·(0 + 0 − 3) = −2`, y respecto a `b`, `(2/3)·(−1) ≈ −0.667`. El signo negativo indica que aumentar `w` reduce la pérdida: por eso el paso resta. `torch.no_grad()` evita que la actualización se registre en el grafo."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: un perceptrón multicapa completo"
+		},
+		{
+			"type": "p",
+			"md": "El problema de las dos lunas es el ejemplo clásico de datos no separables por una recta. Una red con dos capas ocultas de 16 neuronas lo resuelve. Usamos 1 000 puntos con ruido, 80 % para entrenar y 20 % para validar, `CrossEntropyLoss` y Adam."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "mlp.py",
+			"code": "import torch\nfrom torch import nn\nfrom torch.utils.data import DataLoader, TensorDataset\nfrom sklearn.datasets import make_moons\nfrom sklearn.model_selection import train_test_split\n\ntorch.manual_seed(42)\n\n# 1. Datos: 1000 puntos, dos clases, ruido moderado\nX, y = make_moons(n_samples=1000, noise=0.25, random_state=42)\nX_tr, X_va, y_tr, y_va = train_test_split(\n    X, y, test_size=0.2, stratify=y, random_state=42\n)\nX_tr = torch.tensor(X_tr, dtype=torch.float32)\ny_tr = torch.tensor(y_tr, dtype=torch.long)\nX_va = torch.tensor(X_va, dtype=torch.float32)\ny_va = torch.tensor(y_va, dtype=torch.long)\n\n# 2. Modelo 2 -> 16 -> 16 -> 2, pérdida y optimizador\nmodelo = nn.Sequential(\n    nn.Linear(2, 16), nn.ReLU(),\n    nn.Linear(16, 16), nn.ReLU(),\n    nn.Linear(16, 2),\n)\ncriterio = nn.CrossEntropyLoss()\noptimizador = torch.optim.Adam(modelo.parameters(), lr=0.01)\ncargador = DataLoader(TensorDataset(X_tr, y_tr), batch_size=64, shuffle=True)\n\n# 3. Entrenamiento y evaluación al final de cada época\nfor epoca in range(50):\n    modelo.train()\n    for xb, yb in cargador:\n        optimizador.zero_grad()\n        perdida = criterio(modelo(xb), yb)\n        perdida.backward()\n        optimizador.step()\n\n    modelo.eval()\n    with torch.no_grad():\n        aciertos = (modelo(X_va).argmax(dim=1) == y_va).float().mean()\n    if epoca % 10 == 9:\n        print(f\"época {epoca + 1:3d} · val acc {aciertos.item():.3f}\")",
+			"highlight": [
+				23,
+				30,
+				33,
+				34,
+				35,
+				36
+			]
+		},
+		{
+			"type": "p",
+			"md": "`CrossEntropyLoss` espera **logits** (salidas crudas de la última capa) y etiquetas enteras, no one-hot ni probabilidades; por eso `y` se convierte con `dtype=torch.long`. `argmax(dim=1)` recupera la clase predicha. En este problema la exactitud de validación debería superar 0.95: si se queda cerca de 0.85, revisa el learning rate y el ruido."
+		},
+		{
+			"type": "p",
+			"md": "Mover el modelo a GPU es independiente de la arquitectura: `dispositivo = \"cuda\" if torch.cuda.is_available() else \"mps\" if torch.backends.mps.is_available() else \"cpu\"`, luego `modelo.to(dispositivo)` y, dentro del bucle, `xb = xb.to(dispositivo)` y `yb = yb.to(dispositivo)`. Si olvidas mover los datos, el error de dispositivo aparece en el primer batch."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: cómo cambia un lote al atravesar una capa"
+		},
+		{
+			"type": "p",
+			"md": "El siguiente lote tiene tres muestras y cuatro características. Una capa de 4 entradas y 5 salidas calcula `z = x·Wᵀ + b`, con `W` de forma `(5, 4)` y `b` de forma `(5,)`. El primer paso muestra `z`; el segundo, el resultado tras aplicar ReLU."
+		},
+		{
+			"type": "matrix",
+			"title": "Activaciones de un lote (3 muestras × 5 neuronas)",
+			"data": [
+				[
+					0,
+					-1.8,
+					1.3,
+					1.8,
+					0.35
+				],
+				[
+					-0.15,
+					0.85,
+					0.5,
+					0.3,
+					-0.15
+				],
+				[
+					2.1,
+					-0.5,
+					-1.3,
+					0.8,
+					1.45
+				]
+			],
+			"rowLabels": [
+				"muestra 1",
+				"muestra 2",
+				"muestra 3"
+			],
+			"colLabels": [
+				"n1",
+				"n2",
+				"n3",
+				"n4",
+				"n5"
+			],
+			"steps": [
+				{
+					"note": "**Salida lineal**: cada celda es `z = x·Wᵀ + b` para una muestra y una neurona. La forma se conserva: (3, 5).",
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							0,
+							1
+						],
+						[
+							0,
+							2
+						],
+						[
+							0,
+							3
+						],
+						[
+							0,
+							4
+						]
+					]
+				},
+				{
+					"note": "**Tras ReLU** (`max(0, z)`): los cinco valores negativos se vuelven cero; los positivos no cambian. ReLU no modifica la forma.",
+					"data": [
+						[
+							0,
+							0,
+							1.3,
+							1.8,
+							0.35
+						],
+						[
+							0,
+							0.85,
+							0.5,
+							0.3,
+							0
+						],
+						[
+							2.1,
+							0,
+							0,
+							0.8,
+							1.45
+						]
+					]
+				},
+				{
+					"note": "**Muestra 3**: n1 y n5 responden con fuerza y n4 algo menos; n2 y n3 quedan apagadas. Esa fila es la que verá la capa siguiente.",
+					"data": [
+						[
+							0,
+							0,
+							1.3,
+							1.8,
+							0.35
+						],
+						[
+							0,
+							0.85,
+							0.5,
+							0.3,
+							0
+						],
+						[
+							2.1,
+							0,
+							0,
+							0.8,
+							1.45
+						]
+					],
+					"highlight": [
+						[
+							2,
+							0
+						],
+						[
+							2,
+							3
+						],
+						[
+							2,
+							4
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "activaciones.py",
+			"code": "import torch\nimport torch.nn.functional as F\n\nx = torch.tensor([\n    [1.0, 0.0, -1.0, 2.0],\n    [0.5, 1.5, 0.0, -0.5],\n    [0.0, -1.0, 2.0, 1.0],\n])\nW = torch.tensor([\n    [0.5, -0.3, 0.8, 0.1],\n    [-0.2, 0.6, 0.4, -0.5],\n    [0.3, 0.3, -0.6, 0.2],\n    [0.7, -0.1, 0.0, 0.4],\n    [-0.4, 0.2, 0.5, 0.6],\n])\nb = torch.tensor([0.1, -0.2, 0.0, 0.3, 0.05])\n\nz = F.linear(x, W, b)                    # (3, 5)\nprint(z.round(decimals=2))\nprint(F.relu(z).round(decimals=2))"
+		},
+		{
+			"type": "p",
+			"md": "Los valores se reproducen con `x` de forma `(3, 4)`, `W` de forma `(5, 4)` y `b` de forma `(5,)`. Ejecuta el cálculo y compara con la matriz: el primer valor es 0 y no negativo porque `0.5·1 + 0·0 + 0.8·(−1) + 0.1·2 + 0.1 = 0`. Una neurona apagada no está rota; su combinación no aporta para esa muestra."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué hace backward()"
+		},
+		{
+			"type": "p",
+			"md": "Este es el mismo cálculo de la sección anterior, paso a paso. Observa el momento exacto en que aparecen `w.grad` y `b.grad`: antes de `backward()` no existen, y después contienen la derivada de la pérdida respecto a cada parámetro."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Del forward a los gradientes",
+			"code": "import torch\n\nw = torch.tensor(2.0, requires_grad=True)\nb = torch.tensor(1.0, requires_grad=True)\nx = torch.tensor([1.0, 2.0, 3.0])\ny = torch.tensor([3.0, 5.0, 8.0])\npred = w * x + b\nloss = ((pred - y) ** 2).mean()\nloss.backward()\nprint(w.grad, b.grad)",
+			"steps": [
+				{
+					"line": 3,
+					"note": "Se crea `w` como escalar con `requires_grad=True`: PyTorch anotará todas las operaciones en las que participe.",
+					"vars": {
+						"w": "tensor(2., requires_grad=True)"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Igual con `b`. Todavía hay dos hojas sueltas en el grafo, sin ninguna operación que las conecte.",
+					"vars": {
+						"w": "tensor(2., requires_grad=True)",
+						"b": "tensor(1., requires_grad=True)"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`x` no requiere gradiente: son datos, no parámetros que queramos ajustar.",
+					"vars": {
+						"w": "tensor(2., requires_grad=True)",
+						"b": "tensor(1., requires_grad=True)",
+						"x": "tensor([1., 2., 3.])"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "El forward produce `[2·1+1, 2·2+1, 2·3+1] = [3, 5, 7]` y guarda el vínculo con `w` y `b`.",
+					"vars": {
+						"w": "tensor(2., requires_grad=True)",
+						"b": "tensor(1., requires_grad=True)",
+						"x": "tensor([1., 2., 3.])",
+						"y": "tensor([3., 5., 8.])",
+						"pred": "tensor([3., 5., 7.], grad_fn=<AddBackward0>)"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "Los residuos son `[0, 0, −1]`; al elevarlos al cuadrado y promediar, la pérdida es `1/3`.",
+					"vars": {
+						"w": "tensor(2., requires_grad=True)",
+						"b": "tensor(1., requires_grad=True)",
+						"x": "tensor([1., 2., 3.])",
+						"y": "tensor([3., 5., 8.])",
+						"pred": "tensor([3., 5., 7.], grad_fn=<AddBackward0>)",
+						"loss": "tensor(0.3333, grad_fn=<MeanBackward0>)"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "`backward()` recorre el grafo al revés y deja las derivadas en `.grad`. No modifica ni `w` ni `b`.",
+					"vars": {
+						"w": "tensor(2., requires_grad=True)",
+						"b": "tensor(1., requires_grad=True)",
+						"x": "tensor([1., 2., 3.])",
+						"y": "tensor([3., 5., 8.])",
+						"pred": "tensor([3., 5., 7.], grad_fn=<AddBackward0>)",
+						"loss": "tensor(0.3333, grad_fn=<MeanBackward0>)",
+						"w.grad": "tensor(-2.)",
+						"b.grad": "tensor(-0.6667)"
+					},
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "Se imprimen los dos gradientes. El signo negativo indica la dirección en la que hay que moverse para reducir la pérdida.",
+					"vars": {
+						"w": "tensor(2., requires_grad=True)",
+						"b": "tensor(1., requires_grad=True)",
+						"x": "tensor([1., 2., 3.])",
+						"y": "tensor([3., 5., 8.])",
+						"pred": "tensor([3., 5., 7.], grad_fn=<AddBackward0>)",
+						"loss": "tensor(0.3333, grad_fn=<MeanBackward0>)",
+						"w.grad": "tensor(-2.)",
+						"b.grad": "tensor(-0.6667)"
+					},
+					"output": "tensor(-2.) tensor(-0.6667)\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Si llamaras a `backward()` dos veces sin poner los gradientes a cero, el segundo resultado se sumaría al primero y obtendrías `-4` y `-1.3333`. Esa acumulación es intencionada: permite sumar gradientes de varios batches, pero en un bucle de entrenamiento normal se convierte en un error silencioso."
+		},
+		{
+			"type": "h",
+			"text": "PyTorch frente a TensorFlow"
+		},
+		{
+			"type": "p",
+			"md": "PyTorch y TensorFlow resuelven el mismo problema con filosofías distintas. En PyTorch el grafo se construye mientras se ejecuta el código (`define-by-run`), así que puedes depurar con `print` y condiciones normales de Python. TensorFlow apostó históricamente por un grafo estático y hoy ofrece **Keras** como interfaz de alto nivel, más declarativa: describes capas, compilas el modelo y llamas a `fit`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "equivalente_keras.py",
+			"code": "import tensorflow as tf\n\nmodelo = tf.keras.Sequential([\n    tf.keras.layers.Input(shape=(2,)),\n    tf.keras.layers.Dense(8, activation=\"relu\"),\n    tf.keras.layers.Dense(1),\n])\n\nmodelo.compile(optimizer=\"adam\", loss=\"mse\")\nmodelo.fit(X, y, epochs=20, batch_size=4, verbose=0)\n\npredicciones = modelo.predict(X)"
+		},
+		{
+			"type": "p",
+			"md": "El código de Keras es más corto porque el bucle de entrenamiento está dentro de `fit`; en PyTorch lo escribes tú y por eso ves con claridad dónde se calcula la pérdida y dónde se actualizan los pesos. Para aprender, esa explicitud vale mucho. En producción, ambos ecosistemas exportan a formatos intercambiables (ONNX) y tienen herramientas de servicio propias: TorchServe/TorchScript en PyTorch, TF Serving/TFLite en TensorFlow."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`mat1 and mat2 shapes cannot be multiplied`",
+					"La entrada no tiene las características que espera la capa",
+					"Revisa `x.shape` y el primer `nn.Linear`"
+				],
+				[
+					"`expected scalar type Long but found Float`",
+					"Etiquetas en coma flotante para `CrossEntropyLoss`",
+					"Convierte con `dtype=torch.long`"
+				],
+				[
+					"`element 0 of tensors does not require grad`",
+					"Llamas a `backward()` sobre algo sin gradiente",
+					"Comprueba `requires_grad` y no uses `.item()` antes"
+				],
+				[
+					"`Expected all tensors to be on the same device`",
+					"Modelo en GPU y datos en CPU (o al revés)",
+					"Mueve `xb` e `yb` con `.to(dispositivo)`"
+				],
+				[
+					"La pérdida baja y la exactitud no sube",
+					"Métricas mal calculadas o `eval()` olvidado",
+					"Usa `modelo.eval()` y `argmax(dim=1)`"
+				],
+				[
+					"La pérdida se estanca desde la época 1",
+					"Learning rate demasiado bajo o datos sin normalizar",
+					"Prueba `lr=0.01` y estandariza las entradas"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El gradiente que se acumula",
+			"wrong": {
+				"caption": "Sin poner a cero",
+				"code": "for xb, yb in cargador:\n    perdida = criterio(modelo(xb), yb)\n    perdida.backward()\n    optimizador.step()"
+			},
+			"right": {
+				"caption": "Con zero_grad",
+				"code": "for xb, yb in cargador:\n    optimizador.zero_grad()\n    perdida = criterio(modelo(xb), yb)\n    perdida.backward()\n    optimizador.step()"
+			},
+			"explain": "`backward()` suma al contenido previo de `.grad`, no lo reemplaza. Sin `zero_grad`, el paso 2 usa la suma de los gradientes de los pasos 1 y 2, y el entrenamiento se descontrola sin lanzar ningún error. El orden correcto es poner a cero antes del forward del batch actual."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Normaliza las entradas: una red con variables en escalas muy distintas entrena mal.",
+				"Separa validación desde el principio y evalúa al final de cada época.",
+				"Usa `modelo.train()` al entrenar y `modelo.eval()` al evaluar: dropout y batchnorm se comportan distinto.",
+				"Envuelve la evaluación en `torch.no_grad()` para no construir un grafo que no necesitas.",
+				"Fija `torch.manual_seed` para que el experimento sea reproducible.",
+				"Guarda el `state_dict` del mejor modelo, no el del último: el sobreajuste llega antes de la época 50.",
+				"Empieza con una arquitectura pequeña; si no aprende, una más grande tampoco lo hará."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Sobreajuste: la señal está en las dos curvas",
+			"md": "Si la pérdida de entrenamiento sigue bajando mientras la de validación empieza a subir, el modelo está memorizando. Las contramedidas habituales son menos parámetros, `dropout`, regularización `weight_decay` en el optimizador y **early stopping**: quedarse con la época en la que la validación fue mejor."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Contar parámetros antes de entrenar",
+			"md": "Construye con `nn.Sequential` una red `Linear(3, 8) → ReLU → Linear(8, 1)`. Calcula a mano cuántos parámetros entrenables tiene y compruébalo con `sum(p.numel() for p in modelo.parameters())`. Después indica la forma de salida para un lote de 10 muestras.",
+			"hint": "Cada `Linear(a, b)` aporta `a·b` pesos y `b` sesgos. La salida conserva el tamaño del lote en la primera dimensión.",
+			"solution": {
+				"lang": "python",
+				"caption": "parametros.py",
+				"code": "import torch\nfrom torch import nn\n\nmodelo = nn.Sequential(\n    nn.Linear(3, 8), nn.ReLU(),\n    nn.Linear(8, 1),\n)\nprint(sum(p.numel() for p in modelo.parameters()))   # 41\n\nx = torch.randn(10, 3)\nprint(modelo(x).shape)                               # torch.Size([10, 1])",
+				"explain": "La primera capa tiene 3·8 = 24 pesos y 8 sesgos: 32 parámetros. La segunda, 8·1 = 8 pesos y 1 sesgo: 9. El total es 41, y ReLU no añade ninguno. La salida es (10, 1): un valor por muestra, típico de una regresión con una sola variable objetivo."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el paso de entrenamiento",
+			"lang": "python",
+			"code": "for xb, yb in cargador:\n    optimizador.___()\n    perdida = criterio(modelo(xb), yb)\n    perdida.___()\n    optimizador.___()",
+			"answers": [
+				"zero_grad",
+				"backward",
+				"step"
+			],
+			"hint": "Primero se limpian los gradientes, luego se calculan y al final se aplican a los pesos.",
+			"explain": "El orden es `zero_grad()`, `backward()` y `step()`. Si intercambias los dos últimos, el optimizador actualiza con gradientes viejos o inexistentes. Si omites el primero, los gradientes se acumulan entre batches."
+		},
+		{
+			"type": "exercise",
+			"title": "Guardar el mejor modelo",
+			"md": "Modifica el bucle del perceptrón multicapa para calcular también la pérdida de validación al final de cada época. Guarda el `state_dict` solo cuando esa pérdida mejore e imprime al terminar la mejor cifra. Explica por qué no conviene guardar el modelo de la última época.",
+			"hint": "Inicializa `mejor = float(\"inf\")`, evalúa con `modelo.eval()` y `torch.no_grad()`, y usa `torch.save(modelo.state_dict(), \"mejor.pt\")`.",
+			"solution": {
+				"lang": "python",
+				"caption": "early_stopping.py",
+				"code": "mejor = float(\"inf\")\n\nfor epoca in range(50):\n    modelo.train()\n    for xb, yb in cargador:\n        optimizador.zero_grad()\n        perdida = criterio(modelo(xb), yb)\n        perdida.backward()\n        optimizador.step()\n\n    modelo.eval()\n    with torch.no_grad():\n        val = criterio(modelo(X_va), y_va).item()\n\n    if val < mejor:\n        mejor = val\n        torch.save(modelo.state_dict(), \"mejor.pt\")\n\nprint(f\"mejor pérdida de validación: {mejor:.3f}\")\nmodelo.load_state_dict(torch.load(\"mejor.pt\"))",
+				"explain": "La pérdida de validación es la que estima el rendimiento sobre datos nuevos; la de entrenamiento siempre tiende a bajar. Guardar en cada mejora implementa un early stopping sencillo sin detener el bucle: al final recuperas el estado con mejor validación. `state_dict` contiene solo pesos y sesgos, así que necesitas reconstruir la arquitectura antes de cargarlo."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, contar parámetros a mano evita sorpresas: una capa `Linear(3, 8)` no tiene 24 parámetros sino 32, porque cada una de las 8 salidas lleva su sesgo. Saber la cifra te dice cuánta capacidad tiene el modelo y cuánta memoria ocupará. La forma de salida, `(10, 1)`, recuerda que la primera dimensión es siempre el lote."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la clave es medir la validación con el modelo en `eval()` y sin construir grafo. Guardar `state_dict` en lugar del objeto completo produce archivos más pequeños y portables. Si el mejor resultado llega en la época 12 y sigues entrenando hasta la 50, habrás gastado cómputo en empeorar el modelo."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un tensor tiene datos, forma, tipo y dispositivo; `@` es producto matricial.",
+				"`requires_grad=True` activa el registro de operaciones; `backward()` llena `.grad`.",
+				"Los gradientes se acumulan: llama a `zero_grad()` en cada batch.",
+				"`nn.Linear(a, b)` aplica `x·Wᵀ + b` y tiene `a·b + b` parámetros.",
+				"`CrossEntropyLoss` usa logits y etiquetas `long`; no apliques softmax antes.",
+				"El ciclo es forward, pérdida, zero_grad, backward y step, repetido por épocas.",
+				"Evalúa con `modelo.eval()` y `torch.no_grad()`; vigila la curva de validación."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace exactamente `loss.backward()`?",
+			"options": [
+				"Actualiza los pesos con el gradiente calculado",
+				"Calcula los gradientes de la pérdida respecto a los tensores que requieren gradiente y los acumula en `.grad`",
+				"Reinicia los gradientes a cero antes del siguiente batch",
+				"Devuelve una copia de la pérdida como número de Python"
+			],
+			"answer": 1,
+			"explain": "`backward()` solo deriva: recorre el grafo en orden inverso y suma cada derivada en `.grad`. La actualización la hace `optimizador.step()` y el reinicio, `zero_grad()`. Para obtener un número de Python se usa `.item()`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál es la forma de salida de `nn.Linear(4, 5)` aplicada a un lote de forma `(3, 4)`?",
+			"options": [
+				"`(3, 4)`",
+				"`(4, 5)`",
+				"`(3, 5)`",
+				"`(5, 3)`"
+			],
+			"answer": 2,
+			"explain": "La capa transforma la última dimensión: conserva el tamaño del lote (3) y produce una salida por neurona (5). Internamente multiplica `(3, 4)` por la transpuesta de `weight`, que es `(4, 5)`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué hay que llamar a `optimizador.zero_grad()` en cada iteración?",
+			"options": [
+				"Porque `backward()` acumula en `.grad` y, sin reiniciar, el paso usa la suma de batches anteriores",
+				"Porque si no, PyTorch lanza un `RuntimeError` de inmediato",
+				"Para reiniciar los pesos del modelo a sus valores iniciales",
+				"Para vaciar la caché de la GPU y liberar memoria"
+			],
+			"answer": 0,
+			"explain": "La acumulación es el comportamiento por defecto y a veces es útil, por ejemplo para sumar gradientes de varios mini-batches. En un bucle estándar produce pasos cada vez más grandes sin ningún error visible: la pérdida oscila o se dispara."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "PyTorch: tutorial oficial",
+					"url": "https://pytorch.org/tutorials/",
+					"note": "recorrido guiado con código"
+				},
+				{
+					"label": "PyTorch: autograd",
+					"url": "https://pytorch.org/tutorials/beginner/blitz/autograd_tutorial.html",
+					"note": "grafo y gradientes explicados"
+				},
+				{
+					"label": "PyTorch: instalación",
+					"url": "https://pytorch.org/get-started/locally/",
+					"note": "selector de versión y CUDA"
+				}
+			]
+		}
+	]
+}

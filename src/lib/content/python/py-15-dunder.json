@@ -1,0 +1,602 @@
+{
+	"id": "py-15-dunder",
+	"track": "python",
+	"order": 15,
+	"title": "Métodos especiales, propiedades y classmethods",
+	"subtitle": "Cómo integrar tus clases con el lenguaje: __str__, __repr__, __eq__, operadores, @property, @classmethod y dataclasses",
+	"level": "intermedio",
+	"minutes": 38,
+	"tags": [
+		"poo",
+		"dunder",
+		"property",
+		"classmethod",
+		"dataclass"
+	],
+	"keywords": [
+		"métodos especiales python",
+		"__str__ vs __repr__",
+		"__eq__",
+		"sobrecarga de operadores",
+		"dunder methods",
+		"@property",
+		"setter python",
+		"@classmethod vs @staticmethod",
+		"dataclass python",
+		"objeto imprimible",
+		"len de un objeto",
+		"validar atributo"
+	],
+	"summary": "Los métodos especiales conectan tus clases con la sintaxis del lenguaje: print, len, == y + dejan de ser ajenos a tus objetos. Aquí escribes __str__ y __repr__, comparas y sumas instancias, validas atributos con @property y creas constructores alternativos con @classmethod.",
+	"objectives": [
+		"Escribir __repr__ y __str__ para que tus objetos sean legibles al depurar",
+		"Comparar instancias por contenido con __eq__ y devolver NotImplemented cuando toca",
+		"Implementar __len__ y operadores como __add__ sobre tus propias clases",
+		"Validar atributos con @property y su setter, sin perder la asignación simple",
+		"Crear constructores alternativos con @classmethod y utilidades con @staticmethod",
+		"Reconocer cuándo una dataclass sustituye a decenas de líneas escritas a mano"
+	],
+	"prerequisites": [
+		"Herencia, polimorfismo y abstracción"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora, si imprimías un objeto tuyo, obtenías algo así: `<__main__.Punto object at 0x104a3c0d0>`. Tampoco podías sumar dos puntos ni compararlos por su contenido: `p1 == p2` era `False` aunque tuvieran las mismas coordenadas. Eso no es una limitación del lenguaje, es que Python no sabe qué significan `+` o `==` para tu clase hasta que se lo dices."
+		},
+		{
+			"type": "p",
+			"md": "Los **métodos especiales**, esos que empiezan y terminan con doble guion bajo, son el mecanismo para decírselo. Al implementarlos, tus objetos dejan de ser cajas opacas y se comportan como los tipos nativos: se imprimen bien, se comparan, se suman y se validan solos."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué son los métodos especiales?"
+		},
+		{
+			"type": "p",
+			"md": "Un método especial (o *dunder*, de *double underscore*) es un método con nombre reservado que Python llama en situaciones concretas de la sintaxis. Normalmente no los invocas tú: `print(obj)` llama a `obj.__str__()`, `len(obj)` a `obj.__len__()`, `a == b` a `a.__eq__(b)` y `a + b` a `a.__add__(b)`."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en los enchufes de una casa: el aparato no sabe cómo está cableada la instalación, solo cumple la forma del enchufe. Tu clase no sabe cómo funciona `print`, solo cumple el protocolo `__str__`. Esa separación es la que permite que `for` funcione con listas, archivos, generadores y con la clase que escribas mañana."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Método",
+				"Se ejecuta cuando...",
+				"Debe devolver"
+			],
+			"rows": [
+				[
+					"`__init__`",
+					"creas una instancia",
+					"`None`"
+				],
+				[
+					"`__str__`",
+					"usas `print(obj)` o `str(obj)`",
+					"un `str` legible"
+				],
+				[
+					"`__repr__`",
+					"miras el objeto en el REPL o dentro de una lista",
+					"un `str` que idealmente reconstruya el objeto"
+				],
+				[
+					"`__eq__`",
+					"comparas con `==`",
+					"`True`, `False` o `NotImplemented`"
+				],
+				[
+					"`__len__`",
+					"llamas a `len(obj)`",
+					"un entero no negativo"
+				],
+				[
+					"`__add__`",
+					"usas el operador `+`",
+					"un objeto nuevo"
+				]
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Depurar sin adivinar**: un `__repr__` claro muestra los atributos y evita abrir el depurador para saber qué contiene una lista de objetos.",
+				"**Comparar por valor**: dos pedidos con los mismos artículos son iguales aunque sean objetos distintos en memoria.",
+				"**Usar la sintaxis natural**: `len(carrito)`, `pedido_a + pedido_b`, `producto in inventario`.",
+				"**Validar al asignar**: un `@property` con setter rechaza un salario negativo en el momento, no tres funciones después.",
+				"**Constructores alternativos**: `Empleado.desde_texto(\"Ana,1500\")` sin duplicar el `__init__`.",
+				"**Interoperar**: bibliotecas que ordenan, comparan o serializan objetos esperan estos protocolos."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Dos representaciones, dos públicos",
+			"md": "`__repr__` habla con quien programa: debe ser preciso e idealmente reconstruible, como `Punto(3, 4)`. `__str__` habla con quien usa el programa: puede ser `Punto en (3, 4)`. Si solo defines `__repr__`, Python lo usa también para `print`. Al revés no ocurre: definir `__str__` no mejora el REPL ni las listas."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Python busca los métodos especiales en el **tipo**, no en la instancia. `len(obj)` mira `type(obj).__len__`, y por eso asignar `obj.__len__ = lambda: 5` no cambia el resultado de `len(obj)`. Esta regla permite que las operaciones integradas vayan rápido y que una instancia no pueda falsificar su propia longitud."
+		},
+		{
+			"type": "p",
+			"md": "La relación entre `__str__` y `__repr__` es asimétrica: `object.__str__` llama a `__repr__` como respaldo, pero `__repr__` no llama a `__str__`. Si tu `__repr__` hace `return str(self)` y no existe un `__str__` distinto, entras en recursión hasta `RecursionError`."
+		},
+		{
+			"type": "p",
+			"md": "`__eq__` debe devolver `NotImplemented` (el valor especial, no la excepción) cuando no reconoce el otro tipo. Python entonces intenta la comparación refleja y, si tampoco hay respuesta, cae a identidad. Devolver `False` a ciegas rompe comparaciones válidas con tipos que sí saben compararse contigo."
+		},
+		{
+			"type": "p",
+			"md": "`@property` es un **descriptor**: un objeto que intercepta el acceso al atributo. El decorador convierte el método en un atributo calculado; el setter se registra con `@nombre.setter`. Si solo defines el getter, asignar lanza `AttributeError` (en Python 3.9 el mensaje es `can't set attribute`; en 3.11 y posteriores se indica que la propiedad no tiene setter). El atributo real suele guardarse con guion bajo, `_celsius`, y la propiedad es la puerta pública."
+		},
+		{
+			"type": "p",
+			"md": "`@classmethod` recibe la clase como primer argumento (`cls`) y se usa sobre todo como constructor alternativo: al llamar `cls(...)` respeta las subclases. `@staticmethod` no recibe ni `self` ni `cls`: es una función corriente que vive dentro de la clase porque pertenece a su tema, no a sus datos."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Los protocolos más frecuentes en una sola clase",
+			"code": "class Producto:\n    def __init__(self, nombre, precio):\n        self.nombre = nombre\n        self.precio = precio\n\n    def __repr__(self):\n        return f\"Producto({self.nombre!r}, {self.precio})\"\n\n    def __str__(self):\n        return f\"{self.nombre}: S/ {self.precio:.2f}\"\n\n    def __eq__(self, otro):\n        if not isinstance(otro, Producto):\n            return NotImplemented\n        return (self.nombre, self.precio) == (otro.nombre, otro.precio)\n\n    @property\n    def precio_con_igv(self):\n        return round(self.precio * 1.18, 2)\n\n    @classmethod\n    def desde_texto(cls, linea):\n        nombre, precio = linea.rsplit(\",\", 1)\n        return cls(nombre, float(precio))\n\n    @staticmethod\n    def es_precio_valido(valor):\n        return valor > 0\n\np = Producto.desde_texto(\"Laptop,2500\")\nprint(p)\nprint(repr(p))\nprint(p.precio_con_igv)",
+			"highlight": [
+				6,
+				9,
+				12,
+				19,
+				23,
+				28
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Forma",
+				"Qué hace",
+				"Cuándo usarla"
+			],
+			"rows": [
+				[
+					"`@property`",
+					"Convierte un método en atributo de lectura",
+					"Valores calculados o protegidos"
+				],
+				[
+					"`@x.setter`",
+					"Registra la validación al asignar",
+					"Siempre que el atributo tenga reglas"
+				],
+				[
+					"`@classmethod`",
+					"Recibe `cls`; puede crear instancias",
+					"Constructores alternativos"
+				],
+				[
+					"`@staticmethod`",
+					"No recibe `self` ni `cls`",
+					"Funciones puras relacionadas con la clase"
+				],
+				[
+					"`@dataclass`",
+					"Genera `__init__`, `__repr__` y `__eq__`",
+					"Clases que solo agrupan datos"
+				]
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Imprimir y comparar un objeto",
+			"python": {
+				"caption": "temperatura.py",
+				"code": "class Temperatura:\n    def __init__(self, celsius):\n        self.celsius = celsius\n\n    def __eq__(self, otra):\n        if not isinstance(otra, Temperatura):\n            return NotImplemented\n        return self.celsius == otra.celsius\n\n    def __str__(self):\n        return f\"{self.celsius} C\"\n\nprint(Temperatura(20) == Temperatura(20))\nprint(Temperatura(20))"
+			},
+			"cpp": {
+				"caption": "temperatura.cpp",
+				"code": "#include <iostream>\n#include <stdexcept>\n\nclass Temperatura {\npublic:\n    explicit Temperatura(double celsius) : celsius_(celsius) {}\n\n    double celsius() const { return celsius_; }\n\n    void set_celsius(double valor) {\n        if (valor < -273.15) {\n            throw std::invalid_argument(\"por debajo del cero absoluto\");\n        }\n        celsius_ = valor;\n    }\n\n    bool operator==(const Temperatura& otra) const {\n        return celsius_ == otra.celsius_;\n    }\n\n    friend std::ostream& operator<<(std::ostream& os, const Temperatura& t) {\n        return os << t.celsius_ << \" C\";\n    }\n\nprivate:\n    double celsius_;\n};\n\nint main() {\n    Temperatura t{20.0};\n    t.set_celsius(25.0);\n    std::cout << t << '\\n';\n    std::cout << std::boolalpha << (t == Temperatura{25.0}) << '\\n';\n    return 0;\n}"
+			},
+			"note": "En Python los protocolos son métodos con nombre fijo. En C++ son funciones libres u operadores: `operator==` y `operator<<`, y el getter/setter se escribe a mano. El efecto es el mismo: `cout << t` y `t == otra` funcionan."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: un objeto que se imprime bien"
+		},
+		{
+			"type": "p",
+			"md": "El primer protocolo que conviene implementar siempre es `__repr__`, porque es el que ves cuando algo falla."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "punto.py",
+			"code": "class Punto:\n    def __init__(self, x, y):\n        self.x = x\n        self.y = y\n\n    def __repr__(self):\n        return f\"Punto({self.x}, {self.y})\"\n\n    def __str__(self):\n        return f\"({self.x}, {self.y})\"\n\np = Punto(3, 4)\nprint(p)\nprint(repr(p))\nprint([p])",
+			"highlight": [
+				6,
+				9,
+				14
+			]
+		},
+		{
+			"type": "p",
+			"md": "`print(p)` usa `__str__` y muestra `(3, 4)`. `repr(p)` y `print([p])` usan `__repr__` y muestran `Punto(3, 4)`: cuando imprimes una lista, Python imprime el `repr` de cada elemento, no su `str`. Sin `__repr__`, esa última línea mostraría la dirección de memoria y no sabrías qué objeto es."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: comparar, sumar y medir"
+		},
+		{
+			"type": "p",
+			"md": "Un pedido se puede sumar con otro y se puede medir con `len`. Son operaciones que el usuario espera y que no requieren métodos nuevos con nombres inventados."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pedidos.py",
+			"code": "class Pedido:\n    def __init__(self, items):\n        self.items = list(items)\n\n    def __len__(self):\n        return len(self.items)\n\n    def __add__(self, otro):\n        return Pedido(self.items + otro.items)\n\n    def __eq__(self, otro):\n        if not isinstance(otro, Pedido):\n            return NotImplemented\n        return self.items == otro.items\n\n    def __repr__(self):\n        return f\"Pedido({self.items!r})\"\n\na = Pedido([\"pan\", \"leche\"])\nb = Pedido([\"café\"])\nprint(a + b)\nprint(len(a + b))\nprint(a == Pedido([\"pan\", \"leche\"]))",
+			"highlight": [
+				5,
+				8,
+				11,
+				16
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Pedido(['pan', 'leche', 'café'])`, luego `3` y `True`. `__add__` devuelve un pedido **nuevo**: no modifica `a` ni `b`. `len` cuenta artículos y `__eq__` compara el contenido de las listas, así que dos pedidos distintos en memoria son iguales si tienen lo mismo. `__le__` o `__lt__` no están definidos: ordenar estos pedidos lanzaría `TypeError`."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: cargar empleados validados"
+		},
+		{
+			"type": "p",
+			"md": "Recursos Humanos entrega un archivo de texto con líneas `nombre,sueldo`. Necesitas crear empleados, rechazar sueldos inválidos y formatear importes. Estos protocolos resuelven el caso completo sin funciones sueltas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "empleados.py",
+			"code": "class Empleado:\n    def __init__(self, nombre, sueldo):\n        self.nombre = nombre\n        self.sueldo = sueldo          # pasa por el setter\n\n    @property\n    def sueldo(self):\n        return self._sueldo\n\n    @sueldo.setter\n    def sueldo(self, valor):\n        if valor <= 0:\n            raise ValueError(\"el sueldo debe ser positivo\")\n        self._sueldo = valor\n\n    @classmethod\n    def desde_texto(cls, linea):\n        nombre, sueldo = linea.split(\",\")\n        return cls(nombre, float(sueldo))\n\n    @staticmethod\n    def formato(valor):\n        return f\"S/ {valor:,.2f}\"\n\n    def __repr__(self):\n        return f\"Empleado({self.nombre!r}, {self.sueldo})\"\n\ne = Empleado.desde_texto(\"Ana,1500\")\nprint(e)\nprint(e.formato(e.sueldo))\ntry:\n    Empleado(\"Luis\", -10)\nexcept ValueError as error:\n    print(\"ValueError:\", error)",
+			"highlight": [
+				4,
+				7,
+				11,
+				17,
+				22,
+				26
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Empleado('Ana', 1500.0)`, `S/ 1,500.00` y `ValueError: el sueldo debe ser positivo`. Fíjate en que `__init__` asigna `self.sueldo`, no `self._sueldo`: así el setter valida también en la construcción, y no hay forma de crear un empleado con sueldo negativo. `desde_texto` es un constructor alternativo: si mañana existe `class Gerente(Empleado)`, `cls(...)` crea un gerente sin cambiar una línea. `formato` no necesita el objeto, por eso es `staticmethod`."
+		},
+		{
+			"type": "p",
+			"md": "Cuando la clase solo agrupa datos, escribir esos métodos a mano es trabajo repetido. Para eso existe `dataclasses`:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "punto_dataclass.py",
+			"code": "from dataclasses import dataclass\n\n@dataclass\nclass Punto:\n    x: float\n    y: float = 0.0\n\np = Punto(3, 4)\nprint(p)\nprint(p == Punto(3, 4))\nprint(Punto(5))",
+			"highlight": [
+				3,
+				5,
+				6
+			]
+		},
+		{
+			"type": "p",
+			"md": "El decorador genera `__init__`, `__repr__` y `__eq__` a partir de las anotaciones. La salida es `Punto(x=3, y=4)`, `True` y `Punto(x=5, y=0.0)`. No genera validación: si necesitas reglas, escribe el `__post_init__` o vuelve a la clase con `@property`. Y como define `__eq__`, la clase deja de ser hashable salvo que uses `frozen=True`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: una propiedad con validación"
+		},
+		{
+			"type": "p",
+			"md": "Sigue el recorrido de `t.celsius = 25` y de la asignación inválida final. Observa que el atributo público se llama `celsius` pero el dato vive en `_celsius`, y que `print(t)` y `repr(t)` usan métodos distintos."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Getter, setter y las dos representaciones",
+			"code": "class Temperatura:\n    def __init__(self, celsius):\n        self._celsius = celsius\n\n    @property\n    def celsius(self):\n        return self._celsius\n\n    @celsius.setter\n    def celsius(self, valor):\n        if valor < -273.15:\n            raise ValueError(\"por debajo del cero absoluto\")\n        self._celsius = valor\n\n    def __str__(self):\n        return f\"{self._celsius} °C\"\n\n    def __repr__(self):\n        return f\"Temperatura({self._celsius})\"\n\nt = Temperatura(20)\nprint(t)\nt.celsius = 25\nprint(t.celsius)\nprint(repr(t))\n\ntry:\n    t.celsius = -300\nexcept ValueError as error:\n    print(\"Error:\", error)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se define la clase. `celsius` queda registrado como propiedad, no como un método normal: el decorador `@property` reemplaza el nombre por un descriptor.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 21,
+					"note": "`__init__` escribe directamente `_celsius`, sin pasar por el setter. El objeto nace con el atributo interno y la propiedad lo expone.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>",
+						"t": "Temperatura(20)"
+					},
+					"output": ""
+				},
+				{
+					"line": 22,
+					"note": "`print(t)` busca `__str__` porque hay una versión definida. Si no existiera, usaría `__repr__`.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>",
+						"t": "Temperatura(20)"
+					},
+					"output": "20 °C\n"
+				},
+				{
+					"line": 23,
+					"note": "La asignación no crea un atributo `celsius`: ejecuta el setter. `25` pasa la comprobación y se guarda en `_celsius`.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>",
+						"t": "Temperatura(25)"
+					},
+					"output": ""
+				},
+				{
+					"line": 24,
+					"note": "Leer `t.celsius` ejecuta el getter, que devuelve `_celsius`. `print` escribe el número sin unidades porque es un `float`.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>",
+						"t": "Temperatura(25)"
+					},
+					"output": "25\n"
+				},
+				{
+					"line": 25,
+					"note": "`repr(t)` llama a `__repr__`, que devuelve la forma técnica reconstruible. Es la que verías dentro de una lista o en el REPL.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>",
+						"t": "Temperatura(25)"
+					},
+					"output": "Temperatura(25)\n"
+				},
+				{
+					"line": 28,
+					"note": "El setter recibe `-300`, la comparación con `-273.15` es verdadera y lanza `ValueError`. El objeto queda intacto: la validación ocurrió antes de tocar `_celsius`.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>",
+						"t": "Temperatura(25)"
+					},
+					"output": ""
+				},
+				{
+					"line": 30,
+					"note": "El `except` captura la excepción y la imprime. La temperatura sigue siendo 25: una asignación rechazada no deja el objeto a medias.",
+					"vars": {
+						"Temperatura": "<class 'Temperatura'>",
+						"t": "Temperatura(25)",
+						"error": "ValueError('por debajo del cero absoluto')"
+					},
+					"output": "Error: por debajo del cero absoluto\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje",
+				"Causa habitual",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"`AttributeError: can't set attribute`",
+					"La propiedad tiene getter pero no setter",
+					"Añade `@nombre.setter` o no asignes a ese atributo"
+				],
+				[
+					"`TypeError: __str__ returned non-string (type int)`",
+					"`__str__` devuelve un número en lugar de texto",
+					"Envuelve el valor en `str(...)` o en una f-string"
+				],
+				[
+					"`RecursionError: maximum recursion depth exceeded`",
+					"El setter se asigna a sí mismo, o `__repr__` llama a `str(self)`",
+					"Guarda en `_atributo` y usa `object.__repr__(self)` como base"
+				],
+				[
+					"`TypeError: unsupported operand type(s) for +: 'Pedido' and 'Pedido'`",
+					"Falta `__add__` para ese tipo",
+					"Implementa `__add__` y devuelve un objeto nuevo"
+				],
+				[
+					"`TypeError: unhashable type: 'Punto'`",
+					"Definiste `__eq__` y Python anuló `__hash__`",
+					"Define `__hash__` o usa `@dataclass(frozen=True)`"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El setter que se llama a sí mismo",
+			"wrong": {
+				"caption": "Recursión infinita",
+				"code": "class Caja:\n    @property\n    def peso(self):\n        return self.peso\n\n    @peso.setter\n    def peso(self, valor):\n        self.peso = valor\n\nc = Caja()\nc.peso = 10"
+			},
+			"right": {
+				"caption": "Atributo interno distinto",
+				"code": "class Caja:\n    @property\n    def peso(self):\n        return self._peso\n\n    @peso.setter\n    def peso(self, valor):\n        self._peso = valor\n\nc = Caja()\nc.peso = 10\nprint(c.peso)"
+			},
+			"explain": "Dentro del setter, `self.peso = valor` vuelve a entrar en el setter: cada llamada abre otra hasta agotar la pila. El getter tiene el mismo problema. La convención es guardar en un atributo con otro nombre, `_peso`, y dejar `peso` como la puerta pública."
+		},
+		{
+			"type": "p",
+			"md": "Los dos últimos errores de la tabla tienen la misma raíz: un método especial cambió una regla del lenguaje. Al definir `__eq__` por contenido, Python ya no puede usar la identidad para calcular el hash y pone `__hash__` a `None`. En una lista no importa; al meter el objeto en un `set` o usarlo como clave de un diccionario, falla."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Define siempre `__repr__`: es tu red de seguridad al depurar.",
+				"Usa `__str__` solo cuando la versión para personas sea distinta de la técnica.",
+				"En `__eq__`, comprueba el tipo con `isinstance` y devuelve `NotImplemented` si no lo reconoces.",
+				"Si defines `__eq__` y vas a usar el objeto en `set` o como clave, define también `__hash__`.",
+				"No hagas cálculos costosos ni consultas de red dentro de `__repr__`: se llama en logs y en el depurador.",
+				"Valida en el setter, no en cada método que use el atributo.",
+				"`@classmethod` para construir, `@staticmethod` para funciones puras afines; si no usas `cls` ni `self`, no lo metas en la clase por inercia.",
+				"Para clases que solo transportan datos, evalúa `@dataclass` antes de escribir veinte líneas."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Cuenta con saldo protegido",
+			"md": "Crea `CuentaBancaria(titular, saldo)` donde `saldo` sea una propiedad con setter que rechace valores negativos con `ValueError`. Añade `depositar(monto)` y `retirar(monto)`, que también validan montos positivos y saldo suficiente. Implementa `__repr__` con el titular y el saldo. Prueba una secuencia de depósito, retiro y una asignación inválida.",
+			"hint": "Dentro del setter guarda en `self._saldo`. En los métodos usa `self.saldo += monto`: eso lee el getter y escribe por el setter, así que la validación se aplica sola.",
+			"solution": {
+				"lang": "python",
+				"caption": "cuenta.py",
+				"code": "class CuentaBancaria:\n    def __init__(self, titular, saldo=0):\n        self.titular = titular\n        self.saldo = saldo\n\n    @property\n    def saldo(self):\n        return self._saldo\n\n    @saldo.setter\n    def saldo(self, valor):\n        if valor < 0:\n            raise ValueError(\"el saldo no puede ser negativo\")\n        self._saldo = valor\n\n    def depositar(self, monto):\n        if monto <= 0:\n            raise ValueError(\"el monto debe ser positivo\")\n        self.saldo += monto\n\n    def retirar(self, monto):\n        if monto > self.saldo:\n            raise ValueError(\"saldo insuficiente\")\n        self.saldo -= monto\n\n    def __repr__(self):\n        return f\"CuentaBancaria({self.titular!r}, {self.saldo})\"\n\nc = CuentaBancaria(\"Ana\", 100)\nc.depositar(50)\nc.retirar(30)\nprint(c)\ntry:\n    c.saldo = -1\nexcept ValueError as error:\n    print(\"ValueError:\", error)",
+				"explain": "Toda escritura del saldo pasa por el mismo punto: el setter. `depositar` y `retirar` no repiten la comprobación de negativos porque la propiedad ya la hace. La cuenta termina con 120, y el intento de asignar -1 lanza `ValueError` sin modificar el objeto."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Inventario con len, suma y constructor alternativo",
+			"md": "Diseña `Inventario` a partir de un diccionario `producto → unidades`. Implementa `__len__` para que devuelva el total de unidades (no el número de productos), `__add__` para combinar dos inventarios sumando cantidades, `__eq__` por contenido y `__repr__`. Añade un `@classmethod desde_lineas(lineas)` que lea `\"pan,3\"` y un `@staticmethod es_cantidad_valida(cantidad)`. Comprueba el resultado con dos inventarios.",
+			"hint": "En `__add__` copia el diccionario con `dict(self.unidades)` y recorre el otro con `.items()`. `sum(self.unidades.values())` da el total de unidades.",
+			"solution": {
+				"lang": "python",
+				"caption": "inventario.py",
+				"code": "class Inventario:\n    def __init__(self, unidades=None):\n        self.unidades = dict(unidades or {})\n\n    def __len__(self):\n        return sum(self.unidades.values())\n\n    def __add__(self, otro):\n        combinado = dict(self.unidades)\n        for producto, cantidad in otro.unidades.items():\n            combinado[producto] = combinado.get(producto, 0) + cantidad\n        return Inventario(combinado)\n\n    def __eq__(self, otro):\n        if not isinstance(otro, Inventario):\n            return NotImplemented\n        return self.unidades == otro.unidades\n\n    def __repr__(self):\n        return f\"Inventario({self.unidades!r})\"\n\n    @classmethod\n    def desde_lineas(cls, lineas):\n        unidades = {}\n        for linea in lineas:\n            producto, cantidad = linea.split(\",\")\n            unidades[producto] = int(cantidad)\n        return cls(unidades)\n\n    @staticmethod\n    def es_cantidad_valida(cantidad):\n        return isinstance(cantidad, int) and cantidad >= 0\n\ni1 = Inventario.desde_lineas([\"pan,3\", \"leche,2\"])\ni2 = Inventario({\"pan\": 1, \"café\": 4})\nprint(i1 + i2)\nprint(len(i1 + i2))\nprint(Inventario.es_cantidad_valida(-2))",
+				"explain": "La salida es `Inventario({'pan': 4, 'leche': 2, 'café': 4})`, `10` y `False`. `__add__` usa `get(producto, 0)` porque el producto puede no existir en el inventario de la izquierda. `__len__` suma cantidades, una decisión de diseño que documentas con el nombre del método. `desde_lineas` crea la instancia con `cls(...)`, así que una subclase futura también funciona."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la propiedad",
+			"lang": "python",
+			"code": "class Termometro:\n    def __init__(self, celsius):\n        self._celsius = celsius\n\n    @___\n    def celsius(self):\n        return self._celsius\n\n    @celsius.___\n    def celsius(self, valor):\n        self._celsius = valor\n\nt = Termometro(20)\nt.celsius = 25\nprint(t.celsius)",
+			"answers": [
+				"property",
+				"setter"
+			],
+			"hint": "El primer decorador convierte el método en atributo; el segundo registra la escritura sobre ese mismo nombre.",
+			"explain": "`@property` crea el descriptor y `@celsius.setter` registra la función que se ejecuta al asignar. Al final, `t.celsius = 25` escribe en `_celsius` y `print(t.celsius)` imprime `25`."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En la cuenta bancaria, la propiedad no es un adorno: centraliza la única regla que no puede violarse. Si un compañero añade `transferir` dentro de seis meses, basta con escribir `self.saldo -= monto` para heredar la validación. La alternativa —comprobar el saldo en cada método— funciona hasta que alguien olvida una comprobación."
+		},
+		{
+			"type": "p",
+			"md": "En el inventario hay una decisión que el código no puede tomar por ti: qué significa `len`. Devolver el número de productos distintos y devolver el total de unidades son ambas opciones válidas; lo importante es elegir una, nombrarla en el docstring y ser consistente. `__add__` devuelve un objeto nuevo para que `a + b` no cambie `a`, igual que `1 + 2` no cambia el 1."
+		},
+		{
+			"type": "p",
+			"md": "Una alternativa al inventario es `collections.Counter`, que ya suma diccionarios de cantidades. Y si la clase solo guardara el diccionario sin reglas, una `dataclass` con un campo `unidades` sería suficiente. Los métodos especiales valen cuando aportan una semántica clara al objeto, no cuando imitan a un contenedor existente."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Los métodos especiales conectan tu clase con `print`, `len`, `==`, `+` y el resto de la sintaxis.",
+				"`__repr__` es para quien programa y debe ser preciso; `__str__` es para quien usa el programa.",
+				"Si solo defines `__repr__`, `str()` lo reutiliza; al revés no ocurre.",
+				"`__eq__` compara por valor, comprueba el tipo y devuelve `NotImplemented` si no lo reconoce.",
+				"Definir `__eq__` anula `__hash__`: añádelo si usarás el objeto en `set` o como clave.",
+				"`@property` expone un atributo calculado o validado; el setter se registra con `@nombre.setter`.",
+				"`@classmethod` recibe `cls` y sirve como constructor alternativo; `@staticmethod` es una función con espacio de nombres.",
+				"`@dataclass` genera `__init__`, `__repr__` y `__eq__` cuando la clase solo agrupa datos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime `print([Punto(1, 2)])` si la clase define `__str__` como `\"(1, 2)\"` y `__repr__` como `\"Punto(1, 2)\"`?",
+			"options": [
+				"`[(1, 2)]`",
+				"`[Punto(1, 2)]`",
+				"`[<__main__.Punto object at 0x...>]`",
+				"`Punto(1, 2)`"
+			],
+			"answer": 1,
+			"explain": "Al imprimir un contenedor, Python usa el `repr` de cada elemento, no su `str`. Por eso la representación técnica aparece dentro de la lista y `__str__` queda para el `print` directo del objeto."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `__eq__` debería devolver `NotImplemented` en lugar de `False` cuando el otro objeto no es del tipo esperado?",
+			"options": [
+				"Porque `False` no es un valor válido para `==`",
+				"Porque permite que Python pruebe la comparación del otro operando antes de concluir que no son iguales",
+				"Porque `NotImplemented` lanza un error que avisa del tipo incorrecto",
+				"Porque así el objeto se vuelve hashable automáticamente"
+			],
+			"answer": 1,
+			"explain": "`NotImplemented` es una señal para el intérprete: «yo no sé comparar con esto, prueba tú». Si devuelves `False`, cancelas esa posibilidad y una comparación que el otro tipo sí sabía resolver se pierde."
+		},
+		{
+			"type": "quiz",
+			"question": "Tienes `@property def saldo(self)` sin setter. ¿Qué ocurre al ejecutar `cuenta.saldo = 100`?",
+			"options": [
+				"Se crea un atributo `saldo` en la instancia que tapa la propiedad",
+				"Se lanza `AttributeError` porque la propiedad es de solo lectura",
+				"Se llama al getter y se ignora la asignación",
+				"Se lanza `ValueError` por defecto"
+			],
+			"answer": 1,
+			"explain": "Una propiedad sin setter es de solo lectura: la asignación lanza `AttributeError` (en 3.9 con el mensaje `can't set attribute`). Para permitirla hay que registrar `@saldo.setter`."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "Modelo de datos: métodos especiales",
+					"url": "https://docs.python.org/es/3/reference/datamodel.html#special-method-names",
+					"note": "lista completa de protocolos y qué debe devolver cada uno"
+				},
+				{
+					"label": "property()",
+					"url": "https://docs.python.org/es/3/library/functions.html#property",
+					"note": "getter, setter y deleter"
+				},
+				{
+					"label": "dataclasses",
+					"url": "https://docs.python.org/es/3/library/dataclasses.html",
+					"note": "generación automática de métodos y opciones"
+				}
+			]
+		}
+	]
+}

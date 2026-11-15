@@ -1,0 +1,441 @@
+{
+	"id": "py-08-diccionarios-sets",
+	"track": "python",
+	"order": 8,
+	"title": "Diccionarios y conjuntos",
+	"subtitle": "Buscar por clave en tiempo constante y eliminar duplicados sin recorrer toda la colección",
+	"level": "principiante",
+	"minutes": 40,
+	"tags": ["diccionarios", "sets", "hash", "clave-valor"],
+	"keywords": [
+		"diccionario python",
+		"clave valor",
+		"dict get",
+		"items keys values",
+		"KeyError",
+		"hashable",
+		"conjuntos python",
+		"set operaciones",
+		"unión intersección",
+		"eliminar duplicados",
+		"cuándo usar diccionario",
+		"cuándo usar set"
+	],
+	"summary": "Los diccionarios asocian claves con valores y los conjuntos guardan elementos únicos. Aprenderás a consultar sin provocar KeyError, a recorrer pares clave-valor, a comprobar la hashabilidad de una clave y a usar operaciones de conjuntos para comparar datos.",
+	"objectives": [
+		"Crear diccionarios y acceder a valores de forma segura con get",
+		"Recorrer claves, valores y pares con items",
+		"Explicar qué es una clave hashable y por qué una lista no puede serlo",
+		"Usar conjuntos para eliminar duplicados y comparar colecciones",
+		"Elegir entre lista, tupla, diccionario y conjunto según el problema"
+	],
+	"prerequisites": ["Listas y tuplas", "Strings, índices y slicing"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En una lista buscas por posición: `notas[2]` significa «el tercer elemento». Pero muchas veces no sabes la posición; sabes el nombre. Quieres el stock de `\"teclado\"`, la nota de `\"Ana\"` o las ventas del `\"lunes\"`. Para esas preguntas necesitas una estructura que relacione una **clave** con un **valor**."
+		},
+		{
+			"type": "p",
+			"md": "El **diccionario** hace exactamente eso. El **conjunto** es su pariente cercano: guarda solo claves, sin valores, y garantiza que no haya repetidos. Juntos cubren dos necesidades constantes al procesar datos: buscar rápido por identificador y quedarse con los elementos únicos."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un diccionario y qué es un conjunto?"
+		},
+		{
+			"type": "p",
+			"md": "Un **diccionario** (`dict`) es una colección de pares clave-valor. Se escribe con llaves y dos puntos: `edades = {\"Ana\": 21, \"Luis\": 19}`. Cada clave es única; si repites una, el último valor sobrescribe al anterior. Desde Python 3.7 los diccionarios conservan el orden de inserción, aunque su acceso no dependa de la posición."
+		},
+		{
+			"type": "p",
+			"md": "Un **conjunto** (`set`) es una colección de elementos únicos y sin orden garantizado. Se escribe con llaves sin dos puntos: `colores = {\"rojo\", \"verde\"}`. No admite duplicados y no se accede por índice, pero comprobar pertenencia es muy rápido. El conjunto vacío se crea con `set()`, porque `{}` es un diccionario vacío."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Claves únicas, valores repetibles",
+			"md": "En un diccionario, dos claves nunca son iguales, pero dos claves distintas pueden apuntar al mismo valor. En un conjunto, cada elemento aparece una sola vez. Esa unicidad es lo que permite usarlos como índice y como filtro."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Contar frecuencias**: cuántas veces aparece cada palabra en un texto o cada producto en una lista de pedidos.",
+				"**Buscar por identificador**: obtener el precio de un código, la nota de un estudiante o el stock de un artículo.",
+				"**Agrupar datos**: sumar ventas por día, por región o por categoría.",
+				"**Eliminar duplicados**: convertir una lista de correos en un conjunto de correos únicos.",
+				"**Comparar colecciones**: saber qué usuarios visitaron la web hoy pero no ayer.",
+				"**Preparar features**: un diccionario de parámetros o un mapeo de categorías a números antes de entrenar un modelo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Ambas estructuras se apoyan en una **tabla hash**. Al insertar una clave, Python calcula su hash, un número derivado de su contenido, y lo usa para decidir en qué zona de la tabla guardarla. Al buscar, recalcula el hash y va casi directamente a la posición. Por eso `d[clave]` y `x in conjunto` son O(1) en promedio, frente al O(n) de una lista."
+		},
+		{
+			"type": "p",
+			"md": "Ese mecanismo impone una condición: las claves deben ser **hashables**, es decir, tener un hash estable durante toda su vida. Los números, los strings y las tuplas de elementos hashables lo son; las listas, los diccionarios y los conjuntos no, porque son mutables y su contenido podría cambiar después de haber sido indexado. Si intentas usar una lista como clave, obtendrás `TypeError: unhashable type: 'list'`."
+		},
+		{
+			"type": "p",
+			"md": "El coste medio O(1) no es una garantía absoluta: si muchas claves colisionan, las búsquedas se degradan. En la práctica, con strings y números bien distribuidos, el rendimiento es excelente y muy superior al de recorrer listas. La tabla siguiente resume cuándo cada estructura es la elección natural:"
+		},
+		{
+			"type": "table",
+			"head": ["Estructura", "Orden", "Duplicados", "Acceso", "Uso típico"],
+			"rows": [
+				["`list`", "Sí", "Permitidos", "Por índice", "Secuencia que crece o cambia"],
+				["`tuple`", "Sí", "Permitidos", "Por índice", "Registro fijo que no debe cambiar"],
+				["`dict`", "Sí (inserción)", "Claves no", "Por clave", "Mapear identificadores a valores"],
+				["`set`", "No garantizado", "No", "Por pertenencia", "Unicidad y comparación de grupos"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: crear, leer y actualizar"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "diccionarios.py",
+			"code": "# Diccionario con dos pares\nedades = {\"Ana\": 21, \"Luis\": 19}\n\n# Leer, insertar y actualizar\nprint(edades[\"Ana\"])\nedades[\"Eva\"] = 24          # clave nueva\nedades[\"Luis\"] = 20         # sobrescribe el valor\n\n# get evita KeyError y permite un valor por defecto\nprint(edades.get(\"Mario\"))\nprint(edades.get(\"Mario\", 0))\n\n# Recorrer pares clave-valor\nfor nombre, edad in edades.items():\n    print(nombre, edad)",
+			"highlight": [5, 6, 7, 10, 11, 14]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`d[clave]` lee un valor, pero lanza `KeyError` si la clave no existe.",
+				"`d[clave] = valor` inserta o actualiza; no hay un método separado para cada caso.",
+				"`d.get(clave)` devuelve `None` si falta; `d.get(clave, defecto)` devuelve el defecto.",
+				"`d.items()` produce pares `(clave, valor)`, ideales para desempaquetar en un `for`.",
+				"`d.pop(clave)` elimina y devuelve el valor; `del d[clave]` elimina sin devolverlo.",
+				"`s.add(x)` añade al conjunto y `s.discard(x)` quita sin fallar si no existe."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: stock de una tienda"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "stock.py",
+			"code": "stock = {\"teclado\": 12, \"mouse\": 30}\nstock[\"monitor\"] = 5\nstock[\"mouse\"] = 25\n\nprint(stock[\"teclado\"])\nprint(stock.get(\"webcam\"))\nprint(stock.get(\"webcam\", 0))\nprint(len(stock))",
+			"highlight": [2, 3, 5, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "La primera línea crea un diccionario con dos productos. La segunda añade `\"monitor\"` con valor `5`: como la clave no existía, se inserta. La tercera actualiza `\"mouse\"` de `30` a `25`, porque asignar a una clave existente reemplaza el valor. No hay que declarar el diccionario de antemano ni indicar cuántas claves tendrá."
+		},
+		{
+			"type": "p",
+			"md": "`stock[\"teclado\"]` devuelve `12`. En cambio, `stock[\"webcam\"]` lanzaría un `KeyError`, así que se usa `get`, que devuelve `None` cuando la clave falta. Con un segundo argumento, `get(\"webcam\", 0)` devuelve `0`, una opción muy útil para acumular. `len(stock)` cuenta pares, no valores sueltos: hay tres productos."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: recorrer y clasificar notas"
+		},
+		{
+			"type": "p",
+			"md": "`items()` es la puerta de entrada al diccionario cuando necesitas la clave y el valor a la vez. Si solo usas `for nombre in notas`, obtienes las claves; si usas `notas.values()`, obtienes los valores. El desempaquetado `nombre, nota` funciona porque cada elemento de `items()` es una tupla de dos posiciones."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "notas.py",
+			"code": "notas = {\"Ana\": 15, \"Luis\": 9, \"Eva\": 18}\nnotas[\"Luis\"] = 13\n\nfor nombre, nota in notas.items():\n    estado = \"aprobado\" if nota >= 13 else \"desaprobado\"\n    print(f\"{nombre}: {nota} ({estado})\")\n\nprint(f\"Máxima: {max(notas.values())}\")\nprint(f\"Mínima: {min(notas.values())}\")",
+			"highlight": [2, 4, 5, 6, 8, 9]
+		},
+		{
+			"type": "p",
+			"md": "Actualizar una nota es una sola asignación: no hay que buscar la posición de Luis en ninguna lista. El bucle recorre los tres pares en orden de inserción y calcula el estado con una expresión condicional. `max` y `min` sobre `values()` devuelven `18` y `13`, porque el 9 ya fue reemplazado. Fíjate en que las claves no se ordenan alfabéticamente: se respeta el orden en que se añadieron."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: pedidos y clientes únicos"
+		},
+		{
+			"type": "p",
+			"md": "Una lista de pedidos suele venir como pares `(producto, cliente)`. Necesitas dos respuestas: cuántas unidades se vendieron de cada producto y cuántos clientes distintos compraron. El diccionario resuelve la primera; el conjunto, la segunda."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pedidos.py",
+			"code": "pedidos = [\n    (\"teclado\", \"Ana\"),\n    (\"mouse\", \"Luis\"),\n    (\"teclado\", \"Eva\"),\n    (\"monitor\", \"Ana\"),\n]\n\nunidades = {}\nclientes = set()\nfor producto, cliente in pedidos:\n    unidades[producto] = unidades.get(producto, 0) + 1\n    clientes.add(cliente)\n\nprint(unidades)\nprint(f\"Clientes únicos: {len(clientes)}\")\nprint(\"¿Compró Ana?\", \"Ana\" in clientes)",
+			"highlight": [10, 11, 12, 14, 15, 16]
+		},
+		{
+			"type": "p",
+			"md": "El patrón `unidades.get(producto, 0) + 1` es la forma canónica de contar: si la clave no existe, parte de cero; si existe, suma uno al valor actual. Sin `get`, la primera aparición de cada producto lanzaría `KeyError`. `clientes.add(cliente)` ignora los repetidos, así que al final el conjunto tiene tres nombres aunque haya cuatro pedidos. La pertenencia con `in` es inmediata gracias al hash."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: ventas por día"
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Insertar, sumar y consultar con get",
+			"code": "ventas = {\"lunes\": 120, \"martes\": 90}\nventas[\"miércoles\"] = 150\ntotal = sum(ventas.values())\npromedio = total / len(ventas)\nprint(ventas.get(\"jueves\", 0))\nprint(f\"{total} en {len(ventas)} días, media {promedio:.0f}\")",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se crea el diccionario con dos pares. Las claves son strings y los valores enteros.",
+					"vars": { "ventas": "{'lunes': 120, 'martes': 90}" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "La clave `miércoles` no existía: se inserta al final, sin alterar las anteriores.",
+					"vars": { "ventas": "{'lunes': 120, 'martes': 90, 'miércoles': 150}" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`values()` entrega los tres números y `sum` los acumula: 120 + 90 + 150.",
+					"vars": {
+						"ventas": "{'lunes': 120, 'martes': 90, 'miércoles': 150}",
+						"total": "360"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`len` cuenta pares, así que el promedio es 360 / 3. La división con `/` produce un float.",
+					"vars": {
+						"ventas": "{'lunes': 120, 'martes': 90, 'miércoles': 150}",
+						"total": "360",
+						"promedio": "120.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`get` no encuentra `jueves` y devuelve el valor por defecto, 0. No se lanza ninguna excepción.",
+					"vars": {
+						"ventas": "{'lunes': 120, 'martes': 90, 'miércoles': 150}",
+						"total": "360",
+						"promedio": "120.0"
+					},
+					"output": "0\n"
+				},
+				{
+					"line": 6,
+					"note": "La f-string inserta el total, la cantidad de días y el promedio con formato de cero decimales.",
+					"vars": {
+						"ventas": "{'lunes': 120, 'martes': 90, 'miércoles': 150}",
+						"total": "360",
+						"promedio": "120.0"
+					},
+					"output": "360 en 3 días, media 120\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "El bloque anterior muestra las tres operaciones esenciales: insertar con corchetes, agregar con `sum` y consultar con `get`. Si hubieras escrito `ventas[\"jueves\"]`, el programa se habría detenido en la línea 5 con `KeyError`; el resto de la lección depende de elegir conscientemente entre acceso directo y acceso seguro."
+		},
+		{
+			"type": "h",
+			"text": "Conjuntos: unicidad y operaciones"
+		},
+		{
+			"type": "p",
+			"md": "Los conjuntos admiten las operaciones matemáticas de unión, intersección, diferencia y diferencia simétrica. Puedes usar los operadores `|`, `&`, `-` y `^`, o los métodos `union`, `intersection`, `difference` y `symmetric_difference`. Los métodos aceptan cualquier iterable; los operadores exigen conjuntos a ambos lados."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "conjuntos.py",
+			"code": "hoy = {\"pan\", \"leche\", \"huevos\", \"pan\"}\nayer = {\"pan\", \"arroz\"}\n\nprint(sorted(hoy))\nprint(sorted(hoy - ayer))\nprint(sorted(hoy & ayer))\nprint(sorted(hoy | ayer))\nprint(len(hoy))",
+			"highlight": [1, 4, 5, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "Aunque `\"pan\"` se escribe dos veces, el conjunto guarda una sola copia: `len(hoy)` devuelve `3`. La diferencia `hoy - ayer` deja lo que está en hoy pero no en ayer (`huevos`, `leche`); la intersección `&` deja lo común (`pan`); la unión `|` reúne todo. Se usa `sorted` solo para imprimir en un orden estable, porque el orden interno de un conjunto no está garantizado."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Duplicados conservando el orden",
+			"md": "`set(lista)` elimina duplicados pero pierde el orden. Si necesitas conservarlo, `list(dict.fromkeys(lista))` mantiene la primera aparición de cada elemento y es igual de legible."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje o síntoma", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`KeyError: 'jueves'`", "Accediste con corchetes a una clave que no existe", "Usa `get` o comprueba con `in` antes"],
+				["`TypeError: unhashable type: 'list'`", "Usaste una lista como clave o elemento de un set", "Convierte a tupla: `tuple(lista)`"],
+				["`TypeError: 'set' object is not subscriptable`", "Intentaste indexar un conjunto", "Convierte con `list(s)` o recorre con `for`"],
+				["`RuntimeError: dictionary changed size during iteration`", "Insertaste o borraste claves mientras recorrías", "Itera sobre `list(d)` o construye otro diccionario"],
+				["`{}` no se comporta como conjunto", "`{}` crea un diccionario vacío", "Usa `set()` para el conjunto vacío"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Contar sin provocar KeyError",
+			"wrong": {
+				"caption": "Falla en la primera aparición",
+				"code": "conteo = {}\nfor palabra in [\"sol\", \"mar\", \"sol\"]:\n    conteo[palabra] += 1"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "conteo = {}\nfor palabra in [\"sol\", \"mar\", \"sol\"]:\n    conteo[palabra] = conteo.get(palabra, 0) + 1"
+			},
+			"explain": "`conteo[palabra] += 1` intenta leer la clave antes de crearla y lanza `KeyError`. `get(palabra, 0)` devuelve cero cuando no existe y permite crear el par con la suma. Desde Python 3.8 también existe `collections.Counter`, que hace este trabajo directamente."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa `get` con valor por defecto cuando la ausencia de una clave sea normal, no un error.",
+				"Reserva el acceso con corchetes para claves que deben existir; así un fallo se detecta pronto.",
+				"Recorre con `items()` cuando necesites clave y valor; evita buscar el valor dentro del bucle.",
+				"Elige claves inmutables y estables: strings, números o tuplas de ambos.",
+				"Usa conjuntos para pertenencia y unicidad, no para guardar datos que necesitas ordenados.",
+				"No dependas del orden de un conjunto al imprimir; si importa, ordena antes.",
+				"Si cuentas frecuencias, valora `collections.Counter` en lugar de reinventar el patrón."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Diccionario frente a std::unordered_map",
+			"python": {
+				"caption": "dict.py",
+				"code": "precios = {\"pan\": 2, \"leche\": 3}\nprecios[\"cafe\"] = 5\nprint(precios.get(\"te\", 0))\nprint(len(precios))"
+			},
+			"cpp": {
+				"caption": "map.cpp",
+				"code": "#include <iostream>\n#include <string>\n#include <unordered_map>\n\nint main() {\n    std::unordered_map<std::string, int> precios{{\"pan\", 2}, {\"leche\", 3}};\n    precios[\"cafe\"] = 5;\n    auto it = precios.find(\"te\");\n    std::cout << (it != precios.end() ? it->second : 0) << \"\\n\";\n    std::cout << precios.size() << std::endl;\n    return 0;\n}"
+			},
+			"note": "Python resuelve la ausencia con `get`; C++ usa `find` y compara con `end()`. En C++ hay que declarar los tipos de clave y valor, y elegir entre `map` (ordenado) y `unordered_map` (hash). Python conserva el orden de inserción sin coste adicional."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Frecuencia de palabras",
+			"md": "Dado el texto `\"sol mar sol viento mar sol\"`, construye un diccionario que asocie cada palabra con su número de apariciones. Recorre las palabras con `split()` y muestra el resultado y la palabra más repetida.",
+			"hint": "Usa `conteo.get(palabra, 0) + 1`. Para la palabra más repetida, recorre `conteo.items()` y guarda el par con el valor mayor.",
+			"solution": {
+				"lang": "python",
+				"caption": "frecuencia.py",
+				"code": "texto = \"sol mar sol viento mar sol\"\nconteo = {}\n\nfor palabra in texto.split():\n    conteo[palabra] = conteo.get(palabra, 0) + 1\n\nmas_repetida = \"\"\nmaximo = 0\nfor palabra, veces in conteo.items():\n    if veces > maximo:\n        mas_repetida = palabra\n        maximo = veces\n\nprint(conteo)\nprint(f\"Más repetida: {mas_repetida} ({maximo} veces)\")",
+				"explain": "`split()` produce cinco palabras y el diccionario acumula las repeticiones: `sol` aparece tres veces, `mar` dos y `viento` una. El segundo bucle compara cada valor con el máximo provisional y actualiza la palabra ganadora cuando encuentra uno mayor."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Consulta segura y recorrido",
+			"lang": "python",
+			"code": "edades = {\"Ana\": 21, \"Luis\": 19}\nprint(edades.___(\"Eva\", 0))\nfor nombre, edad in edades.___():\n    print(nombre, edad)",
+			"answers": ["get", "items"],
+			"hint": "El primero devuelve un valor por defecto; el segundo entrega pares clave-valor.",
+			"explain": "`get(\"Eva\", 0)` devuelve 0 sin lanzar KeyError. `items()` permite desempaquetar cada par en `nombre` y `edad`. Sin el método, `for nombre in edades` daría solo las claves."
+		},
+		{
+			"type": "exercise",
+			"title": "Visitantes de dos días",
+			"md": "El lunes visitaron la web `{\"ana\", \"luis\", \"eva\"}` y el martes `{\"luis\", \"eva\", \"mario\"}`. Calcula quiénes repitieron, quiénes son nuevos el martes y cuántos usuarios distintos hubo en total. Muestra cada grupo ordenado.",
+			"hint": "La intersección es `&`, la diferencia es `-` y la unión es `|`. Envuelve el resultado en `sorted` para imprimirlo.",
+			"solution": {
+				"lang": "python",
+				"caption": "visitas.py",
+				"code": "lunes = {\"ana\", \"luis\", \"eva\"}\nmartes = {\"luis\", \"eva\", \"mario\"}\n\nrepiten = lunes & martes\nnuevos = martes - lunes\ntotal = lunes | martes\n\nprint(sorted(repiten))\nprint(sorted(nuevos))\nprint(len(total))",
+				"explain": "`repiten` contiene `luis` y `eva`; `nuevos` contiene solo `mario`, porque ana no volvió el martes. La unión tiene cuatro usuarios distintos. `sorted` no modifica los conjuntos: solo devuelve una lista ordenada para mostrar."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el conteo, el diccionario empieza vacío y crece a medida que aparecen palabras nuevas. La clave es la palabra y el valor es el contador. `get` cumple dos funciones: comprobar si existe y aportar un punto de partida. Si usaras `defaultdict(int)` de `collections`, el mismo bucle se escribiría con `conteo[palabra] += 1`; es una alternativa válida que verás en proyectos reales."
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de visitantes, los conjuntos expresan la pregunta casi en lenguaje natural: intersección para los que repiten, diferencia para los nuevos, unión para el total. La diferencia `A - B` no es simétrica: `martes - lunes` da los nuevos del martes, mientras que `lunes - martes` daría quienes no volvieron. Leer el operador en voz alta ayuda a no invertirlo."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un diccionario asocia claves únicas con valores y conserva el orden de inserción.",
+				"`d[clave]` falla con `KeyError` si falta; `d.get(clave, defecto)` nunca falla por ausencia.",
+				"`items()` devuelve pares y permite `for clave, valor in d.items()`.",
+				"Las claves deben ser hashables: strings, números y tuplas de elementos hashables.",
+				"Un conjunto guarda elementos únicos y ofrece `|`, `&`, `-` y `^`.",
+				"La pertenencia en diccionarios y conjuntos es O(1) en promedio; en listas es O(n).",
+				"Usa `set()` para el conjunto vacío: `{}` crea un diccionario."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `{\"a\": 1}.get(\"b\")`?",
+			"options": ["`0`", "`None`", "`KeyError`", "`\"b\"`"],
+			"answer": 1,
+			"explain": "`get` sin valor por defecto devuelve `None` cuando la clave no existe. Con `get(\"b\", 0)` devolvería `0`. El acceso `d[\"b\"]` sí lanzaría `KeyError`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué `{[1, 2]: \"valor\"}` falla?",
+			"options": [
+				"Porque las claves deben ser strings",
+				"Porque una lista es mutable y por tanto no es hashable",
+				"Porque los valores deben ser números",
+				"Porque falta una coma final"
+			],
+			"answer": 1,
+			"explain": "Una clave necesita un hash estable. La lista puede cambiar, así que Python no permite usarla como clave. Una tupla `(1, 2)` sí funcionaría. Los valores, en cambio, pueden ser de cualquier tipo."
+		},
+		{
+			"type": "quiz",
+			"question": "Si `a = {1, 2, 3}` y `b = {2, 3, 4}`, ¿qué contiene `a & b`?",
+			"options": ["`{1, 4}`", "`{1, 2, 3, 4}`", "`{2, 3}`", "`{1}`"],
+			"answer": 2,
+			"explain": "`&` es la intersección: los elementos presentes en ambos conjuntos, es decir, 2 y 3. La unión `|` daría los cuatro, y la diferencia `a - b` daría `{1}`."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Diccionarios (tutorial oficial)",
+					"url": "https://docs.python.org/es/3/tutorial/datastructures.html#dictionaries",
+					"note": "operaciones y métodos"
+				},
+				{
+					"label": "Tipos set y frozenset",
+					"url": "https://docs.python.org/es/3/library/stdtypes.html#set-types-set-frozenset",
+					"note": "operaciones de conjuntos"
+				}
+			]
+		}
+	]
+}

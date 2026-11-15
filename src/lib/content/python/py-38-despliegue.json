@@ -1,0 +1,532 @@
+{
+	"id": "py-38-despliegue",
+	"track": "python",
+	"order": 38,
+	"title": "Despliegue de modelos en producción",
+	"subtitle": "Docker, configuración, logging, monitoreo de drift y un checklist antes de exponer el servicio",
+	"level": "avanzado",
+	"minutes": 50,
+	"tags": ["docker", "produccion", "logging", "monitoreo", "ci-cd"],
+	"keywords": [
+		"desplegar modelo machine learning",
+		"dockerfile fastapi",
+		"variables de entorno python",
+		"pydantic settings",
+		"logging estructurado",
+		"data drift",
+		"test kolmogorov smirnov",
+		"versionado de modelos",
+		"ci cd modelo",
+		"checklist produccion",
+		"seguridad api",
+		"contenedor python"
+	],
+	"summary": "Pasar de un servicio que funciona en tu portátil a uno que sobrevive en producción exige imagen reproducible, configuración externa, logs útiles, monitoreo de drift y un proceso de cambio. Esta lección cubre esas piezas con un Dockerfile real y código de monitoreo ejecutable.",
+	"objectives": [
+		"Construir una imagen Docker reproducible y sin privilegios para una API FastAPI",
+		"Externalizar rutas, versiones y umbrales en variables de entorno con pydantic-settings",
+		"Emitir logs estructurados con identificador de petición y latencia",
+		"Detectar data drift comparando la distribución de producción con la de referencia",
+		"Definir un proceso de versionado, pruebas y despliegue progresivo",
+		"Aplicar un checklist de producción que cubra seguridad, límites y observabilidad"
+	],
+	"prerequisites": ["Proyecto: predicción y API con FastAPI", "Type hints y dataclasses"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Tu API responde en tu portátil: ejecutas un comando y funciona. **Desplegar** es conseguir que siga funcionando cuando no estás delante: en otra máquina, con un proceso que arranca solo, con datos distintos y con alguien que pregunta por qué ayer respondió lento."
+		},
+		{
+			"type": "p",
+			"md": "No es un trámite final. Cada decisión de despliegue —dónde vive la configuración, qué se registra, cómo se versiona el artefacto— cambia cómo escribes el código: un servicio que no se puede observar tampoco se puede operar."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es desplegar un modelo?"
+		},
+		{
+			"type": "p",
+			"md": "Es poner el modelo donde otros puedan usarlo de forma sostenida, con cuatro piezas: una **imagen** con código y dependencias exactas, una **configuración** que cambia sin recompilar, una **observación** que registra qué pasó y un **proceso** para cambiar versiones sin romper clientes."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Imagen**: el entorno completo, congelado. Si funciona aquí, funciona allá porque es el mismo sistema de archivos.",
+				"**Configuración**: rutas, umbrales y credenciales. Vive fuera de la imagen y se inyecta al arrancar.",
+				"**Observación**: logs, métricas y alertas. Sin ellas, un fallo silencioso tarda días en descubrirse.",
+				"**Proceso**: pruebas automáticas, versión del artefacto y una forma de volver atrás."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Demo y producción no son el mismo problema",
+			"md": "Una demo necesita funcionar cinco minutos delante de alguien. Producción necesita funcionar seis meses sin ti: reiniciarse tras un fallo, soportar picos, registrar lo justo para diagnosticar y no filtrar datos personales en los logs."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Desplegar bien resuelve problemas concretos que aparecen la primera semana:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**«En mi máquina funciona»**: la imagen fija las versiones, la causa más común de predicciones distintas.",
+				"**Cambiar sin recompilar**: subir el umbral de drift es editar una variable, no reconstruir la imagen.",
+				"**Diagnosticar**: un log con identificador y latencia responde «¿qué pasó a las 3:12?» en un minuto.",
+				"**Detectar el envejecimiento**: el modelo no avisa cuando los datos cambian; el monitoreo sí."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "La petición llega a un proxy que la reenvía al contenedor. **Uvicorn** escucha en un puerto, **FastAPI** resuelve la ruta y el pipeline predice. Cada línea de `logging` sale por la salida estándar y el runtime la envía a un colector."
+		},
+		{
+			"type": "p",
+			"md": "El contenedor es **efímero**: puede morir y recrearse en otra máquina sin avisar. Por eso nada importante vive dentro. El modelo se monta o se descarga, la configuración llega por variables de entorno y las predicciones se envían fuera si hay que conservarlas."
+		},
+		{
+			"type": "table",
+			"head": ["Aspecto", "En tu portátil", "En producción"],
+			"rows": [
+				["Proceso", "Lo arrancas tú en una terminal", "Lo arranca el runtime y lo reinicia"],
+				["Configuración", "Ruta relativa y un `.env` local", "Variables de entorno inyectadas"],
+				["Registro", "`print` y la consola", "Logs estructurados a un colector"],
+				["Datos", "El CSV que tienes a mano", "Peticiones reales, con distribución cambiante"],
+				["Cambios", "Guardas el archivo", "Imagen nueva, pruebas y despliegue progresivo"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Estructura del proyecto y configuración"
+		},
+		{
+			"type": "p",
+			"md": "Añade a la estructura anterior tres carpetas: `monitor/` para la vigilancia, `deploy/` para la infraestructura y `.github/workflows/` para la integración continua. El servicio no cambia; cambia lo que lo rodea."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Estructura para producción",
+			"code": "precios-api/\n├── api/\n│   ├── config.py        # ajustes desde el entorno\n│   ├── esquemas.py\n│   ├── modelo.py\n│   └── main.py\n├── models/\n│   └── precio_v1.joblib\n├── monitor/\n│   ├── drift.py         # data drift por columna\n│   └── referencia.csv   # distribución del entrenamiento\n├── tests/\n│   └── test_api.py\n├── deploy/\n│   └── Dockerfile\n├── .env.example\n├── requirements.txt\n└── .dockerignore"
+		},
+		{
+			"type": "p",
+			"md": "La configuración se declara una vez y se lee tipada. Con **pydantic-settings**, cada campo se rellena desde una variable de entorno con prefijo `APP_`, desde un `.env` o con su valor por defecto. Si una variable llega mal, el proceso falla al arrancar."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "api/config.py",
+			"code": "from pathlib import Path\n\nfrom pydantic import Field\nfrom pydantic_settings import BaseSettings, SettingsConfigDict\n\n\nclass Ajustes(BaseSettings):\n    \"\"\"Configuración externa. Cada campo se puede sobrescribir con APP_<CAMPO>.\"\"\"\n\n    model_config = SettingsConfigDict(env_file=\".env\", env_prefix=\"APP_\", extra=\"ignore\")\n\n    modelo_ruta: Path = Path(\"models/precio_v1.joblib\")\n    modelo_version: str = \"1.0.0\"\n    log_level: str = \"INFO\"\n    max_lote: int = Field(default=50, ge=1, le=500)\n    umbral_drift: float = Field(default=0.05, gt=0, lt=1)\n\n\najustes = Ajustes()\nprint(ajustes.model_dump())"
+		},
+		{
+			"type": "p",
+			"md": "`APP_MODELO_VERSION=1.1.0` o `APP_UMBRAL_DRIFT=0.01` sobrescriben los valores sin tocar código. El `.env.example` documenta las variables y se versiona; el `.env` real contiene secretos y **nunca** se sube al repositorio ni se copia en la imagen."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: el Dockerfile"
+		},
+		{
+			"type": "p",
+			"md": "Un **Dockerfile** es una receta de capas y cada instrucción se cachea. Si `requirements.txt` no cambia, la instalación no se repite al reconstruir. Por eso el orden importa y el código se copia al final."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "deploy/Dockerfile",
+			"code": "FROM python:3.12-slim AS base\n\nENV PYTHONDONTWRITEBYTECODE=1 \\\n    PYTHONUNBUFFERED=1 \\\n    PIP_NO_CACHE_DIR=1\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\n\nCOPY api ./api\nCOPY models ./models\n\nRUN useradd --create-home --uid 10001 appuser \\\n    && chown -R appuser:appuser /app\nUSER appuser\n\nEXPOSE 8000\n\nHEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \\\n  CMD python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"\n\nCMD [\"uvicorn\", \"api.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]"
+		},
+		{
+			"type": "p",
+			"md": "Cuatro decisiones que conviene entender. `python:3.12-slim` fija la versión base; `latest` convierte cada reconstrucción en una sorpresa. `PYTHONUNBUFFERED=1` evita que los logs se queden en un búfer. `appuser` impide ejecutar como root y el `HEALTHCHECK` distingue proceso vivo de servicio útil."
+		},
+		{
+			"type": "p",
+			"md": "El `.dockerignore` es tan importante como el Dockerfile. Si copias `.venv`, `data/` o `notebooks/`, la imagen crece cientos de megas y la construcción se vuelve lenta."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: construir y ejecutar"
+		},
+		{
+			"type": "p",
+			"md": "Construye desde la raíz —el contexto debe incluir `requirements.txt`, `api/` y `models/`— y ejecuta publicando el puerto. `--env-file` inyecta las variables y `--rm` borra el contenedor al detenerlo."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Ciclo completo con Docker",
+			"code": "docker build -f deploy/Dockerfile -t precios-api:1.0.0 .\ndocker run --rm -p 8000:8000 --env-file .env precios-api:1.0.0\n\n# INFO:     Started server process [1]\n# INFO:     Application startup complete.\n# INFO:     Uvicorn running on http://0.0.0.0:8000\n\ncurl -s http://127.0.0.1:8000/health\n# {\"status\":\"ok\"}\n\ndocker ps --filter name=precios-api\ndocker logs <id-del-contenedor> --tail 20"
+		},
+		{
+			"type": "p",
+			"md": "Si `curl` no responde, revisa en orden: que el puerto esté publicado con `-p`, que Uvicorn escuche en `0.0.0.0` y no en `127.0.0.1` —dentro del contenedor, `localhost` es el contenedor— y que el modelo exista en la ruta configurada."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: logging estructurado"
+		},
+		{
+			"type": "p",
+			"md": "Un `print` con texto libre es inservible con cien peticiones por segundo. Los **logs estructurados** escriben una línea JSON por evento, con campos que el colector puede filtrar: así respondes «latencia media de /predict en la última hora» sin expresiones regulares."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "api/logs.py",
+			"code": "import json\nimport logging\nimport time\nimport uuid\n\nfrom fastapi import FastAPI, Request\n\n\nclass FormatoJSON(logging.Formatter):\n    \"\"\"Una línea JSON por evento; los campos extra van en `datos`.\"\"\"\n\n    def format(self, record: logging.LogRecord) -> str:\n        base = {\n            \"nivel\": record.levelname,\n            \"mensaje\": record.getMessage(),\n            \"logger\": record.name,\n        }\n        extra = getattr(record, \"datos\", {})\n        return json.dumps({**base, **extra}, ensure_ascii=False)\n\n\nlog = logging.getLogger(\"api\")\nlog.setLevel(logging.INFO)\nlog.propagate = False\nmanejador = logging.StreamHandler()\nmanejador.setFormatter(FormatoJSON())\nlog.addHandler(manejador)\n\napp = FastAPI()\n\n\n@app.middleware(\"http\")\nasync def registrar(request: Request, call_next):\n    inicio = time.perf_counter()\n    peticion_id = request.headers.get(\"x-request-id\", str(uuid.uuid4()))\n\n    try:\n        respuesta = await call_next(request)\n    except Exception:\n        log.exception(\n            \"error no controlado\",\n            extra={\"datos\": {\"peticion_id\": peticion_id, \"ruta\": request.url.path}},\n        )\n        raise\n\n    latencia_ms = round((time.perf_counter() - inicio) * 1000, 1)\n    respuesta.headers[\"x-request-id\"] = peticion_id\n    log.info(\n        \"peticion\",\n        extra={\n            \"datos\": {\n                \"peticion_id\": peticion_id,\n                \"ruta\": request.url.path,\n                \"estado\": respuesta.status_code,\n                \"latencia_ms\": latencia_ms,\n            }\n        },\n    )\n    return respuesta"
+		},
+		{
+			"type": "p",
+			"md": "La salida es una línea como `{\"nivel\": \"INFO\", \"mensaje\": \"peticion\", \"peticion_id\": \"9f2c1a4b\", \"ruta\": \"/predict\", \"estado\": 200, \"latencia_ms\": 12.4}`. Este `app` es el de `api/main.py`; el middleware se registra ahí. El identificador vuelve en la cabecera `x-request-id`: si un cliente reporta un error, encuentras la traza exacta."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "No registres el cuerpo de la petición",
+			"md": "Los logs acaban en un servicio externo, con retención de semanas y acceso de varias personas. Un `area_m2` es inocuo; un correo o una dirección completa no. Registra identificadores, rutas, códigos y latencias."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: monitoreo y data drift"
+		},
+		{
+			"type": "p",
+			"md": "Un modelo se entrena con una foto del pasado y predice sobre un presente que cambia. El **data drift** es el cambio en la distribución de las entradas: si los departamentos de hoy son más grandes o de distritos nuevos, el modelo extrapola. La validación no lo detecta porque no tienes la respuesta real."
+		},
+		{
+			"type": "p",
+			"md": "La prueba de **Kolmogorov-Smirnov** compara dos muestras continuas y devuelve el máximo desvío entre sus distribuciones acumuladas, con un p-valor. Un p-valor bajo indica que difícilmente vienen de la misma distribución. Es una señal, no un veredicto: con muchas filas detecta diferencias irrelevantes."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "monitor/drift.py",
+			"code": "import numpy as np\nimport pandas as pd\nfrom scipy.stats import ks_2samp\n\n\ndef detectar_drift(\n    referencia: pd.Series,\n    produccion: pd.Series,\n    umbral: float = 0.05,\n    minimo: int = 30,\n) -> dict[str, object]:\n    \"\"\"Compara la distribución de una columna con la del entrenamiento.\"\"\"\n    if len(produccion.dropna()) < minimo:\n        return {\"columna\": str(referencia.name), \"estado\": \"muestra_insuficiente\"}\n\n    estadistico, p_valor = ks_2samp(referencia.dropna(), produccion.dropna())\n    return {\n        \"columna\": str(referencia.name),\n        \"n_referencia\": int(referencia.notna().sum()),\n        \"n_produccion\": int(produccion.notna().sum()),\n        \"estadistico\": round(float(estadistico), 3),\n        \"p_valor\": round(float(p_valor), 4),\n        \"drift\": bool(p_valor < umbral),\n    }\n\n\nrng = np.random.default_rng(42)\nreferencia = pd.Series(rng.normal(90, 20, 500), name=\"area_m2\")\nproduccion = pd.Series(rng.normal(105, 22, 400), name=\"area_m2\")\nprint(detectar_drift(referencia, produccion))"
+		},
+		{
+			"type": "p",
+			"md": "La salida muestra un `estadistico` cercano a 0,2 y un `p_valor` muy pequeño, así que `drift` es `True`: las áreas se corrieron unas 15 unidades. Con `minimo=30` evitas concluir algo con cuatro peticiones, donde la prueba no tiene potencia. Calcula por columna y compara tendencias, no un día suelto."
+		},
+		{
+			"type": "p",
+			"md": "¿Y cuando aparece el drift? No reentrenes en automático. Mira qué columna cambió, decide si es real o un error de captura y evalúa el modelo nuevo con datos recientes antes de promoverlo. Un reentrenamiento sin validación puede empeorar el servicio en silencio."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: lote de inferencia y traza de una petición"
+		},
+		{
+			"type": "p",
+			"md": "Monitorear empieza por mirar lo que el servicio predice. Este lote de cuatro peticiones se compara con la distribución de entrenamiento: si la media de `precio_estimado` sube un 40 %, algo cambió."
+		},
+		{
+			"type": "matrix",
+			"title": "Lote de inferencia registrado en producción",
+			"data": [
+				[85.0, 2.0, 12.0, 1243.0],
+				[120.0, 3.0, 5.0, 1780.0],
+				[55.0, 1.0, 45.0, 612.0],
+				[150.0, 4.0, 7.0, 2041.0]
+			],
+			"rowLabels": ["petición 1", "petición 2", "petición 3", "petición 4"],
+			"colLabels": ["area_m2", "habitaciones", "antiguedad", "precio_estimado"],
+			"steps": [
+				{
+					"note": "Cada fila es una petición atendida. Las tres primeras columnas son la entrada; la última, la predicción devuelta.",
+					"highlight": [[0, 0], [0, 1], [0, 2]]
+				},
+				{
+					"note": "La columna de predicciones es la que se vigila: su media y sus percentiles se comparan con los del entrenamiento.",
+					"highlight": [[0, 3], [1, 3], [2, 3], [3, 3]]
+				},
+				{
+					"note": "Si todas las filas comparten un mismo distrito o un área muy superior a la de referencia, el drift está en la entrada.",
+					"highlight": [[2, 0], [3, 0]]
+				}
+			]
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Qué registra una petición mientras se atiende",
+			"code": "import time\nimport uuid\nimport logging\n\nlog = logging.getLogger(\"api\")\n\nasync def atender(request, call_next):\n    inicio = time.perf_counter()\n    pid = str(uuid.uuid4())[:8]\n    respuesta = await call_next(request)\n    latencia = (time.perf_counter() - inicio) * 1000\n    log.info(\"peticion\", extra={\"datos\": {\"pid\": pid, \"latencia_ms\": round(latencia, 1)}})\n    return respuesta",
+			"steps": [
+				{
+					"line": 8,
+					"note": "Se toma el instante de inicio con un reloj monotónico: es inmune a cambios de hora del sistema.",
+					"vars": { "inicio": "18342.117" },
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "Se genera un identificador corto. Si el cliente ya envió `x-request-id`, se reutiliza el suyo.",
+					"vars": { "inicio": "18342.117", "pid": "\"9f2c1a4b\"" },
+					"output": ""
+				},
+				{
+					"line": 10,
+					"note": "La petición entra en el endpoint: se valida el JSON, se predice y se construye la respuesta.",
+					"vars": { "inicio": "18342.117", "pid": "\"9f2c1a4b\"", "respuesta": "<Response 200>" },
+					"frames": [
+						{ "name": "atender", "vars": { "pid": "\"9f2c1a4b\"" } },
+						{ "name": "predecir", "vars": { "departamento": "<Departamento>" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "La diferencia entre los dos instantes, en milisegundos, es la latencia que percibió el cliente.",
+					"vars": { "inicio": "18342.117", "pid": "\"9f2c1a4b\"", "latencia": "12.43" },
+					"output": ""
+				},
+				{
+					"line": 12,
+					"note": "Se emite una línea JSON con el identificador y la latencia. No se registra el cuerpo de la petición.",
+					"vars": { "inicio": "18342.117", "pid": "\"9f2c1a4b\"", "latencia": "12.43" },
+					"output": "{\"nivel\": \"INFO\", \"mensaje\": \"peticion\", \"pid\": \"9f2c1a4b\", \"latencia_ms\": 12.4}\n"
+				},
+				{
+					"line": 13,
+					"note": "La respuesta vuelve al cliente con el identificador añadido en la cabecera por el middleware.",
+					"vars": { "pid": "\"9f2c1a4b\"", "latencia": "12.43" },
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Versionado de modelos y CI/CD"
+		},
+		{
+			"type": "p",
+			"md": "Un artefacto sin versión es imposible de auditar. Nombra el archivo con la versión (`precio_v1.2.0.joblib`), declara esa versión en `/health` y guarda una ficha con fecha, datos, métricas y autor. Así sabes qué modelo produjo una predicción de hace tres meses."
+		},
+		{
+			"type": "p",
+			"md": "La **integración continua** ejecuta pruebas en cada cambio; el **despliegue continuo** publica la imagen solo si pasan. Los pasos mínimos son siempre los mismos y puedes escribirlos como comandos antes de llevarlos al sistema de CI:"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Pasos de un pipeline de integración",
+			"code": "pip install -r requirements.txt\npytest -q\n\ndocker build -f deploy/Dockerfile -t precios-api:$VERSION .\ndocker run -d --name api-smoke -p 8000:8000 --env-file .env precios-api:$VERSION\nsleep 5\ncurl -fsS http://127.0.0.1:8000/health\ndocker rm -f api-smoke"
+		},
+		{
+			"type": "p",
+			"md": "Ese `curl` es una **prueba de humo**: verifica que la imagen arranca y responde. Muchos despliegues fallan aquí y no en los tests, porque a la imagen le falta el modelo o una dependencia del sistema. Si no devuelve `{\"status\":\"ok\"}`, el pipeline se detiene."
+		},
+		{
+			"type": "p",
+			"md": "Para reemplazar una versión sin cortar el servicio, despliega de forma progresiva: un contenedor nuevo junto al anterior, un porcentaje pequeño de tráfico, observa latencia y errores y solo entonces retira el viejo. Si algo empeora, vuelve a la imagen anterior."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Síntoma", "Causa", "Solución"],
+			"rows": [
+				["`curl` no conecta y el log dice `running on http://127.0.0.1:8000`", "Uvicorn escucha solo en loopback", "Añade `--host 0.0.0.0`"],
+				["El contenedor arranca y muere en bucle", "El modelo no existe en la ruta configurada", "Copia `models/` o monta el volumen"],
+				["`ModuleNotFoundError: No module named 'api'`", "Falta el `WORKDIR` o el contexto", "Construye desde la raíz"],
+				["La imagen pesa 2 GB", "Sin `.dockerignore` entran `.venv` y datos", "Excluye lo que no se usa"],
+				["Predicciones distintas a las locales", "Otra versión de scikit-learn", "Fija versiones exactas"],
+				["El `HEALTHCHECK` marca `unhealthy`", "`/health` tarda más que el `timeout`", "Responde sin dependencias externas"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Hay un error más silencioso: desplegar con `--reload`. Es cómodo en desarrollo y desastroso en producción, porque reinicia el proceso al detectar cambios y vigila archivos que nunca cambian. La imagen ejecuta `uvicorn` sin ese indicador."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas y checklist de producción"
+		},
+		{
+			"type": "p",
+			"md": "Antes de abrir el servicio a usuarios reales, recorre esta lista. Cada punto existe porque alguien lo olvidó y lo pagó:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Versiones fijadas** en `requirements.txt` (`scikit-learn==1.7.2`, no `scikit-learn`).",
+				"**Configuración externa** en `.env.example`, sin secretos en la imagen ni en el repositorio.",
+				"**Usuario no root** y sistema base mínimo, sin compiladores en la imagen final.",
+				"**Healthcheck** en `/health` que no dependa de servicios externos.",
+				"**Logs estructurados** con identificador, ruta, estado y latencia; sin datos personales.",
+				"**Límites de entrada** en Pydantic y un tope de tamaño en el proxy.",
+				"**Alerta** por tasa de error y por latencia p95, no solo por proceso caído.",
+				"**Rollback** probado al menos una vez: saber volver es parte del despliegue."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Seguridad y límites del modelo"
+		},
+		{
+			"type": "p",
+			"md": "Un endpoint público recibe tráfico hostil el primer día. Como mínimo: autenticación por token, límite de peticiones por minuto, validación estricta del cuerpo y ningún detalle interno en los errores. Mantén las dependencias al día: la mayoría de incidentes vienen de una biblioteca, no del modelo."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Autentica** aunque el dato parezca público; sin credencial, cualquiera consume tu CPU.",
+				"**Limita** el tamaño del lote: un `POST` con 10 000 filas puede tumbar el servicio.",
+				"**No prometas certeza**: devuelve una estimación y, si es crítico, un intervalo.",
+				"**Revisa sesgos**: si ciertos distritos están poco representados, sus predicciones son peores.",
+				"**Documenta los límites**: el rango de áreas y antigüedades del entrenamiento. Fuera de él, extrapolas."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Y un límite que no es técnico: el modelo asesora, no decide. Si la API se convierte en la única voz, sus errores se convierten en decisiones injustas que nadie revisa."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Prueba de humo al arrancar",
+			"md": "Escribe `verificar_arranque(modelo)`: predice un caso conocido —85 m², 2 habitaciones, 12 años, Miraflores— y comprueba que el resultado cae entre 300 y 5000 USD. Si no, lanza `RuntimeError` con un mensaje claro. Llámala desde el `lifespan` para que el contenedor no arranque con un modelo roto.",
+			"hint": "Construye el `DataFrame` con el mismo orden de columnas del entrenamiento y compara con `if not 300 <= precio <= 5000`.",
+			"solution": {
+				"lang": "python",
+				"caption": "api/modelo.py (fragmento)",
+				"code": "import pandas as pd\n\nCASO_HUMO = {\n    \"distrito\": \"Miraflores\",\n    \"area_m2\": 85.0,\n    \"habitaciones\": 2,\n    \"antiguedad\": 12,\n}\n\n\ndef verificar_arranque(modelo) -> float:\n    \"\"\"Falla al arrancar si el pipeline devuelve algo absurdo.\"\"\"\n    precio = float(modelo.predict(pd.DataFrame([CASO_HUMO]))[0])\n    if not 300 <= precio <= 5000:\n        raise RuntimeError(\n            f\"Predicción de humo fuera de rango: {precio:.2f} USD. \"\n            \"Revisa el artefacto y las versiones de scikit-learn.\"\n        )\n    return precio",
+				"explain": "La comprobación convierte un fallo silencioso —un modelo que responde 200 con cifras absurdas— en un fallo visible al arrancar, cuando el despliegue se detiene y la versión anterior sigue sirviendo. El rango sale del análisis exploratorio. Llamarla en el `lifespan` impide que el contenedor pase el healthcheck con un artefacto corrupto."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Informe de drift por columna",
+			"md": "Amplía `monitor/drift.py` con `informe(referencia, produccion, umbral)`: recorre las columnas numéricas, aplica la prueba y devuelve una lista de diccionarios. Añade el porcentaje de columnas con drift y una recomendación: `revisar` si supera el 30 %, `estable` en caso contrario.",
+			"hint": "Selecciona con `referencia.select_dtypes(\"number\").columns` y comprueba que la columna exista en ambos marcos.",
+			"solution": {
+				"lang": "python",
+				"caption": "monitor/drift.py (fragmento)",
+				"code": "import pandas as pd\n\n\ndef informe(\n    referencia: pd.DataFrame,\n    produccion: pd.DataFrame,\n    umbral: float = 0.05,\n) -> dict[str, object]:\n    columnas = [c for c in referencia.select_dtypes(\"number\").columns if c in produccion]\n    filas = [detectar_drift(referencia[c], produccion[c], umbral) for c in columnas]\n    con_drift = sum(1 for fila in filas if fila.get(\"drift\"))\n    proporcion = con_drift / len(filas) if filas else 0.0\n\n    return {\n        \"columnas\": filas,\n        \"con_drift\": con_drift,\n        \"proporcion\": round(proporcion, 3),\n        \"recomendacion\": \"revisar\" if proporcion > 0.3 else \"estable\",\n    }",
+				"explain": "Comparar columna a columna evita el error de mirar solo el promedio: el drift puede concentrarse en una feature y diluirse en una media global. El umbral del 30 % es una convención de equipo, no una ley; lo importante es que la recomendación sea explícita y quede registrada con fecha."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el Dockerfile",
+			"lang": "shell",
+			"code": "FROM ___\n\nWORKDIR /app\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r ___\n\nCOPY api ./api\nCOPY models ./models\n\nEXPOSE 8000\nCMD [\"uvicorn\", \"api.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]",
+			"answers": ["python:3.12-slim", "requirements.txt"],
+			"hint": "La imagen base fija versión y variante ligera: `python:3.12-slim`. `pip install -r` necesita el nombre del archivo de dependencias.",
+			"explain": "`python:3.12-slim` incluye el intérprete y lo mínimo para instalar paquetes, sin herramientas de compilación. Fijar la versión hace la construcción reproducible. El segundo hueco es el archivo que `pip` debe leer, copiado antes que el código para aprovechar la caché de capas."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "La prueba de humo complementa a los tests. Los tests comprueban el contrato con un modelo de desarrollo; el humo comprueba que **el artefacto que se va a desplegar** produce algo sensato. Si alguien sube un `.joblib` de otro proyecto, los tests pasan y el humo falla."
+		},
+		{
+			"type": "p",
+			"md": "El informe de drift tiene una limitación que conviene decir en voz alta: solo mira las entradas. Si cambia la relación entre entrada y precio —una norma que encarece el metro cuadrado— ninguna prueba sobre `X` lo detecta. Ese es el *concept drift*, y verlo exige las respuestas reales, aunque lleguen tarde."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Desplegar es sostener el servicio: imagen, configuración externa, observación y proceso de cambio.",
+				"La imagen fija versiones; la configuración llega por variables de entorno, sin secretos en el repositorio.",
+				"Uvicorn debe escuchar en `0.0.0.0` y ejecutarse sin `--reload` en producción.",
+				"Un `HEALTHCHECK` sobre `/health` distingue proceso vivo de servicio útil.",
+				"Los logs estructurados con identificador y latencia hacen diagnosticable cada petición.",
+				"El data drift se vigila comparando distribuciones; el concept drift necesita las respuestas reales.",
+				"Versiona el artefacto, prueba la imagen con un `curl` y ten un rollback probado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Dónde debe vivir la ruta del artefacto y la versión del modelo en producción?",
+			"options": [
+				"En constantes dentro de `api/main.py`, para que no se puedan cambiar",
+				"En variables de entorno leídas al arrancar con pydantic-settings",
+				"En el nombre de la imagen Docker, que ya incluye todo",
+				"En el `Dockerfile`, como variable `ENV`, y se reconstruye para cada cambio"
+			],
+			"answer": 1,
+			"explain": "La configuración externa permite cambiar ruta, versión o umbrales sin reconstruir. El `ENV` del Dockerfile obliga a una imagen nueva por cada ajuste, y las constantes impiden operar el servicio sin un despliegue de código."
+		},
+		{
+			"type": "quiz",
+			"question": "El contenedor arranca, pero `curl` desde tu máquina no conecta. El log dice `Uvicorn running on http://127.0.0.1:8000`. ¿Cuál es la causa?",
+			"options": [
+				"El puerto 8000 está ocupado por otro servicio",
+				"Uvicorn escucha en loopback y no acepta conexiones desde fuera del contenedor",
+				"El modelo no se cargó y el servidor no abre el socket",
+				"Falta el `HEALTHCHECK` en el Dockerfile"
+			],
+			"answer": 1,
+			"explain": "Dentro del contenedor, `127.0.0.1` es el propio contenedor. Para que el puerto publicado acepte tráfico hay que escuchar en `0.0.0.0` con `--host 0.0.0.0`."
+		},
+		{
+			"type": "quiz",
+			"question": "En la prueba de Kolmogorov-Smirnov, ¿qué indica un p-valor menor que el umbral?",
+			"options": [
+				"Que el modelo acierta menos que antes",
+				"Que las dos muestras probablemente no vienen de la misma distribución",
+				"Que la media de producción es mayor que la de referencia",
+				"Que hay suficientes datos para reentrenar"
+			],
+			"answer": 1,
+			"explain": "La prueba compara las distribuciones acumuladas completas, no solo la media. Un p-valor bajo es evidencia contra la hipótesis de que ambas muestras vienen de la misma distribución, lo que sugiere drift. No dice nada sobre la precisión del modelo."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "Docker: referencia del Dockerfile",
+					"url": "https://docs.docker.com/reference/dockerfile/",
+					"note": "instrucciones, capas y HEALTHCHECK"
+				},
+				{
+					"label": "pydantic-settings",
+					"url": "https://docs.pydantic.dev/latest/concepts/pydantic_settings/",
+					"note": "configuración desde variables de entorno"
+				},
+				{
+					"label": "FastAPI: middleware",
+					"url": "https://fastapi.tiangolo.com/tutorial/middleware/",
+					"note": "latencia e identificadores por petición"
+				},
+				{
+					"label": "logging: configuración avanzada",
+					"url": "https://docs.python.org/es/3/howto/logging.html",
+					"note": "formatters, handlers y niveles"
+				},
+				{
+					"label": "scipy.stats.ks_2samp",
+					"url": "https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html",
+					"note": "prueba de dos muestras"
+				}
+			]
+		}
+	]
+}

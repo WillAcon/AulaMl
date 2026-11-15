@@ -1,0 +1,502 @@
+{
+	"id": "py-23-testing-logging",
+	"track": "python",
+	"order": 23,
+	"title": "Testing, logging y debugging",
+	"subtitle": "Comprobar que el código hace lo que dices, dejar rastro de lo que pasa y encontrar el fallo sin adivinar",
+	"level": "intermedio",
+	"minutes": 40,
+	"tags": [
+		"testing",
+		"pytest",
+		"logging",
+		"debugging",
+		"calidad"
+	],
+	"keywords": [
+		"assert python",
+		"cómo probar código python",
+		"pytest fixtures",
+		"pytest parametrize",
+		"cobertura de pruebas",
+		"logging niveles",
+		"logging basicConfig",
+		"handlers logging",
+		"breakpoint pdb",
+		"diferencia error y excepción",
+		"depurar python",
+		"por qué no print"
+	],
+	"summary": "Escribir código que funciona una vez no basta: necesitas pruebas que lo demuestren, registros que expliquen qué pasó en producción y una forma de inspeccionar el estado cuando algo falla. Aquí aprenderás assert, pytest, logging y pdb con criterio para elegir cada herramienta.",
+	"objectives": [
+		"Distinguir un error de sintaxis, una excepción y un fallo lógico",
+		"Escribir pruebas con assert y organizarlas con pytest, fixtures y parametrización",
+		"Interpretar la cobertura sin confundirla con calidad",
+		"Configurar logging con niveles, formato y handlers adecuados",
+		"Depurar con breakpoint y pdb en lugar de sembrar prints"
+	],
+	"prerequisites": [
+		"Errores y excepciones",
+		"Módulos, paquetes y entornos virtuales"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hay una etapa en la que tu programa funciona y aun así no sabes si seguirá funcionando mañana. Cambias una función para arreglar un caso, rompes otro sin darte cuenta, y lo descubres cuando el informe ya se envió. Las tres herramientas de esta lección existen para que eso deje de ser una sorpresa: pruebas para comprobar, registros para observar, y un depurador para mirar dentro cuando algo no cuadra."
+		},
+		{
+			"type": "p",
+			"md": "Antes de entrar, conviene ordenar el vocabulario, porque se usa mal. Un **error de sintaxis** impide que el archivo se ejecute. Una **excepción** ocurre durante la ejecución y, si no la atrapas, termina el programa. Un **fallo lógico** es el peor: el programa termina sin errores y devuelve un resultado incorrecto."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Tipo",
+				"Cuándo aparece",
+				"Ejemplo"
+			],
+			"rows": [
+				["Error de sintaxis", "Antes de ejecutar: el archivo no compila", "`if x = 3:` → `SyntaxError`"],
+				["Excepción", "Durante la ejecución, en una línea concreta", "`10 / 0` → `ZeroDivisionError`"],
+				["Fallo lógico", "Nunca avisa; el resultado es incorrecto", "Dividir entre `len(notas) + 1`"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una prueba y qué es un registro?"
+		},
+		{
+			"type": "p",
+			"md": "Una **prueba** es código que ejecuta tu código y comprueba un resultado esperado. Si el resultado no coincide, falla de forma visible y con la línea exacta. En Python la forma mínima es `assert condicion`, que lanza `AssertionError` cuando la condición es falsa."
+		},
+		{
+			"type": "p",
+			"md": "Un **registro** (*log*) es una línea de texto que tu programa emite para contar lo que hace: cuántas filas leyó, qué usuario pidió el informe, qué error se capturó. Se diferencia de `print` en que tiene nivel, origen y formato configurables, y en que puede apagarse sin borrar código."
+		},
+		{
+			"type": "p",
+			"md": "El **debugging** es la tercera pata: inspeccionar el estado de un programa detenido. `print` sirve para una duda puntual; un depurador te deja parar en una línea, ver todas las variables y avanzar paso a paso sin modificar el archivo."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve todo esto?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Detectar regresiones**: al cambiar una función, las pruebas avisan si rompiste un comportamiento anterior.",
+				"**Documentar intención**: un test que dice `aplicar_descuento(100, 0.10) == 90.0` explica la regla mejor que un comentario.",
+				"**Diagnosticar en producción**: los logs muestran la secuencia de hechos cuando no puedes reproducir el fallo en tu máquina.",
+				"**Medir la confianza**: la cobertura indica qué líneas nunca se ejecutaron en las pruebas, no si las que sí corren están bien.",
+				"**Ahorrar tiempo**: un `breakpoint()` bien puesto encuentra en un minuto lo que veinte `print` no encuentran en una hora."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "`assert` es una instrucción, no una función: evalúa la expresión y, si es falsa, lanza `AssertionError` con el mensaje opcional. Python puede **eliminar todos los assert** cuando se ejecuta con `python3 -O` (modo optimizado). Por eso un assert nunca debe validar datos que vienen del usuario ni sustituir a un `if ... raise`."
+		},
+		{
+			"type": "p",
+			"md": "`pytest` descubre pruebas por convención: archivos `test_*.py` o `*_test.py`, funciones que empiezan por `test_`, clases que empiezan por `Test`. No hace falta heredar de nada ni registrar cada test. Además reescribe los assert para que un fallo muestre los valores intermedios, y ofrece `fixtures` (datos preparados y reutilizables) y `parametrize` (el mismo test con varias entradas)."
+		},
+		{
+			"type": "p",
+			"md": "El módulo `logging` organiza el trabajo en tres piezas: un **logger** que recibe los mensajes, uno o varios **handlers** que deciden a dónde van (consola, archivo), y un **formatter** que define el texto. Los mensajes suben por la jerarquía de loggers hasta el logger raíz, que es el configurado por `basicConfig`. Cada mensaje tiene un nivel numérico y solo se emite si alcanza el nivel configurado."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Nivel",
+				"Valor",
+				"Cuándo usarlo"
+			],
+			"rows": [
+				["`DEBUG`", "10", "Detalle que solo necesitas al investigar un fallo"],
+				["`INFO`", "20", "Hitos normales: inicio, filas leídas, fin correcto"],
+				["`WARNING`", "30", "Algo raro que no impide continuar"],
+				["`ERROR`", "40", "Una operación falló y no se completó"],
+				["`CRITICAL`", "50", "El proceso no puede seguir funcionando"]
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Cobertura alta no significa código correcto",
+			"md": "Una línea ejecutada no es una línea comprobada. Un test que llama a una función y no verifica el resultado sube la cobertura sin detectar nada. Usa la cobertura para encontrar código muerto o caminos olvidados, no como nota de calidad."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: assert, pytest y logging"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Las tres herramientas en su forma mínima",
+			"code": "# 1. Comprobación simple\nassert 2 + 2 == 4\nassert 10 > 3, \"10 debería ser mayor que 3\"\n\n# 2. Prueba de pytest (archivo test_suma.py)\n# def test_suma():\n#     assert sumar(2, 3) == 5\n\n# 3. Registro con nivel y formato\nimport logging\n\nlogging.basicConfig(level=logging.INFO, format=\"%(levelname)s %(message)s\")\nlog = logging.getLogger(__name__)\nlog.info(\"proceso iniciado\")",
+			"highlight": [
+				2,
+				3,
+				12,
+				13,
+				14
+			]
+		},
+		{
+			"type": "p",
+			"md": "El mensaje de un assert se escribe después de una coma y solo se evalúa si la condición falla. En pytest, cada archivo de prueba importa lo que va a probar; no hay un `main` ni una lista de tests que mantener. En logging, `getLogger(__name__)` da al logger el nombre del módulo, así el formato puede decir de dónde viene cada línea."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: comprobar con assert"
+		},
+		{
+			"type": "p",
+			"md": "Antes de instalar nada puedes verificar una función con asserts. Este ejemplo comprueba el caso normal y el caso de una sola nota, y además define qué debe ocurrir con una lista vacía."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "promedio.py",
+			"code": "def promedio(notas):\n    if not notas:\n        raise ValueError(\"la lista de notas está vacía\")\n    return sum(notas) / len(notas)\n\nassert promedio([10, 20]) == 15.0\nassert promedio([20]) == 20.0\nprint(\"todas las comprobaciones pasan\")",
+			"highlight": [
+				2,
+				3,
+				6,
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "Si cambias el 20 por 30 en la segunda comprobación, el programa se detiene con `AssertionError` y la línea exacta. Ese fallo temprano es la virtud del assert: el error aparece donde se produce, no tres pasos después cuando el resultado ya se guardó. La validación de la lista vacía, en cambio, es un `raise` de verdad: seguiría activa con `-O`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: una prueba de pytest con fixture y parámetros"
+		},
+		{
+			"type": "p",
+			"md": "Este es el aspecto de un proyecto real. `precios.py` contiene la lógica; `test_precios.py` contiene las pruebas. Las fixtures preparan datos compartidos y `parametrize` repite el mismo test con tres entradas sin copiar y pegar. Instala pytest dentro del entorno virtual con `pip install pytest`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "precios.py",
+			"code": "def aplicar_descuento(precio: float, descuento: float) -> float:\n    if not 0 <= descuento < 1:\n        raise ValueError(\"el descuento debe estar entre 0 y 1\")\n    return precio * (1 - descuento)"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "test_precios.py",
+			"code": "import pytest\n\nfrom precios import aplicar_descuento\n\n\n@pytest.fixture\ndef catalogo():\n    return {\"teclado\": 120.0, \"mouse\": 45.0}\n\n\n@pytest.mark.parametrize(\n    \"precio, esperado\",\n    [(100.0, 90.0), (45.0, 40.5), (0.0, 0.0)],\n)\ndef test_descuento_diez_por_ciento(precio, esperado):\n    assert aplicar_descuento(precio, 0.10) == pytest.approx(esperado)\n\n\ndef test_catalogo_tiene_dos_productos(catalogo):\n    assert len(catalogo) == 2\n\n\ndef test_descuento_invalido():\n    with pytest.raises(ValueError):\n        aplicar_descuento(100.0, 1.5)",
+			"highlight": [
+				7,
+				12,
+				18,
+				26
+			]
+		},
+		{
+			"type": "p",
+			"md": "Con `pytest -q` obtienes `5 passed`: tres casos del test parametrizado, el del catálogo y el del error esperado. `pytest.approx` compara flotantes con tolerancia, porque operaciones como `0.1 + 0.2` no dan exactamente `0.3` en binario. La fixture `catalogo` se inyecta por el nombre del parámetro, y `pytest.raises` comprueba que el error se lanza en lugar de dejar que tumbe la suite."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: instrumentar un proceso ETL"
+		},
+		{
+			"type": "p",
+			"md": "En un proceso que carga, limpia y transforma datos, los logs son la única evidencia que tendrás a las tres de la mañana. La clave es registrar hechos con nivel adecuado y no convertir el registro en una novela: una línea por hito y una por anomalía."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "etl.py",
+			"code": "import logging\n\nlogging.basicConfig(level=logging.INFO, format=\"%(levelname)s %(name)s: %(message)s\")\nlog = logging.getLogger(\"etl\")\n\n\ndef cargar(filas):\n    if not filas:\n        raise ValueError(\"no hay filas para procesar\")\n    log.info(\"cargadas %d filas\", len(filas))\n    return filas\n\n\ndef limpiar(filas):\n    validas = [fila for fila in filas if fila.get(\"precio\")]\n    descartadas = len(filas) - len(validas)\n    if descartadas:\n        log.warning(\"filas descartadas: %d\", descartadas)\n    return validas\n\n\ntry:\n    datos = cargar([{\"precio\": 10}, {\"precio\": None}, {\"precio\": 25}])\n    print(limpiar(datos))\nexcept ValueError as error:\n    log.error(\"ETL abortado: %s\", error)",
+			"highlight": [
+				3,
+				10,
+				18,
+				25
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `INFO etl: cargadas 3 filas`, `WARNING etl: filas descartadas: 1` y la lista con dos diccionarios. Fíjate en los `%d` y `%s`: pasar los valores como argumentos retrasa el formateo hasta que el mensaje se emite, y evita construir cadenas que luego se descartan por nivel. Si mañana bajas el nivel a `DEBUG`, no cambias ni una línea del código."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué mensajes pasan el filtro"
+		},
+		{
+			"type": "p",
+			"md": "Recorre los pasos y observa el filtro de nivel. Los mensajes `DEBUG` e `INFO` se descartan antes de formatearse; solo `WARNING` y `ERROR` llegan al handler de la consola."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Configurar WARNING y emitir cuatro mensajes",
+			"code": "import logging\n\nlogging.basicConfig(level=logging.WARNING, format=\"%(levelname)s:%(name)s:%(message)s\")\nlog = logging.getLogger(\"ventas\")\n\nlog.debug(\"cargando el CSV\")\nlog.info(\"12 filas leídas\")\nlog.warning(\"3 filas sin precio\")\nlog.error(\"no se pudo guardar el informe\")",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se importa el módulo `logging`, que ya viene con Python.",
+					"vars": {
+						"logging": "<module 'logging'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`basicConfig` prepara el logger raíz con nivel WARNING y un formato de tres campos: nivel, nombre del logger y mensaje.",
+					"vars": {
+						"logging": "<module 'logging'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Se crea el logger `ventas`. No tiene handler propio, así que sus mensajes se propagan al logger raíz.",
+					"vars": {
+						"logging": "<module 'logging'>",
+						"log": "<Logger ventas (WARNING)>"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`DEBUG` vale 10 y el nivel configurado es 30: el mensaje se descarta sin formatearse.",
+					"vars": {
+						"logging": "<module 'logging'>",
+						"log": "<Logger ventas (WARNING)>"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`INFO` vale 20, todavía por debajo de 30. Tampoco se emite.",
+					"vars": {
+						"logging": "<module 'logging'>",
+						"log": "<Logger ventas (WARNING)>"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "`WARNING` vale 30 y alcanza el umbral: el handler escribe la línea con el formato indicado.",
+					"vars": {
+						"logging": "<module 'logging'>",
+						"log": "<Logger ventas (WARNING)>"
+					},
+					"output": "WARNING:ventas:3 filas sin precio\n"
+				},
+				{
+					"line": 9,
+					"note": "`ERROR` vale 40, también pasa. El programa sigue vivo: registrar un error no es lo mismo que lanzarlo.",
+					"vars": {
+						"logging": "<module 'logging'>",
+						"log": "<Logger ventas (WARNING)>"
+					},
+					"output": "ERROR:ventas:no se pudo guardar el informe\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				["`AssertionError` sin pista", "El assert no lleva mensaje", "Añade `assert condicion, f\"valor: {x}\"`"],
+				["`pytest` ejecuta 0 tests", "El archivo no se llama `test_*.py` o la función no empieza por `test_`", "Renombra el archivo y la función según la convención"],
+				["Los `log.info` no aparecen", "El nivel por defecto es WARNING", "Configura `level=logging.INFO` al inicio"],
+				["`RuntimeWarning: coroutine ... was never awaited`", "Llamaste a una función async sin `await`", "Añade `await` o ejecútala con `asyncio.run`"],
+				["El programa se detiene en `(Pdb)`", "Dejaste un `breakpoint()` olvidado", "Escribe `c` para continuar o elimina la línea"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El assert que nunca falla",
+			"wrong": {
+				"caption": "Una tupla siempre es verdadera",
+				"code": "x = 3\nassert (x == 4, \"x debería ser 4\")\nprint(\"sigue\")"
+			},
+			"right": {
+				"caption": "Condición y mensaje separados por coma",
+				"code": "x = 3\nassert x == 4, \"x debería ser 4\"\nprint(\"no se alcanza\")"
+			},
+			"explain": "Con paréntesis, el assert evalúa la tupla `(False, \"x debería ser 4\")`, y una tupla no vacía siempre es verdadera. La coma debe ir fuera de la condición para que el segundo elemento sea el mensaje."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "El depurador sin instalar nada",
+			"md": "Escribe `breakpoint()` en la línea que quieres investigar y ejecuta el archivo con normalidad. En el prompt de pdb: `p variable` imprime, `n` avanza una línea, `s` entra en una función, `c` continúa hasta el siguiente punto y `q` sale. Es la versión moderna de `import pdb; pdb.set_trace()`."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Una sesión de pdb",
+			"code": "python3 -m pdb factura.py\n# (Pdb) b factura.py:8     ← punto de parada en la línea 8\n# (Pdb) c                  ← continúa hasta allí\n# (Pdb) p cantidad         ← muestra el valor actual\n# (Pdb) n                  ← ejecuta la línea siguiente\n# (Pdb) q                  ← termina la sesión"
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Prueba el caso normal, el límite y el error esperado; los tres suelen revelar fallos distintos.",
+				"Un test debe poder ejecutarse solo y en cualquier orden: no dependas del test anterior.",
+				"Nombra los tests por el comportamiento (`test_descuento_invalido_lanza_error`), no por el método.",
+				"No uses `assert` para validar entradas de usuario: con `-O` desaparecen. Usa `if ... raise ValueError`.",
+				"Registra hechos, no emociones: `filas descartadas: 3` sirve; `algo va mal` no.",
+				"Usa parámetros `%s`/`%d` en logging y deja `DEBUG` para el detalle que solo activas al investigar.",
+				"Ejecuta `pytest --cov=paquete` para ver qué quedó sin probar, y revisa las líneas, no el porcentaje."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Probar un límite con parametrización",
+			"md": "Escribe `test_edad.py` para una función `es_mayor_de_edad(edad)` que devuelve `True` desde los 18 años. Cubre el límite con `parametrize` (17, 18 y 65) y añade una prueba de que un texto lanza `TypeError`. Ejecuta `pytest -q test_edad.py` y comprueba que pasan los cuatro casos.",
+			"hint": "Usa `pytest.mark.parametrize(\"edad, esperado\", [...])` y `pytest.raises(TypeError)` para el caso inválido. Compara con `is esperado` para exigir un booleano real.",
+			"solution": {
+				"lang": "python",
+				"caption": "test_edad.py",
+				"code": "import pytest\n\ndef es_mayor_de_edad(edad: int) -> bool:\n    return edad >= 18\n\n@pytest.mark.parametrize(\"edad, esperado\", [(17, False), (18, True), (65, True)])\ndef test_limite(edad, esperado):\n    assert es_mayor_de_edad(edad) is esperado\n\ndef test_tipo_incorrecto():\n    with pytest.raises(TypeError):\n        es_mayor_de_edad(\"18\")",
+				"explain": "Los tres casos del límite se ejecutan como tres pruebas independientes; el cuarto comprueba el fallo esperado. `es_mayor_de_edad(\"18\")` compara un `str` con un `int` y Python lanza `TypeError`, que `pytest.raises` convierte en un test superado. Si la función devolviera `1` en vez de `True`, `is esperado` lo detectaría."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Registrar un cálculo con errores controlados",
+			"md": "Crea `factura.py` con `total_factura(cantidad, precio)`. Si `cantidad` es menor o igual que cero, lanza `ValueError` con un mensaje que incluya el valor. Si es válida, registra el total con `log.info` y devuélvelo redondeado a dos decimales. Envolvé las llamadas en un `try/except` que registre el error con `log.error` y no detenga el programa.",
+			"hint": "Configura `logging.basicConfig(level=logging.INFO, ...)` antes de crear el logger. Redondea con `round(...)` para no arrastrar los decimales binarios del `float`.",
+			"solution": {
+				"lang": "python",
+				"caption": "factura.py",
+				"code": "import logging\n\nlogging.basicConfig(level=logging.INFO, format=\"%(levelname)s %(message)s\")\nlog = logging.getLogger(__name__)\n\n\ndef total_factura(cantidad, precio):\n    if cantidad <= 0:\n        raise ValueError(f\"cantidad inválida: {cantidad}\")\n    total = round(cantidad * precio, 2)\n    log.info(\"factura calculada: %.2f\", total)\n    return total\n\n\ntry:\n    print(total_factura(3, 19.9))\n    print(total_factura(0, 19.9))\nexcept ValueError as error:\n    log.error(\"no se pudo calcular: %s\", error)",
+				"explain": "La primera llamada devuelve 59.7 y deja `INFO factura calculada: 59.70`. La segunda lanza `ValueError` con el valor culpable, el `except` lo registra como ERROR y el programa termina sin traza. Fíjate en que el log no sustituye a la excepción: la excepción avisa a quien llama, el log deja constancia para quien lea el archivo mañana."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la configuración de logging",
+			"lang": "python",
+			"code": "import logging\n\nlogging.basicConfig(level=logging.___, format=\"%(levelname)s %(message)s\")\nlog = logging.getLogger(___)\n\nlog.___(\"inicio del proceso\")",
+			"answers": [
+				"INFO",
+				"__name__",
+				"info"
+			],
+			"hint": "El nivel que muestra los hitos normales es `INFO`. El nombre del módulo actual está en `__name__`.",
+			"explain": "Con nivel `INFO` se muestran INFO, WARNING y ERROR, pero no DEBUG. `getLogger(__name__)` identifica el origen, y `log.info(...)` emite el mensaje. Si el nivel fuera `WARNING`, esta línea no aparecería."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la decisión importante es probar el **límite**: 17 y 18 son los valores que separan los dos comportamientos, y un test con solo 20 no habría detectado un `>` escrito por error en lugar de `>=`. Añadir 65 comprueba que el caso normal sigue funcionando. La prueba del tipo incorrecto no busca que el programa sea elegante, sino fijar por escrito qué ocurre con una entrada que no es un número."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el redondeo no es un detalle cosmético: `3 * 19.9` da `59.699999999999996` en coma flotante, y un total de factura con esa cola es inaceptable. `round(..., 2)` lo resuelve para el valor devuelto, y `%.2f` hace lo mismo en el log. También es deliberado que el `except` esté fuera de la función: la función informa del problema lanzando, y la capa que decide continuar o abortar es quien llama."
+		},
+		{
+			"type": "p",
+			"md": "La regla que une ambos ejercicios: una prueba comprueba comportamiento observable, un log registra lo que ya ocurrió y un depurador examina lo que está ocurriendo. Mezclarlos produce código difícil de probar: si la función imprime en vez de devolver, el test tiene que capturar la salida; si el log reemplaza al error, nadie se entera del fallo."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un error de sintaxis impide ejecutar; una excepción ocurre en ejecución; un fallo lógico produce un resultado incorrecto sin avisar.",
+				"`assert` comprueba una condición y lanza `AssertionError`; con `-O` se elimina, así que no valida entradas reales.",
+				"pytest descubre `test_*.py` y funciones `test_*`, y reescribe los assert para mostrar los valores del fallo.",
+				"Las fixtures preparan datos reutilizables y `parametrize` ejecuta el mismo test con varias entradas.",
+				"La cobertura mide líneas ejecutadas, no comportamientos comprobados.",
+				"logging filtra por nivel: DEBUG 10, INFO 20, WARNING 30, ERROR 40, CRITICAL 50.",
+				"`breakpoint()` abre pdb: `p` inspecciona, `n` avanza, `c` continúa y `q` sale."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "Ejecutas un script con `python3 -O` que contiene `assert cantidad > 0`. ¿Qué ocurre si `cantidad` vale 0?",
+			"options": [
+				"Se lanza `AssertionError` como siempre",
+				"El assert se elimina y el programa continúa",
+				"Python muestra un aviso y convierte el valor a 1",
+				"Se lanza `ValueError` en lugar de `AssertionError`"
+			],
+			"answer": 1,
+			"explain": "El modo optimizado (`-O`) elimina las instrucciones assert del bytecode. Por eso los assert sirven para pruebas y comprobaciones internas, nunca para validar datos de usuario: esa validación debe ser un `if ... raise`."
+		},
+		{
+			"type": "quiz",
+			"question": "Creas `pruebas_precio.py` con una función `def probar_precio():` y ejecutas `pytest`. ¿Qué ocurre?",
+			"options": [
+				"pytest ejecuta la función porque contiene la palabra precio",
+				"pytest no encuentra ningún test y termina sin ejecutarla",
+				"pytest lanza `ImportError` por el nombre del archivo",
+				"pytest ejecuta la función dos veces"
+			],
+			"answer": 1,
+			"explain": "La convención es archivo `test_*.py` o `*_test.py` y función `test_*`. `pruebas_precio.py` y `probar_precio` no cumplen ninguna de las dos, así que la colección queda vacía."
+		},
+		{
+			"type": "quiz",
+			"question": "Un guardado de informe falla y el proceso puede continuar con el siguiente informe. ¿Qué nivel de log es el más adecuado?",
+			"options": [
+				"`DEBUG`, porque es un detalle interno",
+				"`INFO`, porque el proceso sigue",
+				"`ERROR`, porque una operación concreta no se completó",
+				"`CRITICAL`, porque cualquier fallo es crítico"
+			],
+			"answer": 2,
+			"explain": "`ERROR` registra que una operación falló sin que el proceso entero muera. `CRITICAL` se reserva para cuando ya no se puede continuar. `INFO` ocultaría el problema entre mensajes rutinarios."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "logging: tutorial",
+					"url": "https://docs.python.org/es/3/howto/logging.html",
+					"note": "niveles, handlers y formato"
+				},
+				{
+					"label": "pytest",
+					"url": "https://docs.pytest.org/en/stable/",
+					"note": "fixtures, parametrización y plugins"
+				},
+				{
+					"label": "pdb",
+					"url": "https://docs.python.org/es/3/library/pdb.html",
+					"note": "comandos del depurador"
+				}
+			]
+		}
+	]
+}

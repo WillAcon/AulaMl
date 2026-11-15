@@ -1,0 +1,511 @@
+{
+	"id": "py-24-concurrencia",
+	"track": "python",
+	"order": 24,
+	"title": "Concurrencia, multiprocessing y asyncio",
+	"subtitle": "Elegir hilos, procesos o corrutinas según el trabajo sea de entrada/salida o de CPU",
+	"level": "avanzado",
+	"minutes": 48,
+	"tags": [
+		"concurrencia",
+		"asyncio",
+		"threading",
+		"multiprocessing",
+		"gil"
+	],
+	"keywords": [
+		"qué es el GIL",
+		"hilos en python",
+		"multiprocessing python",
+		"asyncio tutorial",
+		"async await",
+		"event loop",
+		"diferencia hilos procesos",
+		"concurrencia vs paralelismo",
+		"deadlock python",
+		"race condition",
+		"cuándo usar asyncio",
+		"tareas io bound cpu bound"
+	],
+	"summary": "Tres modelos de concurrencia, tres problemas distintos. Entender el GIL, el bucle de eventos y el coste de crear procesos te permite elegir hilos para esperar, procesos para calcular y asyncio para miles de conexiones sin bloquear.",
+	"objectives": [
+		"Distinguir concurrencia de paralelismo y trabajo de E/S de trabajo de CPU",
+		"Explicar qué limita el GIL y por qué los hilos sí sirven para entrada/salida",
+		"Escribir código con threading, multiprocessing y async/await",
+		"Trazar el orden de ejecución de varias corrutinas en un event loop",
+		"Reconocer y evitar condiciones de carrera y bloqueos mutuos"
+	],
+	"prerequisites": [
+		"Iteradores y generadores",
+		"Errores y excepciones"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Tu programa pasa la mayor parte del tiempo esperando: la respuesta de una API, un disco, una consulta a la base de datos. Mientras espera, la CPU está libre. La **concurrencia** es la capacidad de organizar el trabajo para aprovechar esas pausas, y Python ofrece tres herramientas con costes y límites distintos: hilos, procesos y corrutinas."
+		},
+		{
+			"type": "p",
+			"md": "La palabra clave es *elegir*. Lanzar hilos a todo no acelera un cálculo numérico, y usar `asyncio` con una biblioteca bloqueante lo vuelve más lento que el código secuencial."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es la concurrencia?"
+		},
+		{
+			"type": "p",
+			"md": "**Concurrencia** es tener varias tareas en curso a la vez; **paralelismo** es ejecutarlas físicamente al mismo tiempo en varios núcleos. Un solo cocinero que alterna dos ollas es concurrente; dos cocineros, uno por olla, son paralelos. Los hilos y asyncio te dan concurrencia en un proceso; los procesos te dan paralelismo real."
+		},
+		{
+			"type": "p",
+			"md": "Hay una segunda distinción que decide casi todo: el tipo de trabajo. El trabajo **de E/S** (*I/O bound*) pasa el tiempo esperando datos: red, disco, base de datos. El trabajo **de CPU** (*CPU bound*) pasa el tiempo calculando: bucles numéricos, procesar imágenes, entrenar un modelo. La primera categoría se beneficia de hilos o asyncio; la segunda, de procesos."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve cada modelo?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Hilos (`threading`)**: descargar varios archivos, consultar varias APIs o leer muchos ficheros. Código secuencial que sigue leyéndose igual, con memoria compartida.",
+				"**Procesos (`multiprocessing`)**: repartir un cálculo pesado entre núcleos. Cada proceso tiene su propia memoria y evita el GIL.",
+				"**asyncio**: manejar cientos o miles de conexiones con un solo hilo, sin crear un hilo por conexión. Es el modelo de FastAPI, `aiohttp` y los clientes de bases de datos asíncronos.",
+				"**Ninguno**: si el programa dura milisegundos o el cuello de botella es una sola operación, la versión secuencial suele ser más simple y rápida."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? GIL, procesos y event loop"
+		},
+		{
+			"type": "p",
+			"md": "CPython tiene el **GIL** (*Global Interpreter Lock*): un candado que permite que **un solo hilo ejecute bytecode Python a la vez**, aunque la máquina tenga ocho núcleos. No es un candado de tu código, es del intérprete. Por eso dos hilos que suman en un bucle no van el doble de rápido: se turnan."
+		},
+		{
+			"type": "p",
+			"md": "El GIL se libera cuando un hilo hace una operación de E/S o llama a una extensión de C que lo suelta (NumPy, por ejemplo). Ahí está la grieta que hace útiles los hilos: mientras uno espera la red, otro ejecuta Python. Para cálculo puro, en cambio, los hilos compiten por el mismo candado."
+		},
+		{
+			"type": "p",
+			"md": "`multiprocessing` esquiva el problema creando **procesos separados**, cada uno con su intérprete y su GIL. El precio es alto: no comparten variables, los argumentos y resultados se serializan con `pickle`, y arrancar un proceso cuesta más que arrancar un hilo. En macOS y Windows el proceso hijo se inicia de nuevo (*spawn*), así que el código de arranque debe ir bajo `if __name__ == \"__main__\":`."
+		},
+		{
+			"type": "p",
+			"md": "`asyncio` usa un único hilo y un **bucle de eventos** (*event loop*). El bucle mantiene una cola de tareas listas y otra de tareas esperando. Una función `async def` no se ejecuta al llamarla: devuelve una **corrutina**, un objeto que hay que programar. Cuando la corrutina llega a un `await` sobre una operación pendiente, se suspende y devuelve el control al bucle, que aprovecha para avanzar otra tarea. Cuando la operación termina, la corrutina se reanuda justo después del `await`."
+		},
+		{
+			"type": "p",
+			"md": "Ese detalle explica el error más caro de asyncio: si dentro de una corrutina llamas a `time.sleep(5)` o a una biblioteca bloqueante, no hay `await` y el bucle entero se congela. Cinco segundos de espera se convierten en cinco segundos para todas las tareas. La regla es usar versiones asíncronas (`asyncio.sleep`, `aiohttp`, `asyncpg`) y dejar el código bloqueante en un hilo aparte con `asyncio.to_thread`."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "El GIL no hace inútiles los hilos",
+			"md": "Un servidor que atiende peticiones con SQLite o HTTP pasa la vida esperando. Ahí los hilos rinden muy bien porque el GIL se libera en cada espera. El GIL solo duele cuando el tiempo se va en ejecutar líneas de Python, no en esperar."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: tres formas de lanzar trabajo"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "El mismo patrón en los tres modelos",
+			"code": "# Hilo: comparte memoria\nimport threading\nhilo = threading.Thread(target=funcion, args=(dato,))\nhilo.start()\nhilo.join()\n\n# Proceso: memoria separada\nimport multiprocessing\nproceso = multiprocessing.Process(target=funcion, args=(dato,))\nproceso.start()\nproceso.join()\n\n# Corrutina: hay que esperarla\nimport asyncio\nasyncio.run(main())",
+			"highlight": [
+				3,
+				4,
+				5,
+				9,
+				10,
+				11,
+				15
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los dos primeros comparten la forma `crear`, `start`, `join`: `join` espera a que el hilo o el proceso termine. En asyncio no hay `join`, sino `await`, que espera el resultado de una corrutina y, mientras tanto, deja avanzar otras tareas."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: dos descargas con hilos"
+		},
+		{
+			"type": "p",
+			"md": "Cada hilo simula una descarga de un segundo con `time.sleep`, que libera el GIL. Si el trabajo fuera secuencial, el total sería de dos segundos; con hilos, de uno."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "hilos.py",
+			"code": "import threading\nimport time\n\ndef descargar(nombre, segundos):\n    print(f\"inicia {nombre}\")\n    time.sleep(segundos)\n    print(f\"fin {nombre}\")\n\ninicio = time.perf_counter()\nhilos = [\n    threading.Thread(target=descargar, args=(f\"archivo{i}\", 1))\n    for i in (1, 2)\n]\nfor hilo in hilos:\n    hilo.start()\nfor hilo in hilos:\n    hilo.join()\n\nprint(f\"total: {time.perf_counter() - inicio:.1f} s\")",
+			"highlight": [
+				5,
+				13,
+				14,
+				16
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida deja claro que ambos empiezan antes de que ninguno acabe: `inicia archivo1`, `inicia archivo2`, `fin archivo2`, `fin archivo1`, `total: 1.0 s`. El orden de los `fin` no está garantizado. `start()` lanza el hilo y devuelve el control; `join()` bloquea el hilo principal hasta que ese hilo termina. Sin `join`, el programa podría acabar antes que las descargas."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: las mismas descargas con asyncio"
+		},
+		{
+			"type": "p",
+			"md": "Con asyncio no hay hilos: hay una sola función principal que crea dos corrutinas y las deja avanzar por turnos. `gather` las ejecuta concurrentemente y devuelve una lista con los resultados en el orden en que se pasaron."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "async.py",
+			"code": "import asyncio\nimport time\n\nasync def descargar(nombre, segundos):\n    print(f\"inicia {nombre}\")\n    await asyncio.sleep(segundos)\n    print(f\"fin {nombre}\")\n\nasync def main():\n    inicio = time.perf_counter()\n    await asyncio.gather(descargar(\"uno\", 1), descargar(\"dos\", 1))\n    print(f\"total: {time.perf_counter() - inicio:.1f} s\")\n\nasyncio.run(main())",
+			"highlight": [
+				4,
+				6,
+				11,
+				14
+			]
+		},
+		{
+			"type": "p",
+			"md": "`async def` define una corrutina; llamarla no ejecuta el cuerpo. `await asyncio.sleep(1)` suspende esa corrutina y entrega el control al bucle, que arranca la otra. `asyncio.run` crea el bucle, ejecuta `main` hasta el final y lo cierra. El total vuelve a ser de un segundo, con un solo hilo y sin `join`."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: repartir cálculo entre procesos"
+		},
+		{
+			"type": "p",
+			"md": "Para trabajo de CPU, `Pool` reparte las llamadas entre procesos. Cada uno recibe su argumento, calcula y devuelve el resultado serializado. `map` conserva el orden de la entrada aunque los procesos terminen desordenados."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "procesos.py",
+			"code": "from multiprocessing import Pool\n\ndef cuadrado(n):\n    return n * n\n\nif __name__ == \"__main__\":\n    with Pool() as pool:\n        print(pool.map(cuadrado, range(6)))",
+			"highlight": [
+				6,
+				7,
+				8
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `[0, 1, 4, 9, 16, 25]`. El guardián `if __name__ == \"__main__\":` no es opcional en macOS y Windows: al crear el proceso, el hijo vuelve a importar el archivo y volvería a crear otro `Pool` en un bucle infinito. `with` cierra el pool y espera a que los procesos terminen."
+		},
+		{
+			"type": "p",
+			"md": "En un caso real, cambiarías `cuadrado` por una función que procese un lote de imágenes o entrene un modelo sobre una partición de datos. Medir es obligatorio: si cada tarea dura microsegundos, el coste de crear procesos y serializar resultados se come la ganancia."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Modelo",
+				"Ideal para",
+				"Coste principal"
+			],
+			"rows": [
+				["Hilos", "E/S moderada, código bloqueante existente", "Comparten memoria: condiciones de carrera"],
+				["Procesos", "Cálculo intensivo en CPU", "Arranque y serialización; memoria separada"],
+				["asyncio", "Miles de conexiones simultáneas", "Todo debe ser asíncrono; un bloqueo congela el bucle"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el orden real de un event loop"
+		},
+		{
+			"type": "p",
+			"md": "Recorre los pasos y observa que las dos tareas empiezan antes de que ninguna termine: la que espera un segundo acaba primero, aunque se haya lanzado después."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Dos corrutinas, un solo hilo",
+			"code": "import asyncio\n\nasync def tarea(nombre, espera):\n    print(f\"inicia {nombre}\")\n    await asyncio.sleep(espera)\n    print(f\"termina {nombre}\")\n\nasync def main():\n    await asyncio.gather(tarea(\"A\", 2), tarea(\"B\", 1))\n\nasyncio.run(main())",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se importa `asyncio`. Todavía no existe ningún bucle ni ninguna tarea.",
+					"vars": {
+						"asyncio": "<module 'asyncio'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`async def` crea la función `tarea`, pero no ejecuta su cuerpo: es una corrutina, no una llamada normal.",
+					"vars": {
+						"asyncio": "<module 'asyncio'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "`main` también queda definida sin ejecutarse.",
+					"vars": {
+						"asyncio": "<module 'asyncio'>"
+					},
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "`asyncio.run` crea el bucle de eventos y programa `main` como tarea principal.",
+					"vars": {
+						"asyncio": "<module 'asyncio'>",
+						"bucle": "en ejecución"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "`gather` programa A y B. A arranca, imprime y llega a `await asyncio.sleep(2)`: se suspende y devuelve el control al bucle.",
+					"frames": [
+						{
+							"name": "tarea('A', 2)",
+							"vars": {
+								"nombre": "'A'",
+								"espera": "2"
+							}
+						}
+					],
+					"output": "inicia A\n"
+				},
+				{
+					"line": 9,
+					"note": "El bucle aprovecha la pausa de A para arrancar B, que imprime y se suspende un segundo.",
+					"frames": [
+						{
+							"name": "tarea('B', 1)",
+							"vars": {
+								"nombre": "'B'",
+								"espera": "1"
+							}
+						}
+					],
+					"output": "inicia B\n"
+				},
+				{
+					"line": 5,
+					"note": "Pasa un segundo: B es la primera en despertar. El bucle la reanuda justo después del `await` y termina.",
+					"frames": [
+						{
+							"name": "tarea('B', 1)",
+							"vars": {
+								"nombre": "'B'",
+								"espera": "1"
+							}
+						}
+					],
+					"output": "termina B\n"
+				},
+				{
+					"line": 5,
+					"note": "Pasa el segundo siguiente: A se reanuda y también termina. `gather` recibe los dos resultados y el bucle se cierra.",
+					"frames": [
+						{
+							"name": "tarea('A', 2)",
+							"vars": {
+								"nombre": "'A'",
+								"espera": "2"
+							}
+						}
+					],
+					"output": "termina A\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				["El programa se queda colgado sin error ni salida", "Dos hilos esperan un candado que el otro retiene: interbloqueo", "Adquiere los candados siempre en el mismo orden o usa un `timeout`"],
+				["Un contador compartido termina con valores distintos en cada ejecución", "Condición de carrera: `+=` no es atómico", "Protege la sección crítica con `threading.Lock`"],
+				["`RuntimeWarning: coroutine 'main' was never awaited`", "Llamaste a una corrutina y no la esperaste", "Usa `asyncio.run(main())` o `await main()`"],
+				["`RuntimeError: asyncio.run() cannot be called from a running event loop`", "Ya hay un bucle activo, típico en Jupyter", "Usa `await main()` directamente en la celda"],
+				["Los hilos no aceleran un cálculo numérico", "El GIL impide ejecutar bytecode en paralelo", "Cambia a `multiprocessing` o a una función vectorizada de NumPy"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Dos candados en orden distinto",
+			"wrong": {
+				"caption": "Interbloqueo garantizado",
+				"code": "def tarea_uno():\n    with lock_a:\n        with lock_b:\n            print(\"uno\")\n\ndef tarea_dos():\n    with lock_b:\n        with lock_a:\n            print(\"dos\")"
+			},
+			"right": {
+				"caption": "Mismo orden en ambas tareas",
+				"code": "def tarea_uno():\n    with lock_a:\n        with lock_b:\n            print(\"uno\")\n\ndef tarea_dos():\n    with lock_a:\n        with lock_b:\n            print(\"dos\")"
+			},
+			"explain": "En la versión incorrecta, uno toma A y espera B mientras el otro toma B y espera A: ninguno suelta y el programa se congela. Si todas las tareas adquieren los candados en el mismo orden, la espera circular desaparece."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Ejecuta estos ejemplos en tu máquina",
+			"md": "El navegador ejecuta Python en WebAssembly: no hay procesos reales ni varios núcleos. Los ejemplos con `multiprocessing`, `threading` y medición de tiempos están pensados para `python3` en tu equipo. Si el botón «Probar» falla en esta lección, no es tu código: es el entorno."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Mide primero: compara la versión secuencial con la concurrente y no des por hecho la mejora.",
+				"Clasifica la tarea antes de elegir: si espera, hilos o asyncio; si calcula, procesos.",
+				"No compartas estado mutable entre hilos sin un `Lock`; prefiere colas (`queue.Queue`) para pasar datos.",
+				"En asyncio, nunca llames a `time.sleep`, `requests` o una consulta bloqueante dentro de una corrutina.",
+				"Usa `ThreadPoolExecutor` o `ProcessPoolExecutor` antes que crear hilos y procesos a mano.",
+				"Pon `timeout` a las esperas y a los candados: un bloqueo silencioso es peor que un error.",
+				"Documenta el modelo elegido y por qué; el próximo lector no verá tu razonamiento."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Tres descargas con un pool de hilos",
+			"md": "Usa `ThreadPoolExecutor` para simular tres descargas de un segundo cada una con `time.sleep`. Recoge los resultados en una lista con `pool.map` e imprime cuántos segundos tardó el bloque completo. Ejecútalo y comprueba que tarda alrededor de un segundo, no de tres.",
+			"hint": "`ThreadPoolExecutor(max_workers=3)` como gestor de contexto; `list(pool.map(funcion, nombres))` espera a que todas terminen y conserva el orden.",
+			"solution": {
+				"lang": "python",
+				"caption": "pool_hilos.py",
+				"code": "from concurrent.futures import ThreadPoolExecutor\nimport time\n\ndef descargar(nombre):\n    time.sleep(1)\n    return f\"{nombre}: 200 OK\"\n\ninicio = time.perf_counter()\nwith ThreadPoolExecutor(max_workers=3) as pool:\n    resultados = list(pool.map(descargar, [\"a\", \"b\", \"c\"]))\n\nprint(resultados)\nprint(f\"total: {time.perf_counter() - inicio:.1f} s\")",
+				"explain": "Los tres hilos duermen a la vez, así que el bloque tarda cerca de un segundo y el `print` final lo confirma. `map` devuelve los resultados en el orden de entrada, aunque el hilo de `c` termine antes que el de `a`. Si la función quemara CPU en lugar de dormir, el GIL limitaría la mejora y convendría `ProcessPoolExecutor`."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Cancelar una consulta lenta",
+			"md": "Escribe una corrutina `consultar(nombre, segundos)` que espere y devuelva un texto. Desde `main`, envuélvela con `asyncio.wait_for(..., timeout=0.5)` para una consulta de dos segundos y captura `asyncio.TimeoutError` imprimiendo un aviso. Comprueba que el programa no se queda esperando los dos segundos.",
+			"hint": "`wait_for` cancela la corrutina cuando vence el plazo y lanza `asyncio.TimeoutError`. El `try/except` va alrededor del `await`.",
+			"solution": {
+				"lang": "python",
+				"caption": "timeout.py",
+				"code": "import asyncio\n\nasync def consultar(nombre, segundos):\n    await asyncio.sleep(segundos)\n    return f\"{nombre} listo\"\n\nasync def main():\n    try:\n        resultado = await asyncio.wait_for(consultar(\"lento\", 2), timeout=0.5)\n        print(resultado)\n    except asyncio.TimeoutError:\n        print(\"tiempo agotado: se cancela la consulta\")\n\nasyncio.run(main())",
+				"explain": "A los 0.5 segundos el bucle cancela la corrutina y `wait_for` lanza la excepción. El mensaje aparece casi de inmediato, no a los dos segundos. Sin `wait_for`, una API caída podría dejar la tarea esperando indefinidamente y consumir un cupo de conexiones."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la corrutina",
+			"lang": "python",
+			"code": "import asyncio\n\n___ def consultar(nombre):\n    print(\"consultando\", nombre)\n    ___ asyncio.sleep(1)\n\nasync def main():\n    await asyncio.___(consultar(\"a\"), consultar(\"b\"))\n\nasyncio.run(main())",
+			"answers": [
+				"async",
+				"await",
+				"gather"
+			],
+			"hint": "Una corrutina se declara con `async def`. Para esperar sin bloquear se usa `await`. La función que ejecuta varias a la vez es `gather`.",
+			"explain": "`async def` crea la corrutina, `await asyncio.sleep(1)` cede el control al bucle y `asyncio.gather` ejecuta ambas a la vez. El programa imprime `consultando a` y `consultando b` antes de terminar, y tarda cerca de un segundo en total."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de hilos, la decisión de usar `ThreadPoolExecutor` en lugar de crear hilos a mano te da dos cosas: un límite de trabajadores y una forma limpia de recoger resultados o excepciones. `map` reparte las tareas y espera a todas. El tiempo de un segundo demuestra que las esperas se solapan; no demuestra paralelismo, porque no hay cálculo simultáneo."
+		},
+		{
+			"type": "p",
+			"md": "En el de asyncio, `wait_for` resuelve un problema real: una dependencia externa que no responde. Cancelar no es abandonar el proceso, es liberar el recurso y seguir. Fíjate en que la cancelación ocurre dentro del bucle, en un punto de `await`; una corrutina que no cede el control no puede cancelarse a tiempo."
+		},
+		{
+			"type": "p",
+			"md": "Si juntas ambos mundos, la receta es: `asyncio` para orquestar la red y `asyncio.to_thread` para las llamadas bloqueantes que no tienen versión asíncrona. Para cálculo pesado, `ProcessPoolExecutor` y medir. La pregunta que ordena todo es siempre la misma: ¿el tiempo se va esperando o calculando?"
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Concurrencia es alternar tareas; paralelismo es ejecutarlas a la vez en varios núcleos.",
+				"El GIL permite que un solo hilo ejecute bytecode Python, pero se libera en operaciones de E/S.",
+				"Los hilos sirven para esperar; los procesos, para calcular; asyncio, para muchas conexiones.",
+				"Una `async def` devuelve una corrutina que no corre hasta que se espera o se programa.",
+				"`await` suspende la corrutina y devuelve el control al bucle de eventos.",
+				"Un `time.sleep` dentro de una corrutina congela todas las tareas del bucle.",
+				"Los candados tomados en órdenes distintos producen interbloqueos silenciosos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué implica el GIL de CPython en la práctica?",
+			"options": [
+				"Que ningún programa puede usar más de un núcleo, ni siquiera con procesos",
+				"Que un solo hilo ejecuta bytecode Python a la vez en cada proceso",
+				"Que los hilos no pueden acceder a variables compartidas",
+				"Que asyncio necesita un hilo por cada tarea"
+			],
+			"answer": 1,
+			"explain": "El GIL es un candado por intérprete: dentro de un proceso, solo un hilo ejecuta bytecode a la vez. Los procesos tienen su propio intérprete y su propio GIL, por eso sí logran paralelismo real."
+		},
+		{
+			"type": "quiz",
+			"question": "Tienes que redimensionar 500 imágenes y la operación tarda 200 ms de CPU en cada una. ¿Qué modelo conviene?",
+			"options": [
+				"Hilos, porque comparten las imágenes en memoria",
+				"Procesos, porque el trabajo es intensivo en CPU y el GIL limita los hilos",
+				"asyncio, porque permite esperar las 500 a la vez",
+				"Da igual: los tres tardan exactamente lo mismo"
+			],
+			"answer": 1,
+			"explain": "Redimensionar es cálculo sostenido, no espera. Con hilos, el GIL los obliga a turnarse y apenas hay mejora. `ProcessPoolExecutor` reparte las imágenes entre núcleos; el coste es serializar cada imagen."
+		},
+		{
+			"type": "quiz",
+			"question": "Dentro de una corrutina llamas a `time.sleep(3)` en lugar de `await asyncio.sleep(3)`. ¿Qué ocurre?",
+			"options": [
+				"El bucle cancela la corrutina automáticamente",
+				"Se bloquea todo el bucle de eventos durante tres segundos",
+				"Se crea un hilo nuevo para esa espera",
+				"Python lanza `RuntimeError` por usar una función bloqueante"
+			],
+			"answer": 1,
+			"explain": "`time.sleep` bloquea el hilo donde corre el bucle, y ese hilo es el único. Ninguna otra tarea avanza durante los tres segundos. No hay error: el programa simplemente deja de ser concurrente."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "asyncio",
+					"url": "https://docs.python.org/es/3/library/asyncio.html",
+					"note": "bucle de eventos, tareas y sincronización"
+				},
+				{
+					"label": "threading",
+					"url": "https://docs.python.org/es/3/library/threading.html",
+					"note": "hilos, candados y colas"
+				},
+				{
+					"label": "multiprocessing",
+					"url": "https://docs.python.org/es/3/library/multiprocessing.html",
+					"note": "procesos, Pool y memoria compartida"
+				}
+			]
+		}
+	]
+}

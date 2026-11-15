@@ -1,0 +1,389 @@
+{
+	"id": "py-01-que-es-python",
+	"track": "python",
+	"order": 1,
+	"title": "¿Qué es Python y cómo preparar tu entorno?",
+	"subtitle": "Tu primer programa, el REPL y las herramientas del curso",
+	"level": "principiante",
+	"minutes": 30,
+	"tags": ["entorno", "instalación", "repl", "sintaxis"],
+	"keywords": [
+		"qué es python",
+		"instalar python",
+		"python3",
+		"repl",
+		"idle",
+		"vs code",
+		"primer programa",
+		"print",
+		"comentarios",
+		"ejecutar python",
+		"pip",
+		"venv",
+		"intérprete"
+	],
+	"summary": "Python es un lenguaje interpretado, legible y multiplataforma que se ejecuta línea por línea. En esta lección instalas las herramientas, aprendes a usar el REPL, escribes tu primer programa y entiendes qué ocurre cuando pulsas Enter.",
+	"objectives": [
+		"Explicar qué es un lenguaje interpretado y qué hace el intérprete de Python",
+		"Instalar Python y comprobar la versión desde la terminal",
+		"Usar el REPL para probar instrucciones sueltas",
+		"Escribir, ejecutar y comentar un programa sencillo",
+		"Reconocer los errores de sintaxis y de indentación más comunes"
+	],
+	"prerequisites": [],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Imagina que quieres pedirle algo a una computadora. No entiende español, ni intuye lo que necesitas: hay que darle instrucciones exactas, en un idioma que ella pueda ejecutar. **Python** es uno de esos idiomas, y está diseñado para que las personas lo lean casi como leen una receta."
+		},
+		{
+			"type": "p",
+			"md": "En este curso vas a usarlo para dos cosas: aprender a programar de verdad y, más adelante, construir modelos de Machine Learning. Todo empieza en el mismo sitio: un archivo de texto, un intérprete y una instrucción que se ejecuta."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es Python?"
+		},
+		{
+			"type": "p",
+			"md": "Python es un **lenguaje de programación de alto nivel, interpretado y de propósito general**. Cada palabra importa:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Alto nivel**: tú escribes `print(\"Hola\")`; no tienes que gestionar registros del procesador ni direcciones de memoria. Python se encarga de esa traducción.",
+				"**Interpretado**: un programa llamado *intérprete* lee tu código y lo ejecuta. No necesitas compilar a un archivo binario antes de probarlo.",
+				"**De propósito general**: sirve para automatizar archivos, crear APIs, analizar datos, entrenar redes neuronales o controlar un robot.",
+				"**Dinámico**: una variable puede contener un número y después un texto. C++ no permite eso sin declarar otro tipo.",
+				"**Multiparadigma**: puedes escribir funciones, clases, código funcional o asíncrono, y combinarlos."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Por qué Python domina el Machine Learning",
+			"md": "Las bibliotecas científicas de Python (NumPy, Pandas, scikit-learn, PyTorch) están escritas en C, C++ y Fortran, pero se controlan desde Python. Obtienes la comodidad del lenguaje y casi la velocidad del código compilado en las operaciones pesadas."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Estos son usos reales que verás a lo largo del curso, no ejemplos abstractos:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Ciencia de datos**: leer un CSV de ventas, limpiar valores nulos y calcular el ticket medio por región.",
+				"**Machine Learning**: entrenar un modelo que prediga si un correo es spam y medir su precisión.",
+				"**Automatización**: renombrar 5 000 archivos, generar informes o descargar datos de una web.",
+				"**Backend y APIs**: exponer un modelo como servicio HTTP con FastAPI.",
+				"**Investigación**: simular experimentos, procesar imágenes o analizar texto."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro"
+		},
+		{
+			"type": "p",
+			"md": "Cuando ejecutas un archivo `.py`, ocurre una cadena de pasos. Primero, el intérprete **analiza** el texto y comprueba que la sintaxis sea válida. Después lo traduce a un formato intermedio llamado *bytecode*, y una máquina virtual lo ejecuta instrucción por instrucción."
+		},
+		{
+			"type": "p",
+			"md": "La implementación más usada se llama **CPython**. Existen otras (PyPy, Jython, MicroPython), pero cuando decimos «Python» en este curso hablamos de CPython, que es el que instalarás. La ventaja del bytecode es que puedes ejecutar el mismo archivo en Windows, macOS o Linux sin cambios."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Qué ocurre al ejecutar tres instrucciones",
+			"code": "mensaje = \"Hola, mundo\"\nprint(mensaje)\nprint(2 + 3)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "El intérprete crea la variable `mensaje` y guarda el texto en memoria. Todavía no se muestra nada.",
+					"vars": { "mensaje": "\"Hola, mundo\"" },
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "`print` recibe el valor de `mensaje` y lo escribe en la salida estándar (la terminal).",
+					"vars": { "mensaje": "\"Hola, mundo\"" },
+					"output": "Hola, mundo\n"
+				},
+				{
+					"line": 3,
+					"note": "La expresión `2 + 3` se evalúa primero (da 5) y ese resultado se imprime. `print` no muestra las comillas de un texto: muestra su contenido.",
+					"vars": { "mensaje": "\"Hola, mundo\"" },
+					"output": "5\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Instalación y herramientas"
+		},
+		{
+			"type": "p",
+			"md": "Necesitas tres cosas: el intérprete, una terminal y un editor de código. En macOS y Linux suele venir instalado; en Windows conviene instalarlo desde la página oficial. Descarga **Python 3.12 o superior**: el curso usa sintaxis moderna (`match`, `tomllib`, tipos con `|`)."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Comprobar que Python está instalado y ver su versión",
+			"code": "# macOS y Linux\npython3 --version\n\n# Windows (si el instalador lo añadió al PATH)\npython --version",
+			"highlight": [2, 5]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "En Windows: marca «Add Python to PATH»",
+			"md": "Si no lo marcas durante la instalación, la terminal responderá «python no se reconoce como un comando». Vuelve a ejecutar el instalador, elige *Modify* y activa esa casilla. Es el problema número uno de los principiantes."
+		},
+		{
+			"type": "p",
+			"md": "Para escribir código usa **Visual Studio Code** con la extensión oficial de Python, o PyCharm Community. Los dos te dan resaltado de sintaxis, autocompletado y ejecución con un botón. Más adelante instalaremos paquetes con `pip`, que viene incluido con Python."
+		},
+		{
+			"type": "h",
+			"text": "El REPL: probar sin crear archivos"
+		},
+		{
+			"type": "p",
+			"md": "Abre la terminal y escribe `python3` (o `python` en Windows). Verás un prompt con tres flechas: `>>>`. Eso es el **REPL**: *Read, Eval, Print, Loop*. Lee lo que escribes, lo evalúa, imprime el resultado y vuelve a empezar. Es ideal para experimentar con una expresión antes de llevarla a un programa."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Una sesión de REPL de principio a fin",
+			"code": "$ python3\nPython 3.13.0 (main, Oct  7 2024) [Clang 16.0.0] on darwin\nType \"help\", \"copyright\", \"credits\" or \"license\" for more information.\n>>> 2 + 2\n4\n>>> nombre = \"Ada\"\n>>> print(\"Hola,\", nombre)\nHola, Ada\n>>> exit()"
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en dos detalles. En `2 + 2`, el REPL muestra el resultado automáticamente porque es una **expresión**. En `nombre = \"Ada\"`, no muestra nada: una **asignación** no produce un valor visible. Para salir, escribe `exit()` o pulsa `Ctrl+D` (`Ctrl+Z` y Enter en Windows)."
+		},
+		{
+			"type": "h",
+			"text": "Tu primer programa"
+		},
+		{
+			"type": "p",
+			"md": "Crea una carpeta para el curso y dentro un archivo llamado `hola.py`. La extensión `.py` le dice al editor y al intérprete que contiene Python. Escribe exactamente esto:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "hola.py",
+			"code": "# Mi primer programa: muestra un saludo\nnombre = \"Ada\"\n\nprint(\"Hola, mundo\")\nprint(\"Me llamo\", nombre)\nprint(\"Estoy aprendiendo Python\")"
+		},
+		{
+			"type": "p",
+			"md": "`#` inicia un **comentario**: el intérprete lo ignora, pero sirve para explicar el código a las personas. `nombre` es una **variable**: un nombre que apunta a un valor. `print(...)` es una **función**: un bloque de código reutilizable que recibe datos entre paréntesis y hace algo con ellos. Aquí recibe textos separados por comas y los muestra con un espacio entre ellos."
+		},
+		{
+			"type": "p",
+			"md": "Ejecútalo desde la terminal, situándote en la carpeta del archivo:"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"code": "python3 hola.py",
+			"caption": "La orden es: intérprete + archivo"
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Atajo en VS Code",
+			"md": "Con el archivo abierto, pulsa `Ctrl+F5` (o el botón ▷ *Run Python File*). VS Code ejecuta el archivo en la terminal integrada y te muestra la salida sin cambiar de ventana."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis básica y comentarios"
+		},
+		{
+			"type": "p",
+			"md": "Python no usa llaves `{}` ni punto y coma `;` para delimitar bloques. Usa **indentación**: espacios al principio de la línea. Esta es la regla que más sorprende a quien viene de C++ o Java, y también la que más errores causa al principio."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "Reglas mínimas de sintaxis",
+			"code": "# Un comentario de una línea\nnombre = \"Ada\"       # también puede ir al final\n\n# Las cadenas pueden usar comillas simples o dobles\nsaludo = 'Hola'\ndespedida = \"Adiós\"\n\n# print es una función: los paréntesis son obligatorios\nprint(saludo)\n\n# Las líneas se separan con saltos de línea, no con ;\nedad = 36\nprint(edad)",
+			"highlight": [1, 11, 12]
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa **4 espacios** por nivel de indentación. No mezcles tabulaciones y espacios: Python 3 lo prohíbe.",
+				"Los nombres de variables pueden tener letras, números y `_`, pero no empezar por un número. `edad_media` es válido; `2edad` no.",
+				"Python distingue mayúsculas: `Nombre` y `nombre` son variables distintas.",
+				"Un comentario empieza con `#` y llega hasta el final de la línea. No existe `//` para comentarios.",
+				"No hace falta declarar el tipo: `edad = 36` crea la variable y guarda un entero."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "El mismo saludo en los dos lenguajes",
+			"python": {
+				"caption": "hola.py",
+				"code": "nombre = \"Ada\"\nprint(\"Hola,\", nombre)"
+			},
+			"cpp": {
+				"caption": "hola.cpp",
+				"code": "#include <iostream>\n#include <string>\n\nint main() {\n    std::string nombre = \"Ada\";\n    std::cout << \"Hola, \" << nombre << std::endl;\n    return 0;\n}"
+			},
+			"note": "Python necesita dos líneas y ningún `main`; C++ declara tipos, incluye cabeceras y compila antes de ejecutar. Volveremos a esta comparación muchas veces: la comodidad de Python tiene un coste en control y velocidad."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes (y cómo se leen)"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje", "Qué significa", "Cómo se arregla"],
+			"rows": [
+				["`SyntaxError: invalid syntax`", "Falta un paréntesis, una coma o una comilla", "Revisa la línea que indica el error y la anterior"],
+				["`IndentationError: unexpected indent`", "Hay espacios de más al inicio", "Alinea el bloque con 4 espacios exactos"],
+				["`NameError: name 'Nombe' is not defined`", "Escribiste mal el nombre de una variable", "Compara mayúsculas y ortografía"],
+				["`TypeError: can only concatenate str`", "Intentaste sumar texto y número con `+`", "Convierte con `str(...)` o usa una coma en `print`"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El error clásico de quien viene de otros lenguajes",
+			"wrong": {
+				"caption": "SyntaxError",
+				"code": "print \"Hola, mundo\"\n// esto no es un comentario en Python"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "print(\"Hola, mundo\")\n# esto sí es un comentario en Python"
+			},
+			"explain": "En Python 3 `print` es una función, así que los paréntesis son obligatorios. Y los comentarios se escriben con `#`, no con `//`."
+		},
+		{
+			"type": "p",
+			"md": "Cuando aparezca un error, léelo **de abajo hacia arriba**: la última línea dice el tipo y el motivo, y las anteriores muestran la ruta y el número de línea. La terminal es tu mejor maestra; no la cierres por miedo."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas desde el primer día"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe nombres descriptivos: `precio_total` comunica más que `x`.",
+				"Usa `snake_case` para variables y funciones (`calcular_media`), no `camelCase`.",
+				"Deja una línea en blanco entre grupos lógicos de instrucciones.",
+				"Comenta el **porqué**, no el qué. `# convertir a centavos` aporta; `# suma 1` no.",
+				"Ejecuta el archivo con frecuencia: es más fácil encontrar un error en 10 líneas que en 100.",
+				"Guarda cada ejercicio en su propio archivo, dentro de una carpeta del curso."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: ficha de estudiante"
+		},
+		{
+			"type": "p",
+			"md": "Vamos a unir variables, texto y salida en un programa útil. Una **f-string** es una cadena que empieza con `f` y permite insertar variables entre llaves. Es la forma recomendada de construir mensajes en Python moderno."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ficha.py",
+			"code": "nombre = \"Ada Lovelace\"\ncarrera = \"Inteligencia Artificial\"\nciclo = 1\npromedio = 17.5\n\nprint(f\"Estudiante: {nombre}\")\nprint(f\"Carrera: {carrera}\")\nprint(f\"Ciclo: {ciclo} | Promedio: {promedio}\")\nprint(f\"¿Aprobado? {promedio >= 13}\")",
+			"highlight": [6, 7, 8, 9]
+		},
+		{
+			"type": "p",
+			"md": "Dentro de las llaves no solo cabe una variable: también cabe una operación. En la última línea, `promedio >= 13` se evalúa primero y produce `True` o `False`; la f-string lo convierte a texto automáticamente. Ese es el primer paso hacia los condicionales que verás en la próxima lección."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Ficha personal",
+			"md": "Crea un archivo `ficha.py` con tres variables: tu nombre, tu edad y tu lenguaje favorito. Muestra tres líneas usando **f-strings**, con el formato: `Me llamo ___`, `Tengo ___ años` y `Quiero aprender ___`. Después cambia los valores y vuelve a ejecutar.",
+			"hint": "Recuerda el prefijo `f` antes de las comillas: `f\"Tengo {edad} años\"`. Sin la `f`, las llaves se imprimen literalmente.",
+			"solution": {
+				"lang": "python",
+				"caption": "Una solución posible",
+				"code": "nombre = \"Grace\"\nedad = 28\nlenguaje = \"Python\"\n\nprint(f\"Me llamo {nombre}\")\nprint(f\"Tengo {edad} años\")\nprint(f\"Quiero aprender {lenguaje}\")",
+				"explain": "Las tres variables se crean antes de usarlas. La f-string evalúa lo que está entre llaves y lo convierte a texto. No hace falta convertir la edad con `str()` porque la f-string lo hace sola."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la salida",
+			"lang": "python",
+			"code": "nombre = \"Ada\"\nedad = 20\n\nprint(\"Hola,\", ___)\nprint(\"Tienes\", ___, \"años\")",
+			"answers": ["nombre", "edad"],
+			"hint": "Dentro de `print`, los nombres de variables se escriben sin comillas. Con comillas serían el texto literal.",
+			"explain": "`print(\"Hola,\", nombre)` imprime el valor de la variable. Si escribes `\"nombre\"`, imprimiría la palabra nombre. Esta distinción entre variable y cadena literal es fundamental."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Python es interpretado: el intérprete lee y ejecuta el archivo, sin compilación manual.",
+				"El REPL (`>>>`) sirve para probar expresiones al vuelo; `exit()` para salir.",
+				"`print()` es una función y sus paréntesis son obligatorios.",
+				"La indentación con 4 espacios define los bloques; los comentarios empiezan con `#`.",
+				"Las variables no se declaran: se asignan. Los nombres usan `snake_case`.",
+				"Las f-strings (`f\"...{variable}...\"`) construyen texto de forma legible.",
+				"Los errores se leen de abajo hacia arriba: tipo, motivo y línea."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace exactamente el intérprete de Python?",
+			"options": [
+				"Convierte el archivo .py en un ejecutable .exe independiente",
+				"Lee el código, lo traduce a bytecode y ejecuta las instrucciones",
+				"Comprueba la sintaxis, pero necesita un segundo programa para ejecutar",
+				"Traduce Python a C++ antes de ejecutarlo"
+			],
+			"answer": 1,
+			"explain": "CPython analiza el código, lo compila a bytecode y lo ejecuta en su máquina virtual. No genera un .exe: por eso el mismo archivo funciona en distintos sistemas."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuál de estas líneas es un comentario válido en Python?",
+			"options": ["// esto es un comentario", "/* esto es un comentario */", "# esto es un comentario", "-- esto es un comentario"],
+			"answer": 2,
+			"explain": "Python usa `#` para comentarios de una línea. `//` y `/* */` son de C, C++ y JavaScript; `--` es de SQL."
+		},
+		{
+			"type": "links",
+			"title": "Para seguir practicando",
+			"items": [
+				{
+					"label": "Tutorial oficial de Python en español",
+					"url": "https://docs.python.org/es/3/tutorial/",
+					"note": "referencia completa del lenguaje"
+				},
+				{
+					"label": "Python Tutor",
+					"url": "https://pythontutor.com/",
+					"note": "visualiza paso a paso cualquier fragmento"
+				},
+				{
+					"label": "VS Code + Python",
+					"url": "https://code.visualstudio.com/docs/python/python-tutorial",
+					"note": "configuración del editor"
+				}
+			]
+		}
+	]
+}

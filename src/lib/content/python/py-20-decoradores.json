@@ -1,0 +1,612 @@
+{
+	"id": "py-20-decoradores",
+	"track": "python",
+	"order": 20,
+	"title": "Closures y decoradores",
+	"subtitle": "Envolver funciones para añadir comportamiento sin tocar su código: caché, tiempos, logs y reintentos",
+	"level": "avanzado",
+	"minutes": 42,
+	"tags": [
+		"decoradores",
+		"closures",
+		"funciones",
+		"functools",
+		"wraps"
+	],
+	"keywords": [
+		"qué es un decorador",
+		"closure python",
+		"clausura",
+		"función de orden superior",
+		"arroba decorador",
+		"functools.wraps",
+		"decorador con parámetros",
+		"args kwargs decorador",
+		"medir tiempo función",
+		"logging decorador",
+		"decorador pierde __name__",
+		"lru_cache"
+	],
+	"summary": "Un decorador es una función que recibe otra función y devuelve una versión envuelta. Detrás hay un closure: un paquete de código más las variables que necesitaba. Aprenderás a escribirlos, a conservar los metadatos con functools.wraps y a medir tiempos o registrar llamadas sin repetir código.",
+	"objectives": [
+		"Explicar por qué las funciones son objetos y qué permite eso",
+		"Describir un closure y comprobar qué variables captura",
+		"Escribir decoradores con *args y **kwargs que acepten cualquier firma",
+		"Conservar nombre y documentación con functools.wraps",
+		"Crear decoradores con parámetros y medir el tiempo de una función"
+	],
+	"prerequisites": [
+		"Funciones",
+		"*args, **kwargs y ámbito de variables"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En Python una función no es solo un bloque de código con nombre: es un **objeto** como un número o una lista. Puedes guardarla en una variable, meterla en un diccionario, pasarla como argumento y devolverla desde otra función. Esa libertad es la que hace posibles los decoradores."
+		},
+		{
+			"type": "p",
+			"md": "Los has usado sin saberlo cada vez que escribiste `@property`, `@dataclass` o `@functools.lru_cache`. Detrás de esa arroba hay una idea sencilla y muy potente: envolver una función con otra para añadir comportamiento —medir, registrar, cachear, reintentar— sin ensuciar el cuerpo de la original."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una función de orden superior?"
+		},
+		{
+			"type": "p",
+			"md": "Una **función de orden superior** es la que recibe una función como argumento, devuelve una función, o ambas cosas. `map`, `filter`, `sorted(key=...)` y `max(key=...)` ya lo son. Escribirlas tú es el primer paso hacia los decoradores:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "orden_superior.py",
+			"code": "def aplicar(func, valores):\n    return [func(valor) for valor in valores]\n\nprint(aplicar(abs, [-3, 4, -5]))\nprint(aplicar(str.upper, [\"ana\", \"luis\"]))",
+			"highlight": [
+				1,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "`abs` y `str.upper` se pasan **sin paréntesis**: no estás llamándolas, estás entregando el objeto función. Si escribieras `abs()`, Python la ejecutaría y pasaría su resultado, que no es lo que quieres. Esta confusión entre `f` y `f()` es el error número uno al empezar con este tema."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven los decoradores?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Medir**: cuánto tarda una función o un pipeline, sin llenar el código de `perf_counter`.",
+				"**Registrar**: dejar traza de qué se llamó, con qué argumentos y qué devolvió.",
+				"**Cachear**: recordar resultados costosos, como hace `functools.lru_cache`.",
+				"**Reintentar**: repetir una descarga o una consulta que falla por red.",
+				"**Validar o autorizar**: comprobar permisos o argumentos antes de ejecutar la función real."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La ventaja no es ahorrar líneas, es **separar responsabilidades**. La función `descargar` se ocupa de descargar; el decorador se ocupa de reintentar si falla. Si mañana cambias la política de reintentos, tocas un solo sitio y todas las funciones decoradas se benefician."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Antes de escribir uno, mira la biblioteca estándar",
+			"md": "`functools.lru_cache` cachea resultados, `functools.cached_property` cachea una propiedad, `contextlib.contextmanager` convierte un generador en contexto y `dataclasses.dataclass` genera métodos. Muchos decoradores que necesitas ya existen y están probados."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? Closures"
+		},
+		{
+			"type": "p",
+			"md": "Una **clausura** (*closure*) es una función interna que usa variables de la función que la contiene, y que sigue teniendo acceso a ellas **después** de que la externa haya terminado. Normalmente las variables locales mueren al salir de la función; el closure las mantiene vivas porque las necesita."
+		},
+		{
+			"type": "p",
+			"md": "Python guarda esas variables en **celdas** y las enlaza al atributo `__closure__` de la función interna. No guarda una copia del valor: guarda una referencia a la variable. Por eso, si la variable externa cambia después, el closure ve el valor nuevo. Esa unión de código y entorno es exactamente lo que un decorador necesita para recordar la función que envuelve."
+		},
+		{
+			"type": "p",
+			"md": "Un decorador, entonces, no es magia: es una función de orden superior que recibe `func`, define dentro una `envoltura` que llama a `func` y devuelve esa envoltura. El `@` es solo azúcar para reasignar el nombre. `@decorar` sobre `def f():` equivale a `f = decorar(f)`, y se aplica **una vez**, cuando se define la función, no en cada llamada."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: la arroba, *args y wraps"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "La receta completa",
+			"code": "import functools\n\ndef decorar(func):\n    @functools.wraps(func)\n    def envoltura(*args, **kwargs):\n        # ... antes de la llamada\n        resultado = func(*args, **kwargs)\n        # ... después de la llamada\n        return resultado\n    return envoltura\n\n@decorar\ndef saludar(nombre):\n    return f\"Hola, {nombre}\"",
+			"highlight": [
+				4,
+				5,
+				6,
+				9
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Pieza",
+				"Qué recibe",
+				"Qué devuelve",
+				"Para qué"
+			],
+			"rows": [
+				[
+					"`decorar`",
+					"La función original",
+					"La función envuelta",
+					"Punto de entrada del decorador"
+				],
+				[
+					"`envoltura`",
+					"Los argumentos de la llamada",
+					"El resultado de `func`",
+					"Añade el comportamiento extra"
+				],
+				[
+					"`*args, **kwargs`",
+					"Cualquier firma",
+					"—",
+					"Acepta funciones con 0, 1 o 10 parámetros"
+				],
+				[
+					"`@functools.wraps`",
+					"La función original",
+					"La envoltura con metadatos",
+					"Conserva `__name__`, `__doc__` y `__wrapped__`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "`*args` recoge los posicionales en una tupla y `**kwargs` los nombrados en un diccionario; al llamar a `func(*args, **kwargs)` los vuelves a repartir. Sin ellos, un decorador escrito para `f()` rompe cualquier función que reciba argumentos con `TypeError`."
+		},
+		{
+			"type": "p",
+			"md": "Para un decorador **con parámetros** hacen falta tres niveles: el primero recibe el parámetro (`@repetir(3)`), el segundo la función y el tercero los argumentos de la llamada. Se lee de dentro hacia fuera y se aplica al definir."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: una fábrica de funciones"
+		},
+		{
+			"type": "p",
+			"md": "El caso más pequeño de closure: una función que devuelve otra función recordando un valor."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "multiplicador.py",
+			"code": "def multiplicador(factor):\n    def aplicar(x):\n        return x * factor   # \"factor\" vive en el closure\n    return aplicar\n\ndoble = multiplicador(2)\ntriple = multiplicador(3)\nprint(doble(10), triple(10))\nprint(doble.__closure__[0].cell_contents)",
+			"highlight": [
+				2,
+				3,
+				8
+			]
+		},
+		{
+			"type": "p",
+			"md": "Cada llamada a `multiplicador` crea un closure independiente: `doble` guarda `factor = 2` y `triple` guarda `factor = 3`, aunque la función `multiplicador` ya terminó. La última línea inspecciona la celda y muestra `2`. Esa es la prueba de que el valor no se copió al llamar, sino que quedó enlazado."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: medir el tiempo"
+		},
+		{
+			"type": "p",
+			"md": "Medir es el decorador más útil para empezar, porque el código de alrededor no cambia y el resultado se ve al instante. Usa `time.perf_counter`, que es monótono y de alta resolución; `time.time` puede saltar si el reloj del sistema se ajusta."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "cronometro.py",
+			"code": "import functools\nimport time\n\ndef cronometrar(func):\n    @functools.wraps(func)\n    def envoltura(*args, **kwargs):\n        inicio = time.perf_counter()\n        resultado = func(*args, **kwargs)\n        duracion = time.perf_counter() - inicio\n        print(f\"{func.__name__}: {duracion:.4f} s\")\n        return resultado\n    return envoltura\n\n@cronometrar\ndef sumar_cuadrados(n):\n    return sum(i * i for i in range(n))\n\nprint(sumar_cuadrados(200_000))\nprint(sumar_cuadrados.__name__)",
+			"highlight": [
+				5,
+				6,
+				9,
+				20
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida muestra el tiempo —que cambia en cada ejecución— y después el resultado `2666646666700000`. La última línea imprime `sumar_cuadrados`, no `envoltura`: eso lo consigue `functools.wraps`, que copia nombre, documentación y anotaciones de la función original y deja la original accesible en `__wrapped__`. Sin `wraps`, las trazas de error y la ayuda apuntarían a `envoltura`, y depurar se vuelve más difícil."
+		},
+		{
+			"type": "p",
+			"md": "Fíjate también en que el cronómetro mide la llamada **completa**, incluido el `sum` perezoso: si `func` devolviera un generador sin consumirlo, el tiempo medido sería casi cero y el trabajo ocurriría fuera del decorador. Mide lo que de verdad se ejecuta dentro."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: registro y reintentos en una descarga"
+		},
+		{
+			"type": "p",
+			"md": "Un pipeline que descarga datos de una API necesita dos cosas que no son responsabilidad de la descarga: dejar rastro de las llamadas y sobrevivir a fallos temporales. Dos decoradores, apilados, resuelven ambas."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "descarga.py",
+			"code": "import functools\n\ndef registrar(func):\n    @functools.wraps(func)\n    def envoltura(*args, **kwargs):\n        print(f\"-> {func.__name__}{args}\")\n        resultado = func(*args, **kwargs)\n        print(f\"<- {func.__name__} = {resultado}\")\n        return resultado\n    return envoltura\n\ndef reintentar(veces):\n    def decorador(func):\n        @functools.wraps(func)\n        def envoltura(*args, **kwargs):\n            for intento in range(1, veces + 1):\n                try:\n                    return func(*args, **kwargs)\n                except ValueError as error:\n                    print(f\"intento {intento} falló: {error}\")\n            raise RuntimeError(f\"{func.__name__} falló {veces} veces\")\n        return envoltura\n    return decorador\n\nintentos = {\"n\": 0}\n\n@registrar\n@reintentar(3)\ndef descargar(url):\n    intentos[\"n\"] += 1\n    if intentos[\"n\"] < 3:\n        raise ValueError(\"timeout\")\n    return f\"datos de {url}\"\n\nprint(descargar(\"api/ventas\"))",
+			"highlight": [
+				26,
+				27,
+				34
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es: `-> descargar('api/ventas',)`, dos líneas `intento 1 falló: timeout` e `intento 2 falló: timeout`, luego `<- descargar = datos de api/ventas` y finalmente `datos de api/ventas`. Solo se registra una llamada porque `registrar` está por fuera: envuelve al `descargar` que ya devolvió `reintentar`. Los decoradores se aplican **de abajo hacia arriba**."
+		},
+		{
+			"type": "p",
+			"md": "El estado compartido vive en el diccionario `intentos`, definido en el módulo. Si lo hubieras puesto como valor por defecto o dentro del decorador, cada ejecución empezaría de cero. Y el `raise RuntimeError` final es importante: agotar los reintentos no puede terminar devolviendo `None` en silencio, porque el error se manifestaría mucho más lejos."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: quién llama a quién"
+		},
+		{
+			"type": "p",
+			"md": "Sigue la pila de llamadas. Verás cómo `saludar` deja de apuntar a la función original después de decorarla y cómo la envoltura ocupa su lugar."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Una función que envuelve a otra",
+			"code": "def saludar(nombre):\n    return f\"Hola, {nombre}\"\n\ndef decorar(func):\n    def envoltura(nombre):\n        print(\"antes\")\n        resultado = func(nombre)\n        print(\"después\")\n        return resultado\n    return envoltura\n\nsaludar = decorar(saludar)\nprint(saludar(\"Ada\"))",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se define `saludar`. Es un objeto función como cualquier otro: todavía no se ejecuta su cuerpo.",
+					"vars": {
+						"saludar": "<function saludar>"
+					},
+					"frames": [],
+					"output": ""
+				},
+				{
+					"line": 12,
+					"note": "`decorar(saludar)` entra en `decorar` con `func` apuntando a la función original. Define `envoltura` —que captura `func` en su closure— y la devuelve. El nombre `saludar` pasa a apuntar a la envoltura.",
+					"vars": {
+						"saludar": "<function saludar>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"saludar": "<function saludar>"
+							}
+						},
+						{
+							"name": "decorar",
+							"vars": {
+								"func": "<function saludar>"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 13,
+					"note": "`saludar(\"Ada\")` ya no llama a la función original: llama a `envoltura`, que empieza imprimiendo.",
+					"vars": {
+						"saludar": "<function envoltura>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"saludar": "<function envoltura>"
+							}
+						},
+						{
+							"name": "envoltura",
+							"vars": {
+								"nombre": "\"Ada\""
+							}
+						}
+					],
+					"output": "antes\n"
+				},
+				{
+					"line": 7,
+					"note": "Dentro de la envoltura, `func(nombre)` llama a la función original. Ahora hay tres marcos activos: módulo, envoltura y saludar.",
+					"vars": {
+						"saludar": "<function envoltura>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"saludar": "<function envoltura>"
+							}
+						},
+						{
+							"name": "envoltura",
+							"vars": {
+								"nombre": "\"Ada\""
+							}
+						},
+						{
+							"name": "saludar",
+							"vars": {
+								"nombre": "\"Ada\""
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "`saludar` devolvió `\"Hola, Ada\"` y el valor quedó guardado en `resultado`. La envoltura sigue con su propia línea y escribe el segundo mensaje.",
+					"vars": {
+						"saludar": "<function envoltura>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"saludar": "<function envoltura>"
+							}
+						},
+						{
+							"name": "envoltura",
+							"vars": {
+								"nombre": "\"Ada\"",
+								"resultado": "\"Hola, Ada\""
+							}
+						}
+					],
+					"output": "después\n"
+				},
+				{
+					"line": 9,
+					"note": "La envoltura devuelve el resultado sin modificarlo: el decorador añade comportamiento, no cambia el valor.",
+					"vars": {
+						"saludar": "<function envoltura>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"saludar": "<function envoltura>"
+							}
+						},
+						{
+							"name": "envoltura",
+							"vars": {
+								"nombre": "\"Ada\"",
+								"resultado": "\"Hola, Ada\""
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 13,
+					"note": "El `print` exterior recibe el valor devuelto por la envoltura y lo muestra. Fin: dos mensajes de la envoltura y uno del resultado.",
+					"vars": {
+						"saludar": "<function envoltura>"
+					},
+					"frames": [
+						{
+							"name": "<module>",
+							"vars": {
+								"saludar": "<function envoltura>"
+							}
+						}
+					],
+					"output": "Hola, Ada\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`TypeError: 'NoneType' object is not callable`",
+					"El decorador no devuelve la envoltura",
+					"Añade `return envoltura` al final"
+				],
+				[
+					"`TypeError: envoltura() takes 1 positional argument but 2 were given`",
+					"La envoltura no acepta los argumentos de la función",
+					"Firma `def envoltura(*args, **kwargs)` y llama `func(*args, **kwargs)`"
+				],
+				[
+					"`print(f.__name__)` muestra `envoltura`",
+					"Falta `@functools.wraps(func)`",
+					"Decora la envoltura con `functools.wraps`"
+				],
+				[
+					"Al decorar una función de 0 argumentos todo falla",
+					"Se aplicó `@decorador()` en lugar de `@decorador`",
+					"Quita los paréntesis o implementa el tercer nivel"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Un decorador que olvida devolver la función",
+			"wrong": {
+				"caption": "TypeError al llamar",
+				"code": "def decorar(func):\n    def envoltura():\n        return func()\n    # falta: return envoltura\n\n@decorar\ndef hola():\n    return \"hola\"\n\nprint(hola())"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "def decorar(func):\n    def envoltura():\n        return func()\n    return envoltura\n\n@decorar\ndef hola():\n    return \"hola\"\n\nprint(hola())"
+			},
+			"explain": "El decorador devuelve `None` implícitamente, así que `hola` deja de ser una función y pasa a ser `None`. El error aparece en la llamada, lejos de la causa. Devuelve siempre la envoltura."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La indentación del return decide quién se ejecuta",
+			"md": "`return envoltura` va al nivel de `def decorar`, no dentro de `def envoltura`. Si lo indentas de más, la función interna devuelve la envoltura en vez del resultado y el decorador se comporta de forma absurda. Es el fallo de indentación más caro de este tema."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Decora siempre con `@functools.wraps(func)`: cuesta una línea y salva las trazas.",
+				"Acepta `*args, **kwargs` y reenvíalos tal cual; no adivines la firma de la función envuelta.",
+				"Devuelve el resultado de `func`; un decorador que no devuelve nada rompe a quien lo usa.",
+				"Un decorador debe hacer **una** cosa: medir, o registrar, o reintentar. Si hace tres, sepáralos.",
+				"No escondas excepciones dentro del decorador salvo que sea su propósito explícito (reintentar).",
+				"Comprueba el orden al apilar: el de abajo envuelve primero y el de arriba envuelve al resultado.",
+				"Si el decorador necesita configuración, usa un tercer nivel con parámetros y valores por defecto."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Contador de llamadas",
+			"md": "Escribe un decorador `contar_llamadas` que lleve la cuenta de cuántas veces se invoca cada función y lo muestre antes del resultado. El contador debe sobrevivir entre llamadas. Aplícalo a una función `saludar(nombre)` y comprueba el total al final.",
+			"hint": "Puedes guardar el contador como atributo de la propia envoltura (`envoltura.llamadas += 1`) inicializándolo en cero antes de devolverla.",
+			"solution": {
+				"lang": "python",
+				"caption": "contador.py",
+				"code": "import functools\n\ndef contar_llamadas(func):\n    @functools.wraps(func)\n    def envoltura(*args, **kwargs):\n        envoltura.llamadas += 1\n        print(f\"{func.__name__} llamada {envoltura.llamadas}\")\n        return func(*args, **kwargs)\n    envoltura.llamadas = 0\n    return envoltura\n\n@contar_llamadas\ndef saludar(nombre):\n    return f\"Hola, {nombre}\"\n\nprint(saludar(\"Ada\"))\nprint(saludar(\"Linus\"))\nprint(\"Total:\", saludar.llamadas)",
+				"explain": "El contador es un atributo de la función envoltura, no una variable global: cada función decorada tiene el suyo. `envoltura.llamadas = 0` se ejecuta una sola vez, al decorar. Al final, `saludar.llamadas` sigue siendo accesible porque `saludar` **es** la envoltura."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Decorador con parámetros",
+			"md": "Crea `@repetir(n)`, un decorador que llame a la función `n` veces y devuelva la lista de resultados. Úsalo con una función sin argumentos y con otra que reciba uno. Después prueba `@repetir(0)` y explica qué devuelve.",
+			"hint": "Necesitas tres niveles: `repetir(veces)` devuelve `decorador`, que recibe `func` y devuelve `envoltura`. Usa una comprensión de lista `[func(...) for _ in range(veces)]`.",
+			"solution": {
+				"lang": "python",
+				"caption": "repetir.py",
+				"code": "import functools\n\ndef repetir(veces):\n    def decorador(func):\n        @functools.wraps(func)\n        def envoltura(*args, **kwargs):\n            return [func(*args, **kwargs) for _ in range(veces)]\n        return envoltura\n    return decorador\n\n@repetir(3)\ndef lanzar():\n    return \"ok\"\n\n@repetir(2)\ndef saludar(nombre):\n    return f\"Hola, {nombre}\"\n\nprint(lanzar())\nprint(saludar(\"Ada\"))\nprint(repetir(0)(lanzar)())",
+				"explain": "`@repetir(3)` equivale a `lanzar = repetir(3)(lanzar)`: primero se ejecuta `repetir(3)`, que devuelve el decorador, y luego ese decorador recibe la función. Con `veces = 0` la comprensión no itera y devuelve `[]`, sin lanzar error."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el decorador",
+			"lang": "python",
+			"code": "import functools\n\ndef saludar(func):\n    @functools.___(func)\n    def envoltura(*args, **kwargs):\n        print(\"inicio\")\n        return ___(args, **kwargs)\n    return envoltura",
+			"answers": [
+				"wraps",
+				"func"
+			],
+			"hint": "`wraps` copia los metadatos de la función original. Dentro de la envoltura, la función que hay que llamar se llama `func`.",
+			"explain": "`@functools.wraps(func)` conserva el nombre y la documentación. `return func(*args, **kwargs)` delega en la función original repartiendo los argumentos que recibió la envoltura."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el contador, la decisión de guardar el estado como atributo de la envoltura evita dos problemas: las variables globales (que se comparten entre módulos) y el cierre sobre un entero (que en Python no se puede reasignar desde la función interna sin `nonlocal`). El atributo es explícito, visible desde fuera y propio de cada función decorada."
+		},
+		{
+			"type": "p",
+			"md": "En `repetir`, lo importante es entender la evaluación: `@repetir(3)` no decora con `repetir`, decora con **el resultado** de `repetir(3)`. Por eso el primer nivel no recibe la función, sino el parámetro. Si intentas `@repetir` sin paréntesis, Python pasa la función como `veces` y el decorador devuelve un decorador que nunca se aplica."
+		},
+		{
+			"type": "p",
+			"md": "Como alternativa, un decorador con estado se puede escribir como clase con `__call__`: el `__init__` guarda la configuración y `__call__` envuelve. Es más verboso, pero útil cuando hay mucho estado que gestionar. Para medir tiempos o registrar llamadas, la función con closure es más directa."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Las funciones son objetos: se pasan y se devuelven sin paréntesis.",
+				"Una función de orden superior recibe o devuelve funciones; un decorador es una de ellas.",
+				"Un closure conserva variables del ámbito donde nació, aunque ese ámbito ya terminó.",
+				"`@decorar` equivale a `f = decorar(f)` y ocurre al definir, no en cada llamada.",
+				"`*args, **kwargs` permiten que la envoltura acepte cualquier firma.",
+				"`functools.wraps` conserva `__name__` y `__doc__`, y expone la original en `__wrapped__`.",
+				"Un decorador con parámetros necesita tres niveles; se aplica de abajo hacia arriba."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué significa exactamente escribir `@cronometrar` encima de `def tarea():`?",
+			"options": [
+				"Que `tarea` se cronometra cada vez que se llama, dentro de su propio cuerpo",
+				"Que `tarea = cronometrar(tarea)` se ejecuta al definir la función",
+				"Que `cronometrar` se ejecuta primero y `tarea` después, en el mismo momento",
+				"Que `tarea` pasa a ser una clase con un método `cronometrar`"
+			],
+			"answer": 1,
+			"explain": "La arroba es azúcar para reasignar el nombre con el resultado del decorador. Ocurre una vez, en la definición; a partir de ahí el nombre apunta a la envoltura, que se ejecuta en cada llamada."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué la envoltura se escribe con `def envoltura(*args, **kwargs)`?",
+			"options": [
+				"Para que la función sea más rápida al llamarse",
+				"Para aceptar cualquier combinación de argumentos y reenviarla a la función original",
+				"Porque `functools.wraps` lo exige",
+				"Para convertir los argumentos en una lista antes de usarlos"
+			],
+			"answer": 1,
+			"explain": "Un decorador no conoce la firma de la función que envuelve. Con `*args, **kwargs` acepta cualquier llamada y la reenvía con `func(*args, **kwargs)`. Si escribes parámetros fijos, el decorador solo sirve para esas firmas."
+		},
+		{
+			"type": "quiz",
+			"question": "Aplicas `@registrar` sobre `@reintentar(3)` sobre `def descargar()`. ¿Qué se ejecuta primero al llamar a `descargar()`?",
+			"options": [
+				"`reintentar`, y si falla, `registrar`",
+				"`registrar`, que envuelve a la versión con reintentos",
+				"Las dos a la vez, porque están en el mismo nivel",
+				"`descargar` directamente, sin decoradores"
+			],
+			"answer": 1,
+			"explain": "Los decoradores se aplican de abajo hacia arriba: `descargar` queda envuelta por `reintentar` y ese resultado por `registrar`. Al llamar, entra primero `registrar`, que es la capa más externa."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "functools.wraps",
+					"url": "https://docs.python.org/es/3/library/functools.html#functools.wraps",
+					"note": "metadatos de la función envuelta"
+				},
+				{
+					"label": "functools.lru_cache",
+					"url": "https://docs.python.org/es/3/library/functools.html#functools.lru_cache",
+					"note": "decorador de caché listo para usar"
+				},
+				{
+					"label": "time.perf_counter",
+					"url": "https://docs.python.org/es/3/library/time.html#time.perf_counter",
+					"note": "reloj monótono para medir"
+				}
+			]
+		}
+	]
+}

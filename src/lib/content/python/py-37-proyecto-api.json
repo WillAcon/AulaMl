@@ -1,0 +1,594 @@
+{
+	"id": "py-37-proyecto-api",
+	"track": "python",
+	"order": 37,
+	"title": "Proyecto: predicción y API con FastAPI",
+	"subtitle": "De un CSV de alquileres a un servicio HTTP que responde predicciones validadas y probadas",
+	"level": "avanzado",
+	"minutes": 60,
+	"tags": ["fastapi", "pipeline", "joblib", "pydantic", "api"],
+	"keywords": [
+		"proyecto machine learning python",
+		"api de prediccion",
+		"fastapi endpoint predict",
+		"pydantic validacion",
+		"serializar modelo joblib",
+		"column transformer pipeline",
+		"testclient pytest",
+		"uvicorn",
+		"desplegar modelo",
+		"esquema de entrada",
+		"one hot encoder",
+		"respuesta json"
+	],
+	"summary": "Vas a construir el recorrido completo de un modelo: explorar un dataset pequeño, entrenar un pipeline con ColumnTransformer, guardarlo con joblib y exponerlo como API FastAPI con modelos Pydantic, manejo de errores y tests con TestClient.",
+	"objectives": [
+		"Separar en carpetas el entrenamiento, el servicio y los artefactos del modelo",
+		"Construir un Pipeline con ColumnTransformer que aplique el mismo preprocesado en entrenamiento e inferencia",
+		"Serializar y cargar el modelo con joblib sin depender del directorio de trabajo",
+		"Definir esquemas Pydantic que rechacen datos inválidos con un 422 explicable",
+		"Exponer /predict y /health con FastAPI, incluyendo el caso de modelo no disponible",
+		"Escribir tests con TestClient que cubran el camino feliz y los errores de validación"
+	],
+	"prerequisites": ["Regresión lineal y logística", "Validación y evaluación de modelos", "Type hints y dataclasses"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un modelo que solo vive en un notebook no le sirve a nadie más. Para que un equipo comercial consulte un precio estimado, el modelo debe estar detrás de algo que hable HTTP: una **API**. Aquí recorres ese camino, desde un CSV de catorce filas hasta un JSON que puedes pedir con `curl`."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un proyecto de Machine Learning con API?"
+		},
+		{
+			"type": "p",
+			"md": "Es un sistema con tres piezas encadenadas: un **conjunto de datos** histórico, un **artefacto entrenado** —el pipeline con sus transformaciones y coeficientes— y un **servicio** que recibe datos por la red, los valida y devuelve el resultado en un formato acordado."
+		},
+		{
+			"type": "p",
+			"md": "La palabra clave es *acordado*. Una API no es solo código que funciona en tu máquina: es un contrato. Si promete un `precio_usd` numérico y un día devuelve `\"mil doscientos\"`, el cliente se rompe aunque el modelo sea exactamente el mismo."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**No es un notebook**: un notebook ejecuta celdas en un orden que solo tú conoces; una API ejecuta una función por petición.",
+				"**No es solo un archivo `.pkl`**: el archivo no valida, no distingue un distrito nuevo de una errata y no declara su versión.",
+				"**Sí es un producto pequeño**: entrada, salida, errores documentados, versión y pruebas."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "El modelo no es el producto",
+			"md": "En producción nadie compra un coeficiente: compran una respuesta rápida y correcta casi siempre, y un mensaje claro cuando algo falla. Por eso esta lección insiste en la validación, los códigos de estado y los tests."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Una API convierte un modelo en algo que otros equipos usan sin instalar scikit-learn ni conocer tus features. Sirve para cuatro cosas:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Integrar**: el frontend o el CRM llaman a `POST /predict` y reciben un número.",
+				"**Centralizar el preprocesado**: si el escalado vive en el pipeline, ningún cliente puede olvidarse de estandarizar.",
+				"**Controlar la entrada**: `habitaciones: -3` no llega al modelo; Pydantic lo detiene antes con un mensaje concreto.",
+				"**Medir**: cada petición registrada dice qué se consulta, cuánto tarda y cuándo el modelo envejece."
+			]
+		},
+		{
+			"type": "p",
+			"md": "El caso de la lección: una inmobiliaria quiere estimar el alquiler mensual de un departamento en Lima. Hoy un analista revisa cada consulta a mano; con la API, la tasación inicial sale en el momento."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El cliente envía un JSON. **Uvicorn** —el servidor ASGI— acepta la conexión y entrega el cuerpo a **FastAPI**, que busca `POST /predict` y lo pasa por el modelo Pydantic `Departamento`. Si un campo falta, sobra o incumple una restricción, la petición muere con un `422` y tu función ni se ejecuta."
+		},
+		{
+			"type": "p",
+			"md": "Si la validación pasa, tu función construye un `DataFrame` de una fila con los nombres de columna que el pipeline aprendió. El `ColumnTransformer` aplica one-hot a `distrito` y escalado a las numéricas; el regresor multiplica esa fila por sus coeficientes y devuelve un `float` de NumPy."
+		},
+		{
+			"type": "p",
+			"md": "Dos decisiones sostienen todo lo anterior. **Empaquetar preprocesado y modelo en un `Pipeline`** hace imposible entrenar con una transformación y servir con otra. **Cargar el artefacto una sola vez** evita leer disco y reconstruir objetos en cada consulta."
+		},
+		{
+			"type": "table",
+			"head": ["Pieza", "Responsabilidad", "Dónde vive"],
+			"rows": [
+				["Dataset", "Ejemplos históricos con la respuesta correcta", "`data/alquileres.csv`"],
+				["Pipeline", "Preprocesado + modelo entrenado, en un solo objeto", "`models/precio_v1.joblib`"],
+				["Esquemas", "Contrato de entrada y salida", "`api/esquemas.py`"],
+				["Carga", "Localizar y deserializar el artefacto", "`api/modelo.py`"],
+				["Servicio", "Rutas, errores y ciclo de vida", "`api/main.py`"],
+				["Pruebas", "Verificar el contrato sin levantar servidor", "`tests/test_api.py`"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Estructura del proyecto"
+		},
+		{
+			"type": "p",
+			"md": "Decide dónde va cada cosa antes de escribir lógica: lo que entrena no es lo que sirve. El script puede tardar minutos y usar toda la CPU; el servicio debe arrancar en segundos y no sabe entrenar."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Árbol del proyecto",
+			"code": "precios-api/\n├── api/\n│   ├── __init__.py\n│   ├── esquemas.py      # contrato de entrada y salida\n│   ├── modelo.py        # carga del artefacto\n│   └── main.py          # rutas y ciclo de vida\n├── data/\n│   └── alquileres.csv\n├── models/\n│   └── precio_v1.joblib\n├── scripts/\n│   ├── datos.py         # dataset pequeño de trabajo\n│   └── entrenar.py      # pipeline + métricas + joblib\n├── tests/\n│   └── test_api.py\n├── requirements.txt\n└── Dockerfile"
+		},
+		{
+			"type": "p",
+			"md": "`api/__init__.py` puede estar vacío, pero convierte la carpeta en un paquete importable. Los datos se leen desde `scripts/`: si el servicio leyera el CSV, un cambio en el dataset alteraría las predicciones sin reentrenar."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: esquemas, rutas y validación"
+		},
+		{
+			"type": "p",
+			"md": "Un **modelo Pydantic** declara la forma de los datos. Cada anotación es una comprobación en tiempo de ejecución y, a la vez, documentación: FastAPI genera un esquema OpenAPI visible en `/docs`. Esa es la pieza que separa una API de un `print` por HTTP."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "api/esquemas.py",
+			"code": "from pydantic import BaseModel, ConfigDict, Field\n\n\nclass Departamento(BaseModel):\n    \"\"\"Datos que envía el cliente. `extra=\"forbid\"` rechaza campos desconocidos.\"\"\"\n\n    model_config = ConfigDict(extra=\"forbid\")\n\n    distrito: str = Field(min_length=2, max_length=40, examples=[\"Miraflores\"])\n    area_m2: float = Field(gt=10, le=1000, examples=[85.0])\n    habitaciones: int = Field(ge=0, le=10, examples=[2])\n    antiguedad: int = Field(ge=0, le=120, examples=[12])\n\n\nclass Prediccion(BaseModel):\n    precio_usd: float\n    modelo_version: str"
+		},
+		{
+			"type": "p",
+			"md": "`Field(gt=10, le=1000)` significa «mayor que 10 y hasta 1000». Cada violación produce un `422` con la ruta del campo (`body`, `area_m2`) y el motivo. `extra=\"forbid\"` es deliberado: si un cliente envía `piscina: true`, mejor un error que ignorarlo."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: mirar el dataset antes de modelar"
+		},
+		{
+			"type": "p",
+			"md": "Con catorce filas no vas a ganar un concurso, y no hace falta. Necesitas un dataset con la forma del real: una categórica, tres numéricas y un objetivo continuo. El análisis mínimo mira filas, tipos, nulos y rangos."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "scripts/datos.py",
+			"code": "import pandas as pd\n\nFILAS = [\n    {\"distrito\": \"Miraflores\", \"area_m2\": 85.0, \"habitaciones\": 2, \"antiguedad\": 12, \"precio_usd\": 1250.0},\n    {\"distrito\": \"Miraflores\", \"area_m2\": 120.0, \"habitaciones\": 3, \"antiguedad\": 5, \"precio_usd\": 1900.0},\n    {\"distrito\": \"Surco\", \"area_m2\": 95.0, \"habitaciones\": 2, \"antiguedad\": 20, \"precio_usd\": 1100.0},\n    {\"distrito\": \"Surco\", \"area_m2\": 140.0, \"habitaciones\": 3, \"antiguedad\": 8, \"precio_usd\": 1650.0},\n    {\"distrito\": \"Surco\", \"area_m2\": 70.0, \"habitaciones\": 1, \"antiguedad\": 30, \"precio_usd\": 780.0},\n    {\"distrito\": \"San Isidro\", \"area_m2\": 100.0, \"habitaciones\": 2, \"antiguedad\": 15, \"precio_usd\": 1500.0},\n    {\"distrito\": \"San Isidro\", \"area_m2\": 130.0, \"habitaciones\": 3, \"antiguedad\": 6, \"precio_usd\": 2100.0},\n    {\"distrito\": \"Jesus Maria\", \"area_m2\": 78.0, \"habitaciones\": 2, \"antiguedad\": 25, \"precio_usd\": 900.0},\n    {\"distrito\": \"Jesus Maria\", \"area_m2\": 60.0, \"habitaciones\": 1, \"antiguedad\": 40, \"precio_usd\": 650.0},\n    {\"distrito\": \"Lince\", \"area_m2\": 68.0, \"habitaciones\": 2, \"antiguedad\": 35, \"precio_usd\": 720.0},\n    {\"distrito\": \"Lince\", \"area_m2\": 55.0, \"habitaciones\": 1, \"antiguedad\": 45, \"precio_usd\": 560.0},\n    {\"distrito\": \"Barranco\", \"area_m2\": 90.0, \"habitaciones\": 2, \"antiguedad\": 18, \"precio_usd\": 1150.0},\n    {\"distrito\": \"Barranco\", \"area_m2\": 110.0, \"habitaciones\": 3, \"antiguedad\": 10, \"precio_usd\": 1480.0},\n    {\"distrito\": \"La Molina\", \"area_m2\": 150.0, \"habitaciones\": 4, \"antiguedad\": 7, \"precio_usd\": 2000.0},\n]\n\ndf = pd.DataFrame(FILAS)\nprint(df.shape)                       # (14, 5)\nprint(df.dtypes.to_string())\nprint(df.isna().sum().sum(), \"valores nulos\")\nprint(df[\"precio_usd\"].describe().round(0).to_string())\nprint(df[\"distrito\"].value_counts().to_string())"
+		},
+		{
+			"type": "p",
+			"md": "La salida confirma 14 filas, ningún nulo y seis distritos con una a tres observaciones. Fíjate en `Jesus Maria` sin tilde: es deliberado. Si escribes `Jesús María` al entrenar y `Jesus Maria` al predecir, el one-hot crea dos columnas y el segundo caso cae como distrito desconocido."
+		},
+		{
+			"type": "p",
+			"md": "`describe()` es tu red de seguridad. Un `area_m2` con mínimo 0 o máximo 40 000 no es una curiosidad: es un error de captura que arrastra la escala de todo el modelo. Revisa también el objetivo: un alquiler de 12 dólares indica moneda equivocada."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: pipeline reproducible y serialización"
+		},
+		{
+			"type": "p",
+			"md": "El `ColumnTransformer` aplica transformaciones distintas a grupos de columnas mediante tuplas `(nombre, transformador, columnas)`. El `Pipeline` encadena ese preprocesado con el estimador: un solo objeto con `fit` y `predict`, y eso es exactamente lo que se guarda en disco."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "scripts/entrenar.py",
+			"code": "from pathlib import Path\n\nimport joblib\nimport pandas as pd\nfrom sklearn.compose import ColumnTransformer\nfrom sklearn.linear_model import Ridge\nfrom sklearn.metrics import mean_absolute_error, r2_score\nfrom sklearn.model_selection import train_test_split\nfrom sklearn.pipeline import Pipeline\nfrom sklearn.preprocessing import OneHotEncoder, StandardScaler\n\nfrom datos import FILAS\n\nCATEGORICAS = [\"distrito\"]\nNUMERICAS = [\"area_m2\", \"habitaciones\", \"antiguedad\"]\nOBJETIVO = \"precio_usd\"\n\n\ndef construir_pipeline() -> Pipeline:\n    preprocesado = ColumnTransformer(\n        transformers=[\n            (\"cat\", OneHotEncoder(handle_unknown=\"ignore\"), CATEGORICAS),\n            (\"num\", StandardScaler(), NUMERICAS),\n        ]\n    )\n    return Pipeline(\n        steps=[\n            (\"prep\", preprocesado),\n            (\"reg\", Ridge(alpha=1.0)),\n        ]\n    )\n\n\ndef main() -> None:\n    df = pd.DataFrame(FILAS)\n    X = df[CATEGORICAS + NUMERICAS]\n    y = df[OBJETIVO]\n\n    X_train, X_test, y_train, y_test = train_test_split(\n        X, y, test_size=0.25, random_state=42\n    )\n\n    modelo = construir_pipeline()\n    modelo.fit(X_train, y_train)\n\n    predicho = modelo.predict(X_test)\n    print(f\"MAE: {mean_absolute_error(y_test, predicho):.0f} USD\")\n    print(f\"R2:  {r2_score(y_test, predicho):.3f}\")\n\n    destino = Path(\"models\")\n    destino.mkdir(exist_ok=True)\n    ruta = destino / \"precio_v1.joblib\"\n    joblib.dump(modelo, ruta)\n    print(\"Modelo guardado en\", ruta)\n\n\nif __name__ == \"__main__\":\n    main()"
+		},
+		{
+			"type": "p",
+			"md": "Ejecuta `python scripts/entrenar.py` desde la raíz: obtendrás dos métricas y un archivo de pocos kilobytes. Con once filas de entrenamiento el `R2` es ruidoso y puede salir negativo; sirve para comprobar el flujo, no para presumir de precisión."
+		},
+		{
+			"type": "p",
+			"md": "`handle_unknown=\"ignore\"` merece una explicación. Sin esa opción, predecir para `Pueblo Libre` lanza `ValueError: Found unknown categories`. Con ella, las columnas de distrito quedan a cero y el modelo responde con las numéricas: peor predicción, pero respuesta."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Guarda el pipeline, no el estimador suelto",
+			"md": "Si haces `joblib.dump(modelo.named_steps[\"reg\"], ...)`, el archivo solo contiene coeficientes y tendrías que repetir el one-hot y el escalado a mano. Guardar el `Pipeline` garantiza las mismas transformaciones, en el mismo orden y con las mismas categorías."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: el endpoint /predict"
+		},
+		{
+			"type": "p",
+			"md": "Primero, un módulo que localice y cargue el artefacto. La ruta se calcula con `__file__`, no con el directorio de trabajo: `uvicorn` puede arrancar desde cualquier carpeta. Es el primer fallo que aparece al contenedorizar una API."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "api/modelo.py",
+			"code": "from pathlib import Path\nfrom typing import Any\n\nimport joblib\n\nRAIZ = Path(__file__).resolve().parent.parent\nRUTA_MODELO = RAIZ / \"models\" / \"precio_v1.joblib\"\n\n\ndef cargar_modelo(ruta: Path = RUTA_MODELO) -> Any:\n    \"\"\"Devuelve el pipeline serializado. Falla pronto si el archivo no existe.\"\"\"\n    if not ruta.exists():\n        raise FileNotFoundError(\n            f\"No se encontró el modelo en {ruta}. Ejecuta scripts/entrenar.py primero.\"\n        )\n    return joblib.load(ruta)"
+		},
+		{
+			"type": "p",
+			"md": "El **lifespan** es una función asíncrona que FastAPI ejecuta al arrancar y al apagar: lo que está antes del `yield` ocurre una vez, cuando el proceso sube. Es el sitio correcto para el modelo; cargarlo dentro de `predecir` leería el disco en cada petición."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "api/main.py",
+			"code": "from contextlib import asynccontextmanager\nfrom typing import Any, AsyncIterator\n\nimport pandas as pd\nfrom fastapi import FastAPI, HTTPException\n\nfrom api.esquemas import Departamento, Prediccion\nfrom api.modelo import cargar_modelo\n\nVERSION = \"1.0.0\"\nmodelo: Any | None = None\n\n\n@asynccontextmanager\nasync def lifespan(app: FastAPI) -> AsyncIterator[None]:\n    global modelo\n    modelo = cargar_modelo()          # una sola vez, al arrancar\n    yield\n    modelo = None                     # liberar al apagar\n\n\napp = FastAPI(\n    title=\"API de precios de alquiler\",\n    version=VERSION,\n    lifespan=lifespan,\n)\n\n\n@app.get(\"/health\")\ndef health() -> dict[str, str]:\n    return {\"status\": \"ok\" if modelo is not None else \"sin_modelo\"}\n\n\n@app.post(\"/predict\", response_model=Prediccion)\ndef predecir(departamento: Departamento) -> Prediccion:\n    if modelo is None:\n        raise HTTPException(status_code=503, detail=\"El modelo no está cargado\")\n\n    entrada = pd.DataFrame([departamento.model_dump()])\n\n    try:\n        precio = float(modelo.predict(entrada)[0])\n    except Exception as error:  # el detalle va al log, no al cliente\n        raise HTTPException(\n            status_code=500, detail=\"No se pudo calcular la predicción\"\n        ) from error\n\n    return Prediccion(precio_usd=round(precio, 2), modelo_version=VERSION)"
+		},
+		{
+			"type": "p",
+			"md": "Tres detalles que no son menores. `float(...)` es obligatorio porque `predict` devuelve `numpy.float64`. `round(..., 2)` evita respuestas como `1243.7100000000002`. Y el `except` no devuelve `str(error)` al cliente: los mensajes internos revelan rutas y versiones."
+		},
+		{
+			"type": "h",
+			"text": "Probar la API en local"
+		},
+		{
+			"type": "p",
+			"md": "Instala las dependencias en un entorno virtual y arranca con recarga automática mientras desarrollas. `--reload` reinicia el proceso al guardar un archivo y vuelve a ejecutar el lifespan, así que recarga el modelo cuando reentrenas."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Arrancar el servicio",
+			"code": "python -m venv .venv\nsource .venv/bin/activate        # Windows: .venv\\Scripts\\activate\npip install \"fastapi[standard]\" scikit-learn pandas joblib pytest httpx\npython scripts/entrenar.py\nuvicorn api.main:app --reload --port 8000\n\n# INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)\n# INFO:     Application startup complete."
+		},
+		{
+			"type": "p",
+			"md": "Abre `http://127.0.0.1:8000/docs`: verás los endpoints y un botón *Try it out*. Ese formulario se genera a partir de tus modelos Pydantic. Desde la terminal, el mismo contrato se prueba así:"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Peticiones con curl",
+			"code": "curl -s http://127.0.0.1:8000/health\n# {\"status\":\"ok\"}\n\ncurl -s -X POST http://127.0.0.1:8000/predict \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"distrito\":\"Miraflores\",\"area_m2\":85,\"habitaciones\":2,\"antiguedad\":12}'\n# {\"precio_usd\":1243.71,\"modelo_version\":\"1.0.0\"}\n\ncurl -s -o /dev/null -w \"%{http_code}\\n\" -X POST http://127.0.0.1:8000/predict \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"distrito\":\"Miraflores\",\"area_m2\":-5,\"habitaciones\":2,\"antiguedad\":12}'\n# 422"
+		},
+		{
+			"type": "p",
+			"md": "El número exacto depende de tu entrenamiento y de la versión de scikit-learn; lo que debe coincidir es la forma: un objeto con `precio_usd` y `modelo_version`. Si recibes `{\"detail\":[...]}`, la validación rechazó algo y el arreglo está en esa lista."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: de un JSON a una matriz de inferencia"
+		},
+		{
+			"type": "p",
+			"md": "Esta es la parte que más cuesta imaginar. El cliente envía cuatro campos; el `ColumnTransformer` los convierte en una fila con una columna por distrito conocido más tres numéricas. El modelo nunca ve `Miraflores`: ve un `1` en su columna y ceros en las demás."
+		},
+		{
+			"type": "matrix",
+			"title": "Matriz de inferencia: una petición después del preprocesado",
+			"data": [[85.0, 2.0, 12.0, 1.0, 0.0, 0.0]],
+			"rowLabels": ["petición 1"],
+			"colLabels": ["area_m2", "habitaciones", "antiguedad", "distrito_Miraflores", "distrito_Surco", "distrito_Lince"],
+			"steps": [
+				{
+					"note": "El one-hot enciende exactamente una columna de distrito: Miraflores vale 1 y el resto 0. Las tres numéricas conservan su valor original.",
+					"highlight": [[0, 3]]
+				},
+				{
+					"note": "El StandardScaler centra y escala las columnas numéricas con la media y la desviación que aprendió en el entrenamiento. La posición de cada columna no cambia.",
+					"highlight": [[0, 0], [0, 1], [0, 2]],
+					"data": [[0.42, 0.35, -0.51, 1.0, 0.0, 0.0]]
+				},
+				{
+					"note": "El regresor multiplica cada valor por su coeficiente y suma el intercepto. El resultado es un único número: la predicción de esa fila.",
+					"highlight": [[0, 0], [0, 1], [0, 2], [0, 3]]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "La matriz tiene una fila porque la API atiende una consulta a la vez. Un endpoint de lote produciría cincuenta: el pipeline no cambia, solo el número de filas."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Qué ocurre dentro de /predict",
+			"code": "import pandas as pd\n\ndef predecir(modelo, datos: dict) -> dict:\n    entrada = pd.DataFrame([datos])\n    matriz = modelo.named_steps[\"prep\"].transform(entrada)\n    precio = modelo.named_steps[\"reg\"].predict(matriz)[0]\n    return {\"precio_usd\": round(float(precio), 2)}\n\ndatos = {\"distrito\": \"Miraflores\", \"area_m2\": 85.0,\n         \"habitaciones\": 2, \"antiguedad\": 12}\nprint(predecir(modelo, datos))",
+			"steps": [
+				{
+					"line": 9,
+					"note": "El lifespan ya cargó el pipeline. Pydantic validó el JSON y lo entregó como diccionario con tipos correctos: `85.0` es float y `2` es int.",
+					"vars": {
+						"datos": "{\"distrito\": \"Miraflores\", \"area_m2\": 85.0, \"habitaciones\": 2, \"antiguedad\": 12}"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "El diccionario se envuelve en una lista: un `DataFrame` de una fila y cuatro columnas, con los nombres que el pipeline espera.",
+					"vars": {
+						"datos": "{'distrito': 'Miraflores', ...}",
+						"entrada": "DataFrame (1, 4)"
+					},
+					"frames": [
+						{ "name": "<module>", "vars": { "datos": "{...}" } },
+						{
+							"name": "predecir",
+							"vars": { "modelo": "<Pipeline>", "datos": "{'distrito': 'Miraflores', ...}" }
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "El `ColumnTransformer` aplica one-hot a `distrito` y escalado a las tres numéricas. Devuelve una matriz dispersa de forma (1, 10): una columna por distrito aprendido más tres numéricas.",
+					"vars": {
+						"datos": "{'distrito': 'Miraflores', ...}",
+						"entrada": "DataFrame (1, 4)",
+						"matriz": "<1x10 sparse matrix>"
+					},
+					"frames": [
+						{ "name": "<module>", "vars": { "datos": "{...}" } },
+						{
+							"name": "predecir",
+							"vars": { "modelo": "<Pipeline>", "entrada": "DataFrame (1, 4)", "matriz": "<1x10 sparse>" }
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`Ridge` multiplica la fila por sus coeficientes y suma el intercepto. El resultado es un `numpy.float64` con la estimación en dólares.",
+					"vars": {
+						"matriz": "<1x10 sparse matrix>",
+						"precio": "1243.71"
+					},
+					"frames": [
+						{ "name": "<module>", "vars": { "datos": "{...}" } },
+						{
+							"name": "predecir",
+							"vars": { "modelo": "<Pipeline>", "matriz": "<1x10 sparse>", "precio": "np.float64(1243.71)" }
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`float()` convierte el escalar de NumPy en un float nativo: sin él, el serializador de FastAPI fallaría al construir la respuesta.",
+					"vars": {
+						"matriz": "<1x10 sparse matrix>",
+						"precio": "1243.71"
+					},
+					"frames": [
+						{ "name": "<module>", "vars": { "datos": "{...}" } },
+						{
+							"name": "predecir",
+							"vars": { "modelo": "<Pipeline>", "precio": "np.float64(1243.71)" }
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "El diccionario se convierte al modelo `Prediccion`, FastAPI lo serializa y el cliente recibe un JSON con dos campos.",
+					"vars": {
+						"datos": "{'distrito': 'Miraflores', ...}"
+					},
+					"frames": [{ "name": "<module>", "vars": { "datos": "{...}" } }],
+					"output": "{\"precio_usd\": 1243.71}\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Tests: comprobar el contrato sin servidor"
+		},
+		{
+			"type": "p",
+			"md": "`TestClient` ejecuta la aplicación en el mismo proceso, sin abrir un puerto. Úsalo como **context manager**: dentro del `with`, FastAPI ejecuta el lifespan y el modelo queda cargado. Sin `with`, las peticiones reciben `503` porque `modelo` sigue en `None`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "tests/test_api.py",
+			"code": "import pytest\nfrom fastapi.testclient import TestClient\n\nfrom api.main import app\n\nVALIDO = {\n    \"distrito\": \"Miraflores\",\n    \"area_m2\": 85.0,\n    \"habitaciones\": 2,\n    \"antiguedad\": 12,\n}\n\n\n@pytest.fixture\ndef cliente():\n    # El context manager dispara el lifespan: el modelo se carga al entrar.\n    with TestClient(app) as c:\n        yield c\n\n\ndef test_health(cliente):\n    respuesta = cliente.get(\"/health\")\n    assert respuesta.status_code == 200\n    assert respuesta.json() == {\"status\": \"ok\"}\n\n\ndef test_prediccion(cliente):\n    respuesta = cliente.post(\"/predict\", json=VALIDO)\n    assert respuesta.status_code == 200\n    cuerpo = respuesta.json()\n    assert cuerpo[\"precio_usd\"] > 0\n    assert cuerpo[\"modelo_version\"] == \"1.0.0\"\n\n\ndef test_area_fuera_de_rango(cliente):\n    respuesta = cliente.post(\"/predict\", json={**VALIDO, \"area_m2\": -5})\n    assert respuesta.status_code == 422\n    assert respuesta.json()[\"detail\"][0][\"loc\"] == [\"body\", \"area_m2\"]\n\n\ndef test_campo_desconocido(cliente):\n    respuesta = cliente.post(\"/predict\", json={**VALIDO, \"piscina\": True})\n    assert respuesta.status_code == 422"
+		},
+		{
+			"type": "p",
+			"md": "Ejecuta `pytest -q`: los cuatro tests pasan en menos de un segundo. No comprueban el valor exacto de la predicción —eso ataría las pruebas a un entrenamiento concreto— sino el contrato: códigos de estado, campos, tipos y errores."
+		},
+		{
+			"type": "h",
+			"text": "Variantes del proyecto: clasificador de textos y recomendador"
+		},
+		{
+			"type": "p",
+			"md": "La arquitectura no cambia cuando cambia el problema: pipeline reproducible, artefacto versionado, esquema de entrada, endpoint y tests de contrato. Lo que cambia es el modelo y la forma de la respuesta."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Clasificador de textos**: cambia el `ColumnTransformer` por `TfidfVectorizer` y `Ridge` por `LogisticRegression`. El endpoint recibe `{\"texto\": \"...\"}` y devuelve etiqueta y probabilidad.",
+				"**Recomendador**: factorización de matrices y `GET /recomendar/{usuario_id}?k=5`. La métrica deja de ser MAE y pasa a precisión@k.",
+				"**Red neuronal**: mismo contrato HTTP, pero el `state_dict` de PyTorch y el vocabulario se serializan por separado. Olvidar el preprocesamiento produce tensores distintos a los del entrenamiento."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Síntoma", "Causa", "Solución"],
+			"rows": [
+				["`422` con `loc: [\"body\", \"area_m2\"]`", "El valor incumple `gt=10` o llega como texto", "Envía un número mayor que 10"],
+				["`503` en todas las peticiones", "El lifespan no se ejecutó: `TestClient` sin `with`", "Usa `with TestClient(app) as c`"],
+				["`FileNotFoundError` del modelo", "Ruta relativa al directorio equivocado", "Calcula la ruta con `Path(__file__)`"],
+				["`ValueError: Found unknown categories`", "Falta `handle_unknown=\"ignore\"`", "Añádelo y reentrena"],
+				["`TypeError: Object of type float64 is not JSON serializable`", "Devolviste un escalar de NumPy", "Convierte con `float(...)`"],
+				["`InconsistentVersionWarning` al cargar", "Artefacto de otra versión de scikit-learn", "Fija versiones y reentrena en la misma imagen"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El error de cargar el modelo en cada petición",
+			"wrong": {
+				"caption": "Lento y frágil",
+				"code": "@app.post(\"/predict\")\ndef predecir(departamento: Departamento):\n    modelo = joblib.load(\"models/precio_v1.joblib\")  # cada petición\n    return modelo.predict(pd.DataFrame([departamento.model_dump()]))[0]"
+			},
+			"right": {
+				"caption": "Cargado una vez",
+				"code": "@asynccontextmanager\nasync def lifespan(app: FastAPI):\n    global modelo\n    modelo = cargar_modelo()\n    yield\n    modelo = None"
+			},
+			"explain": "Deserializar un pipeline implica leer el archivo, reconstruir objetos y revalidar atributos. Con una petición por segundo parece gratis; con cien, la latencia se dispara y el servicio se convierte en un lector de disco. Además, la versión incorrecta devuelve el error en el endpoint en lugar de fallar al arrancar, cuando es más fácil de detectar."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Separa entrenamiento de servicio**: `scripts/` produce artefactos; `api/` solo los consume.",
+				"**Un pipeline, un artefacto, una versión**: el nombre incluye la versión y la respuesta la declara.",
+				"**Valida en la frontera**: un error de entrada debe ser un `422`, no un `500`.",
+				"**Falla al arrancar, no al servir**: si el modelo no carga, el proceso no debe quedarse vivo.",
+				"**No filtres mensajes internos**: registra el detalle, devuelve un texto genérico.",
+				"**Prueba el contrato, no los decimales**: las métricas van en el entrenamiento."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Endpoint de lote",
+			"md": "Añade `POST /predict/lote` que reciba un objeto con una lista `items` de entre 1 y 50 departamentos y devuelva los precios en el mismo orden, junto con la versión del modelo. Si el modelo no está cargado, responde `503`. Comprueba que una lista de 51 elementos devuelve `422` sin ejecutar la predicción.",
+			"hint": "Declara `items: list[Departamento] = Field(min_length=1, max_length=50)`. Construye un `DataFrame` con `[item.model_dump() for item in lote.items]` y predice una sola vez.",
+			"solution": {
+				"lang": "python",
+				"caption": "api/main.py (fragmento)",
+				"code": "from fastapi import HTTPException\nfrom pydantic import BaseModel, ConfigDict, Field\n\n\nclass LoteEntrada(BaseModel):\n    model_config = ConfigDict(extra=\"forbid\")\n    items: list[Departamento] = Field(min_length=1, max_length=50)\n\n\nclass LoteSalida(BaseModel):\n    predicciones: list[float]\n    modelo_version: str\n\n\n@app.post(\"/predict/lote\", response_model=LoteSalida)\ndef predecir_lote(lote: LoteEntrada) -> LoteSalida:\n    if modelo is None:\n        raise HTTPException(status_code=503, detail=\"El modelo no está cargado\")\n\n    filas = [item.model_dump() for item in lote.items]\n    precios = modelo.predict(pd.DataFrame(filas))\n\n    return LoteSalida(\n        predicciones=[round(float(p), 2) for p in precios],\n        modelo_version=VERSION,\n    )",
+				"explain": "La restricción `max_length=50` se evalúa antes de entrar en la función, así que una lista larga nunca llega a `predict`. Una sola llamada con 50 filas es mucho más eficiente que 50 peticiones, porque el costo del preprocesado se paga una vez. La lista se recorre para convertir cada `numpy.float64` en `float`."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Comparar el modelo con una línea base",
+			"md": "Antes de creer en un `R2`, compáralo con algo trivial. Usa `DummyRegressor(strategy=\"mean\")` sobre el mismo `X_train` y calcula su MAE en el conjunto de prueba. Añade el resultado al script de entrenamiento y explica en un comentario por qué un modelo que no supera esa base no debería desplegarse.",
+			"hint": "`DummyRegressor` ignora las features y predice siempre la media del entrenamiento. Pásale solo una columna numérica para satisfacer el `fit`.",
+			"solution": {
+				"lang": "python",
+				"caption": "scripts/entrenar.py (fragmento)",
+				"code": "from sklearn.dummy import DummyRegressor\n\n# Línea base: predice siempre la media del entrenamiento.\n# Si el modelo real no baja de aquí, no aporta nada.\nbase = DummyRegressor(strategy=\"mean\")\nbase.fit(X_train[[\"area_m2\"]], y_train)\nmae_base = mean_absolute_error(y_test, base.predict(X_test[[\"area_m2\"]]))\n\nprint(f\"MAE base:     {mae_base:.0f} USD\")\nprint(f\"MAE modelo:   {mean_absolute_error(y_test, predicho):.0f} USD\")",
+				"explain": "`DummyRegressor` no necesita las columnas categóricas, pero `fit` exige una matriz con el mismo número de filas: por eso recibe solo `area_m2`. La comparación es la prueba mínima de valor. Un MAE de 300 USD frente a una base de 280 significa que el pipeline es más caro y peor: hay que revisar features o datos antes de exponerlo."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el endpoint",
+			"lang": "python",
+			"code": "@app.___(\"/predict\", response_model=Prediccion)\ndef predecir(departamento: Departamento) -> Prediccion:\n    if modelo is ___:        \n        raise HTTPException(status_code=503, detail=\"El modelo no está cargado\")\n\n    entrada = pd.DataFrame([departamento.___()])\n    precio = float(modelo.predict(entrada)[0])\n    return Prediccion(precio_usd=round(precio, 2), modelo_version=VERSION)",
+			"answers": ["post", "None", "model_dump"],
+			"hint": "El método HTTP que envía datos es `post`. La ausencia de modelo se comprueba con `is None`. En Pydantic v2, el diccionario se obtiene con `model_dump()`.",
+			"explain": "`@app.post` registra la ruta para el método POST. `is None` es la comprobación correcta para el centinela: `if not modelo` también funcionaría, pero un objeto podría definir `__bool__` y cambiar el resultado. `model_dump()` devuelve un diccionario con los campos validados, justo lo que `pd.DataFrame` necesita para nombrar las columnas."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el endpoint de lote, la decisión importante es **dónde** se valida el tamaño. Un `if len(lote.items) > 50` dentro de la función devolvería un `400` con un texto inventado. Al declararlo en el campo, el error es un `422` con la misma estructura que el resto y aparece en `/docs`."
+		},
+		{
+			"type": "p",
+			"md": "En la línea base, `DummyRegressor` también necesita un `fit`: no aprende nada, pero exige la matriz para conocer las filas. Y cuidado con los tests: `precio_usd > 0` deja pasar un disparate de nueve millones; añade una banda de cordura del EDA, como `300 < precio < 5000`."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un proyecto con API separa datos, entrenamiento, artefacto, servicio y pruebas.",
+				"El `Pipeline` con `ColumnTransformer` garantiza la misma transformación en entrenamiento e inferencia.",
+				"La ruta del modelo se calcula con `Path(__file__)`, nunca de forma relativa.",
+				"El modelo se carga una sola vez en el `lifespan`; hacerlo por petición multiplica la latencia.",
+				"Pydantic convierte un dato inválido en un `422` y evita que llegue a tu función.",
+				"`TestClient` como context manager ejecuta el lifespan y prueba el contrato sin servidor."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué conviene serializar el `Pipeline` completo en lugar de solo el regresor?",
+			"options": [
+				"Porque el archivo pesa menos y la API arranca antes",
+				"Porque así la inferencia aplica el mismo one-hot y el mismo escalado que el entrenamiento",
+				"Porque FastAPI exige un `Pipeline` para generar la documentación",
+				"Porque `joblib` no puede guardar estimadores sueltos"
+			],
+			"answer": 1,
+			"explain": "El pipeline contiene las categorías aprendidas y los parámetros del escalado. Guardarlo entero elimina la posibilidad de repetir el preprocesado a mano con otro orden o con columnas distintas, que es la causa más frecuente de predicciones incoherentes en producción."
+		},
+		{
+			"type": "quiz",
+			"question": "Un cliente envía `{\"distrito\":\"Lince\",\"area_m2\":-5,\"habitaciones\":1,\"antiguedad\":10}`. ¿Qué ocurre?",
+			"options": [
+				"El modelo predice un precio negativo y lo devuelve con un 200",
+				"FastAPI responde 422 y la función `predecir` no se ejecuta",
+				"FastAPI responde 503 porque el modelo no admite áreas negativas",
+				"El campo se ignora y se predice solo con las demás variables"
+			],
+			"answer": 1,
+			"explain": "`Field(gt=10)` en `area_m2` hace que la validación falle antes de entrar en la función. El resultado es un `422 Unprocessable Entity` con la ubicación del campo. El `503` está reservado para el modelo no disponible."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué ventaja aporta `handle_unknown=\"ignore\"` en el `OneHotEncoder`?",
+			"options": [
+				"Elimina las filas con distritos nuevos durante el entrenamiento",
+				"Permite predecir con un distrito no visto, dejando sus columnas a cero",
+				"Convierte automáticamente el distrito nuevo en el más frecuente",
+				"Obliga a reentrenar cada vez que llega una categoría nueva"
+			],
+			"answer": 1,
+			"explain": "Sin esa opción, `transform` lanza `ValueError` al encontrar una categoría desconocida. Con ella, todas las columnas de esa categoría quedan a cero y el modelo responde usando el resto de features. La predicción es menos fiable, pero el servicio no cae."
+		},
+		{
+			"type": "links",
+			"title": "Documentación oficial",
+			"items": [
+				{
+					"label": "FastAPI: guía de usuario",
+					"url": "https://fastapi.tiangolo.com/es/tutorial/",
+					"note": "rutas, parámetros y documentación automática"
+				},
+				{
+					"label": "FastAPI: lifespan",
+					"url": "https://fastapi.tiangolo.com/advanced/events/",
+					"note": "eventos de arranque y apagado"
+				},
+				{
+					"label": "Pydantic: campos y restricciones",
+					"url": "https://docs.pydantic.dev/latest/concepts/fields/",
+					"note": "Field, gt, le, min_length"
+				},
+				{
+					"label": "scikit-learn: ColumnTransformer",
+					"url": "https://scikit-learn.org/stable/modules/compose.html",
+					"note": "composición de transformadores y pipelines"
+				},
+				{
+					"label": "joblib: persistencia de modelos",
+					"url": "https://joblib.readthedocs.io/en/stable/",
+					"note": "dump y load de objetos grandes"
+				}
+			]
+		}
+	]
+}

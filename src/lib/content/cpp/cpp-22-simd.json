@@ -1,0 +1,740 @@
+{
+	"id": "cpp-22-simd",
+	"track": "cpp",
+	"order": 22,
+	"title": "Paralelismo, SIMD y grandes volúmenes",
+	"subtitle": "Repartir el trabajo entre núcleos y procesar varios datos por instrucción",
+	"level": "avanzado",
+	"minutes": 46,
+	"tags": [
+		"paralelismo",
+		"openmp",
+		"simd",
+		"rendimiento"
+	],
+	"keywords": [
+		"openmp c++",
+		"#pragma omp parallel for",
+		"std::execution par",
+		"vectorización simd",
+		"false sharing",
+		"alineación de memoria",
+		"procesar datasets grandes",
+		"paralelizar bucles",
+		"std::thread rendimiento",
+		"speedup",
+		"escalado de hilos",
+		"c++ paralelo"
+	],
+	"summary": "Cuando el dataset ya no cabe en caché y el bucle es el mismo para millones de filas, hay dos palancas: repartir el trabajo entre núcleos y procesar varios valores por instrucción. Aquí usas OpenMP, std::execution y SIMD, y aprendes por qué el false sharing puede arruinar el speedup.",
+	"objectives": [
+		"Paralelizar un bucle con OpenMP y comprobar que el resultado no cambia",
+		"Reconocer qué bucles puede vectorizar el compilador y cuáles no",
+		"Medir el efecto de la alineación y del false sharing entre hilos",
+		"Elegir entre hilos, SIMD o ambos según el cuello de botella",
+		"Estimar el límite de escalado a partir del ancho de banda de memoria"
+	],
+	"prerequisites": [
+		"Optimización, profiling y complejidad",
+		"Excepciones y std::thread",
+		"Lambdas, range-for y C++ moderno"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un bucle que recorre cincuenta millones de `double` hace siempre el mismo trabajo por elemento. Si tu equipo tiene diez núcleos, nueve están esperando mientras uno suma. Paralelizar consiste en repartir ese rango en trozos; usar SIMD consiste en que cada instrucción sume varios valores a la vez. Son dos formas distintas de hacer más con el mismo tiempo, y se combinan."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es paralelizar y qué es SIMD?"
+		},
+		{
+			"type": "p",
+			"md": "El **paralelismo de hilos** divide los datos entre núcleos: cada hilo ejecuta el mismo código sobre una parte del rango. El **SIMD** (*single instruction, multiple data*) actúa dentro de un núcleo: una sola instrucción opera sobre un registro de 128 o 256 bits que contiene dos, cuatro u ocho valores. El primero multiplica la capacidad de trabajo; el segundo reduce el número de instrucciones."
+		},
+		{
+			"type": "table",
+			"head": [
+				"Nivel",
+				"Qué reparte",
+				"Cuándo ayuda"
+			],
+			"rows": [
+				[
+					"Hilos (`std::thread`, OpenMP)",
+					"El rango de datos entre núcleos",
+					"Bucles independientes y largos"
+				],
+				[
+					"SIMD (`-O3`, `#pragma omp simd`)",
+					"Varios valores por instrucción",
+					"Bucles numéricos sin dependencias"
+				],
+				[
+					"Ambos",
+					"Núcleos y carriles a la vez",
+					"Cálculo intensivo que cabe en caché"
+				],
+				[
+					"GPU (CUDA, SYCL)",
+					"Miles de hilos ligeros",
+					"Operaciones masivas y regulares"
+				]
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Una carrera de datos no siempre falla",
+			"md": "Si dos hilos escriben la misma variable sin sincronización, el resultado es comportamiento indefinido. Puede dar el número correcto mil veces y fallar la que importa. Antes de paralelizar, pregúntate si cada iteración escribe solo en su posición."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve con grandes volúmenes?"
+		},
+		{
+			"type": "p",
+			"md": "Con cien filas, paralelizar no compensa: crear hilos cuesta microsegundos y el reparto se come la ganancia. Con cien millones de filas, la situación se invierte. Este es el terreno donde C++ se separa de Python: un `for` de Python con diez millones de iteraciones tarda cerca de un segundo, mientras que el mismo cálculo vectorizado en C++ tarda milisegundos."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Normalizar o escalar columnas** de una matriz antes de entrenar: cada columna es independiente.",
+				"**Calcular la pérdida** sobre un lote grande: la suma de errores se puede repartir.",
+				"**Transformar características** (logaritmos, cuadrados, recortes) elemento a elemento.",
+				"**Multiplicar matrices por bloques**: cada bloque del resultado se calcula por separado."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La condición para que todo esto funcione es la misma en los cuatro casos: que una iteración no dependa del resultado de otra. Si el cálculo de la fila cinco necesita la fila cuatro, el bucle no se puede repartir tal cual y hay que replantearlo."
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: núcleos, caché y ancho de banda"
+		},
+		{
+			"type": "p",
+			"md": "Un procesador de diez núcleos no es diez veces más rápido. Cada núcleo tiene su propia caché L1 y L2; si dos núcleos escriben variables distintas que caen en la misma línea de 64 bytes, la coherencia de caché invalida la línea en el otro núcleo en cada escritura. Ese fenómeno se llama **false sharing** y convierte un `++` en un viaje a memoria."
+		},
+		{
+			"type": "p",
+			"md": "El segundo límite es el ancho de banda. Sumar cincuenta millones de `double` son 400 MB de datos. Medido en un Apple M1 Max, la versión secuencial tarda unos 47 ms, es decir, unos 8.5 GB/s: muy por debajo de lo que la memoria puede entregar, porque el cuello de botella es la cadena de sumas, no el transporte. Con cuatro acumuladores baja a unos 12 ms, unos 34 GB/s. Cuando el cómputo deja de estorbar, el límite pasa a ser la memoria y añadir hilos ya no ayuda."
+		},
+		{
+			"type": "p",
+			"md": "Por eso el orden de las optimizaciones importa: primero el algoritmo, después la localidad de los datos, luego SIMD y al final los hilos. Paralelizar un bucle que desperdicia caché reparte el desperdicio entre más núcleos."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: OpenMP, std::execution y pragmas SIMD"
+		},
+		{
+			"type": "p",
+			"md": "**OpenMP** es un conjunto de directivas `#pragma` que el compilador traduce a hilos. La forma canónica reparte un `for` y combina los resultados parciales con `reduction`."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "suma_omp.cpp",
+			"code": "#include <chrono>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    std::vector<double> v(50'000'000, 1.0);\n\n    const auto t0 = std::chrono::steady_clock::now();\n    double suma = 0.0;\n\n#pragma omp parallel for reduction(+ : suma) schedule(static)\n    for (std::size_t i = 0; i < v.size(); ++i) {\n        suma += v[i];\n    }\n\n    const auto t1 = std::chrono::steady_clock::now();\n    const double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();\n    std::printf(\"suma = %.0f  (%.1f ms)\\n\", suma, ms);\n    return 0;\n}",
+			"highlight": [
+				10
+			]
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "Compilar con OpenMP",
+			"code": "# Linux con GCC: el flag activa el runtime\ng++ -std=c++20 -O2 -Wall -Wextra -fopenmp suma_omp.cpp -o suma_omp\n\n# macOS con Apple clang: hace falta libomp instalado con Homebrew\nbrew install libomp\ng++ -std=c++20 -O2 -Xpreprocessor -fopenmp -lomp suma_omp.cpp -o suma_omp\n\n# Cuántos hilos se usan si no lo cambias\nOMP_NUM_THREADS=4 ./suma_omp"
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "El mismo código, compilado sin -fopenmp",
+			"md": "Si olvidas el flag, el `#pragma` se ignora y el programa sigue compilando: obtienes la versión secuencial sin ningún aviso de error. Comparar los dos binarios, con y sin el flag, es la forma más rápida de comprobar que el paralelismo está activo."
+		},
+		{
+			"type": "p",
+			"md": "`std::execution` ofrece la misma idea dentro de la biblioteca estándar: pasas `std::execution::par` a un algoritmo y el runtime decide cómo repartirlo. Es más legible que OpenMP, pero depende de que tu biblioteca estándar lo implemente."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "execution.cpp",
+			"code": "#include <algorithm>\n#include <cstdio>\n#include <execution>\n#include <numeric>\n#include <vector>\n\nint main() {\n    std::vector<double> v(10'000'000, 2.0);\n\n    std::transform(std::execution::par, v.begin(), v.end(), v.begin(),\n                   [](double x) { return x * x; });\n\n    const double total = std::reduce(std::execution::par, v.begin(), v.end(), 0.0);\n    std::printf(\"%.0f %.0f\\n\", v[0], total);  // 4 40000000\n    return 0;\n}",
+			"highlight": [
+				9,
+				12
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"En Linux con GCC necesitas la biblioteca TBB y enlazarla con `-ltbb`; sin ella el enlazado falla.",
+				"La biblioteca estándar de Apple no incluye `<execution>`: ese programa no compila en macOS con clang. Compruébalo antes de diseñar alrededor de ella.",
+				"`std::reduce` admite reordenar la suma; `std::accumulate` no. Para paralelizar una suma usa `reduce`."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Para SIMD no necesitas bibliotecas: el compilador vectoriza si detecta que las iteraciones son independientes. Puedes insinuarlo con `#pragma omp simd` y comprobar el resultado en el ensamblador, donde aparecerán instrucciones con sufijo `pd` o `ps` en x86 y `v` en ARM."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: la misma suma, secuencial y en paralelo"
+		},
+		{
+			"type": "p",
+			"md": "Esta es la versión secuencial del programa anterior, con cronómetro, para que puedas comparar los dos binarios en tu equipo. El resultado debe ser idéntico: `50000000`."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "suma_secuencial.cpp",
+			"code": "#include <chrono>\n#include <cstdio>\n#include <vector>\n\nint main() {\n    std::vector<double> v(50'000'000, 1.0);\n\n    const auto t0 = std::chrono::steady_clock::now();\n    double suma = 0.0;\n    for (double x : v) {\n        suma += x;\n    }\n    const auto t1 = std::chrono::steady_clock::now();\n\n    const double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();\n    std::printf(\"suma = %.0f  (%.1f ms)\\n\", suma, ms);\n    return 0;\n}",
+			"highlight": [
+				10,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "Con `-O2` en un Apple M1 Max, la versión secuencial tarda unos 47 ms. La paralela con diez hilos baja a la fracción que permita el ancho de banda. La diferencia entre las dos cifras es tu *speedup* real, y casi nunca coincide con el número de núcleos."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: cuatro carriles sin cambiar de lenguaje"
+		},
+		{
+			"type": "p",
+			"md": "La suma en coma flotante no es asociativa, así que el compilador no puede reordenarla por su cuenta: `(a + b) + c` no siempre da lo mismo que `a + (b + c)`. Si escribes cuatro acumuladores independientes, le das permiso explícito para trabajar en paralelo dentro de un solo hilo."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "cuatro_acumuladores.cpp",
+			"code": "#include <chrono>\n#include <cstdio>\n#include <vector>\n\ndouble suma_cuatro(const std::vector<double>& v) {\n    double a = 0.0, b = 0.0, c = 0.0, d = 0.0;\n    const std::size_t n = v.size();\n    std::size_t i = 0;\n    for (; i + 4 <= n; i += 4) {\n        a += v[i];\n        b += v[i + 1];\n        c += v[i + 2];\n        d += v[i + 3];\n    }\n    for (; i < n; ++i) a += v[i];  // resto cuando n no es múltiplo de 4\n    return a + b + c + d;\n}\n\nint main() {\n    std::vector<double> v(50'000'000, 1.0);\n    const auto t0 = std::chrono::steady_clock::now();\n    const double s = suma_cuatro(v);\n    const auto t1 = std::chrono::steady_clock::now();\n\n    const double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();\n    std::printf(\"%.0f en %.1f ms\\n\", s, ms);\n    return 0;\n}",
+			"highlight": [
+				10,
+				11,
+				12,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "Medido con `-O2` en el mismo equipo: unos 12 ms frente a los 47 de la versión con un solo acumulador. Con `#pragma omp simd` antes del bucle, algunos compiladores van un paso más allá y empaquetan dos `double` por instrucción en ARM o cuatro en x86 con AVX2."
+		},
+		{
+			"type": "p",
+			"md": "El detalle del resto (`i < n`) no es adorno: si el tamaño no es múltiplo de cuatro, los últimos elementos se quedarían sin sumar. Ese error produce resultados que parecen correctos porque la diferencia es pequeña, y es exactamente el tipo de fallo que ninguna prueba con datos redondos detecta."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: un bloque de datos repartido entre dos hilos"
+		},
+		{
+			"type": "p",
+			"md": "La operación es normalizar cada columna entre 0 y 1. Cada hilo recibe un bloque de filas, calcula los mínimos y máximos parciales de su bloque y luego se combinan. Recorre los pasos y fíjate en que la normalización final se aplica sobre los extremos globales, no sobre los locales."
+		},
+		{
+			"type": "matrix",
+			"title": "Normalización por columnas con dos hilos",
+			"data": [
+				[
+					2,
+					10,
+					1
+				],
+				[
+					4,
+					50,
+					3
+				],
+				[
+					6,
+					30,
+					7
+				],
+				[
+					8,
+					40,
+					2
+				],
+				[
+					10,
+					20,
+					9
+				]
+			],
+			"rowLabels": [
+				"fila 0",
+				"fila 1",
+				"fila 2",
+				"fila 3",
+				"fila 4"
+			],
+			"colLabels": [
+				"x1",
+				"x2",
+				"x3"
+			],
+			"steps": [
+				{
+					"note": "El hilo 0 toma las filas 0 a 2. Sus mínimos locales son (2, 10, 1) y sus máximos (6, 50, 7).",
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							0,
+							1
+						],
+						[
+							0,
+							2
+						],
+						[
+							1,
+							0
+						],
+						[
+							1,
+							1
+						],
+						[
+							1,
+							2
+						],
+						[
+							2,
+							0
+						],
+						[
+							2,
+							1
+						],
+						[
+							2,
+							2
+						]
+					]
+				},
+				{
+					"note": "El hilo 1 toma las filas 3 y 4: mínimos (8, 20, 2) y máximos (10, 40, 9).",
+					"highlight": [
+						[
+							3,
+							0
+						],
+						[
+							3,
+							1
+						],
+						[
+							3,
+							2
+						],
+						[
+							4,
+							0
+						],
+						[
+							4,
+							1
+						],
+						[
+							4,
+							2
+						]
+					]
+				},
+				{
+					"note": "Reducción: el mínimo global de cada columna es el menor de los dos parciales: (2, 10, 1). Los máximos: (10, 50, 9).",
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							1,
+							1
+						],
+						[
+							2,
+							2
+						],
+						[
+							3,
+							0
+						],
+						[
+							4,
+							2
+						]
+					]
+				},
+				{
+					"note": "Cada hilo aplica la escala a su bloque con los extremos globales: (2 − 2) / 8 = 0 y (4 − 2) / 8 = 0.25.",
+					"highlight": [
+						[
+							0,
+							0
+						],
+						[
+							0,
+							1
+						],
+						[
+							0,
+							2
+						],
+						[
+							1,
+							0
+						],
+						[
+							1,
+							1
+						],
+						[
+							1,
+							2
+						],
+						[
+							2,
+							0
+						],
+						[
+							2,
+							1
+						],
+						[
+							2,
+							2
+						]
+					],
+					"data": [
+						[
+							0,
+							0,
+							0
+						],
+						[
+							0.25,
+							1,
+							0.25
+						],
+						[
+							0.5,
+							0.5,
+							0.75
+						],
+						[
+							0.75,
+							0.75,
+							0.125
+						],
+						[
+							1,
+							0.25,
+							1
+						]
+					]
+				},
+				{
+					"note": "El hilo 1 escribe su parte: 0.75, 0.75, 0.125 y 1, 0.25, 1. Cada celda tiene un único dueño y no hay carrera.",
+					"highlight": [
+						[
+							3,
+							0
+						],
+						[
+							3,
+							1
+						],
+						[
+							3,
+							2
+						],
+						[
+							4,
+							0
+						],
+						[
+							4,
+							1
+						],
+						[
+							4,
+							2
+						]
+					],
+					"data": [
+						[
+							0,
+							0,
+							0
+						],
+						[
+							0.25,
+							1,
+							0.25
+						],
+						[
+							0.5,
+							0.5,
+							0.75
+						],
+						[
+							0.75,
+							0.75,
+							0.125
+						],
+						[
+							1,
+							0.25,
+							1
+						]
+					]
+				},
+				{
+					"note": "Resultado final: la misma matriz que produciría la versión secuencial, con las tres columnas entre 0 y 1.",
+					"data": [
+						[
+							0,
+							0,
+							0
+						],
+						[
+							0.25,
+							1,
+							0.25
+						],
+						[
+							0.5,
+							0.5,
+							0.75
+						],
+						[
+							0.75,
+							0.75,
+							0.125
+						],
+						[
+							1,
+							0.25,
+							1
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "El patrón de la reducción es el mismo que hace OpenMP por dentro con `reduction`: cada hilo acumula en su copia privada y al final se combinan. La diferencia es que aquí hay dos operaciones (mínimo y máximo) en lugar de una suma, así que se hace a mano."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: false sharing"
+		},
+		{
+			"type": "p",
+			"md": "Dos hilos que incrementan contadores distintos no deberían estorbarse. Si esos contadores comparten línea de caché, sí lo hacen: cada escritura invalida la línea del otro. El programa siguiente mide el mismo trabajo con los contadores juntos y separados 64 bytes."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "false_sharing.cpp",
+			"code": "#include <chrono>\n#include <cstdio>\n#include <thread>\n\nstruct Juntos {\n    volatile long long a = 0;\n    volatile long long b = 0;  // misma linea de caché que a\n};\n\nstruct Separados {\n    alignas(64) volatile long long a = 0;\n    alignas(64) volatile long long b = 0;  // cada uno en su linea\n};\n\nconstexpr long long N = 50'000'000;\n\ntemplate <typename T>\ndouble medir(T& c) {\n    const auto t0 = std::chrono::steady_clock::now();\n    std::thread h1([&] { for (long long i = 0; i < N; ++i) c.a = c.a + 1; });\n    std::thread h2([&] { for (long long i = 0; i < N; ++i) c.b = c.b + 1; });\n    h1.join();\n    h2.join();\n    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();\n}\n\nint main() {\n    Juntos juntos;\n    Separados separados;\n    std::printf(\"misma linea   %.1f ms\\n\", medir(juntos));\n    std::printf(\"lineas aparte %.1f ms\\n\", medir(separados));\n    std::printf(\"%lld %lld\\n\", juntos.a, separados.a);\n    return 0;\n}",
+			"highlight": [
+				4,
+				5,
+				9,
+				10,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "Resultado en un Apple M1 Max, con el mejor de cinco intentos: 78 ms con los contadores juntos y 17 ms separados, casi cinco veces menos, con el mismo número de incrementos. Los dos contadores acaban en 50000000, así que la corrección era la misma desde el principio: lo que cambiaba era el precio. `alignas(64)` obliga a cada contador a empezar en su propia línea de caché."
+		},
+		{
+			"type": "p",
+			"md": "El `volatile` está ahí para impedir que el compilador reduzca el bucle a `c.a += N`: sin él, medirías una sola suma en lugar de cincuenta millones. Es una herramienta de medición, no una forma de sincronizar hilos; para eso están `std::atomic` y los mutex."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes al paralelizar"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Escribir en una variable compartida sin reducción**: `suma += v[i]` desde varios hilos pierde sumas y no da error. Usa `reduction` o un acumulador por hilo.",
+				"**Crear un hilo por elemento**: el coste de crear y juntar hilos supera el trabajo. Reparte bloques grandes.",
+				"**Olvidar el flag `-fopenmp`**: el `#pragma` se ignora en silencio y crees haber paralelizado.",
+				"**Ignorar el resto del rango**: si `n` no es múltiplo del ancho del bloque, los últimos elementos se quedan fuera.",
+				"**Medir con un solo hilo**: sin `OMP_NUM_THREADS` tu prueba puede estar usando un núcleo y parecer que no escala."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Paraleliza solo bucles cuyo cuerpo no dependa de iteraciones anteriores; compruébalo antes de escribir el pragma.",
+				"Verifica que el resultado paralelo coincide con el secuencial, con tolerancia para la coma flotante.",
+				"Reparte por bloques contiguos: es más amable con la caché y con la memoria.",
+				"Evita que dos hilos escriban en la misma línea de caché; separa los contadores con `alignas(64)`.",
+				"Mide el speedup real con varios números de hilos y quédate con el punto donde deja de mejorar.",
+				"Deja la versión secuencial en el código, accesible con un flag, para poder comparar y depurar."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Suma de cuadrados en paralelo",
+			"md": "Calcula la suma de los cuadrados de los enteros de 0 a 49 999 999 con OpenMP y con un bucle secuencial. Compara los dos resultados en el programa y mide los tiempos con `std::chrono`. Compila la versión paralela con `-fopenmp`.",
+			"hint": "Declara la variable acumuladora fuera del bucle y añade `reduction(+ : suma)`. Compara con `std::fabs(a - b) < 1e-6`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "cuadrados_omp.cpp",
+				"code": "#include <chrono>\n#include <cmath>\n#include <cstdio>\n\nint main() {\n    constexpr long long n = 50'000'000;\n\n    auto t0 = std::chrono::steady_clock::now();\n    double secuencial = 0.0;\n    for (long long i = 0; i < n; ++i) secuencial += static_cast<double>(i) * i;\n    auto t1 = std::chrono::steady_clock::now();\n\n    double paralela = 0.0;\n#pragma omp parallel for reduction(+ : paralela) schedule(static)\n    for (long long i = 0; i < n; ++i) paralela += static_cast<double>(i) * i;\n    auto t2 = std::chrono::steady_clock::now();\n\n    auto ms = [](auto a, auto b) {\n        return std::chrono::duration<double, std::milli>(b - a).count();\n    };\n    std::printf(\"secuencial %.1f ms  %.0f\\n\", ms(t0, t1), secuencial);\n    std::printf(\"paralela   %.1f ms  %.0f\\n\", ms(t1, t2), paralela);\n    std::printf(\"iguales: %s\\n\", std::fabs(secuencial - paralela) < 1e-6 ? \"si\" : \"no\");\n    return 0;\n}",
+				"explain": "La suma de cuadrados es asociativa en la práctica pero no exacta en coma flotante: el orden de las sumas cambia el último bit. Por eso se compara con tolerancia y no con `==`. El `%s` del final convierte la comprobación en parte de la salida, así que el programa falla de forma visible si alguien rompe la reducción."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Arreglar el false sharing",
+			"md": "Toma el programa de los dos contadores, mide la versión con los campos juntos y cámbiala para que cada contador viva en su propia línea de caché. Comprueba que los resultados siguen siendo 50 000 000 y anota la mejora.",
+			"hint": "`alignas(64)` sobre cada miembro de la struct. Si el compilador reduce el bucle a una sola suma, añade `volatile`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "separados.cpp",
+				"code": "#include <chrono>\n#include <cstdio>\n#include <thread>\n\nstruct Juntos {\n    volatile long long a = 0;\n    volatile long long b = 0;  // comparten linea de cache\n};\n\nstruct Separados {\n    alignas(64) volatile long long a = 0;\n    alignas(64) volatile long long b = 0;\n};\n\nconstexpr long long N = 50'000'000;\n\ntemplate <typename T>\ndouble medir(T& c) {\n    const auto t0 = std::chrono::steady_clock::now();\n    std::thread h1([&] { for (long long i = 0; i < N; ++i) c.a = c.a + 1; });\n    std::thread h2([&] { for (long long i = 0; i < N; ++i) c.b = c.b + 1; });\n    h1.join();\n    h2.join();\n    return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();\n}\n\nint main() {\n    Juntos juntos;\n    Separados separados;\n    std::printf(\"juntos   %6.1f ms\\n\", medir(juntos));\n    std::printf(\"separados %6.1f ms\\n\", medir(separados));\n    std::printf(\"%lld %lld\\n\", juntos.a, separados.a);\n    return 0;\n}",
+				"explain": "La struct `Juntos` ocupa 16 bytes, así que ambos contadores caen en la misma línea de 64. La struct `Separados` ocupa 128 bytes y cada contador tiene su propia línea. Con dos hilos y cincuenta millones de incrementos por hilo, la primera versión tarda unos 78 ms y la segunda unos 17 ms. El patrón aparece siempre que dos hilos escriben datos pequeños y vecinos, aunque sean variables distintas."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la directiva",
+			"lang": "cpp",
+			"code": "double suma = 0.0;\n#pragma omp ___ for ___ (+ : suma) schedule(static)\nfor (std::size_t i = 0; i < v.size(); ++i) {\n    suma += v[i];\n}",
+			"answers": [
+				"parallel",
+				"reduction"
+			],
+			"hint": "Un `for` repartido entre hilos es `parallel for`; combinar parciales se hace con `reduction`.",
+			"explain": "`parallel for` crea un equipo de hilos y reparte las iteraciones. `reduction(+ : suma)` da a cada hilo una copia privada de `suma` y las combina al final, de modo que no hay escrituras simultáneas sobre la misma variable."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la comparación con tolerancia no es un detalle académico: la suma paralela agrupa los términos en distinto orden y el resultado puede diferir en los últimos bits. Comparar con `==` te habría hecho creer que la reducción está mal cuando solo cambió el redondeo."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la lección es que el rendimiento puede depender de la posición en memoria, no de la lógica. Ese es el motivo por el que las bibliotecas serias alinean sus estructuras internas y rellenan los objetos compartidos entre hilos: están comprando líneas de caché enteras para no compartirlas."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Paralelizar reparte el rango entre núcleos; SIMD procesa varios valores por instrucción. Se combinan.",
+				"`#pragma omp parallel for reduction(+ : suma)` es la forma mínima de sumar en paralelo.",
+				"Sin `-fopenmp` el pragma se ignora y el programa sigue funcionando en silencio, pero secuencial.",
+				"El false sharing hace que dos hilos se invaliden la caché mutuamente: separa los datos con `alignas(64)`.",
+				"La suma en coma flotante no es asociativa; cuatro acumuladores dan paralelismo sin cambiar el resultado esperado.",
+				"El speedup real lo limitan la memoria y las dependencias, no el número de núcleos.",
+				"Comprueba siempre que el resultado paralelo coincide con el secuencial."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué hace exactamente `reduction(+ : suma)` en una directiva OpenMP?",
+			"options": [
+				"Bloquea la variable para que solo un hilo la use",
+				"Da a cada hilo una copia privada y las combina al final",
+				"Divide el vector en trozos de tamaño fijo",
+				"Convierte el bucle en instrucciones SIMD"
+			],
+			"answer": 1,
+			"explain": "La reducción crea una copia privada del acumulador por hilo, cada una suma su parte y al terminar se combinan con el operador indicado. Así se evita que varios hilos escriban la misma variable."
+		},
+		{
+			"type": "quiz",
+			"question": "Dos hilos incrementan contadores distintos que están en la misma línea de caché. ¿Qué ocurre?",
+			"options": [
+				"Es más rápido porque comparten la línea",
+				"Se produce una carrera de datos y el resultado es incorrecto",
+				"Cada escritura invalida la línea del otro núcleo y el rendimiento cae",
+				"El compilador fusiona ambos contadores en uno"
+			],
+			"answer": 2,
+			"explain": "Los valores son correctos porque cada hilo escribe su propia variable, pero la coherencia de caché obliga a transferir la línea entre núcleos en cada escritura. Eso es el false sharing: no es un error de corrección, es una penalización de rendimiento."
+		},
+		{
+			"type": "quiz",
+			"question": "Un bucle suma cincuenta millones de `double` y la versión con diez hilos solo es dos veces más rápida. ¿Cuál es la explicación más probable?",
+			"options": [
+				"OpenMP está mal instalado",
+				"El bucle está limitado por el ancho de banda de memoria, no por la CPU",
+				"Los `double` no se pueden sumar en paralelo",
+				"Falta `schedule(static)`"
+			],
+			"answer": 1,
+			"explain": "Si el trabajo por elemento es mínimo, todos los núcleos compiten por el mismo tráfico de memoria. Añadir hilos deja de ayudar cuando el transporte de datos, y no la aritmética, es el límite."
+		},
+		{
+			"type": "compare",
+			"title": "El mismo cuadrado, dos caminos",
+			"python": {
+				"caption": "cuadrados.py",
+				"code": "import numpy as np\n\nx = np.full(10_000_000, 2.0)\ny = x * x          # bucle en C, vectorizado con SIMD\nprint(y[0], y.sum())"
+			},
+			"cpp": {
+				"caption": "cuadrados.cpp",
+				"code": "std::vector<double> x(10'000'000, 2.0);\nstd::vector<double> y(x.size());\n\nfor (std::size_t i = 0; i < x.size(); ++i) {\n    y[i] = x[i] * x[i];  // el compilador puede vectorizarlo\n}"
+			},
+			"note": "NumPy ya ejecuta un bucle en C con SIMD: cuando escribes `x * x` no estás usando Python. La ventaja de C++ aparece cuando necesitas algo que NumPy no tiene, cuando quieres controlar la memoria o cuando el bucle incluye lógica que no se puede expresar como una operación de array."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "OpenMP · especificación y guías",
+					"url": "https://www.openmp.org/specifications/",
+					"note": "directivas, cláusulas y ejemplos"
+				},
+				{
+					"label": "cppreference · políticas de ejecución",
+					"url": "https://en.cppreference.com/w/cpp/algorithm/execution_policy_tag_t",
+					"note": "seq, par y par_unseq"
+				},
+				{
+					"label": "GCC · vectorización",
+					"url": "https://gcc.gnu.org/projects/tree-ssa/vectorization.html",
+					"note": "qué bucles vectoriza y cuáles no"
+				}
+			]
+		}
+	]
+}

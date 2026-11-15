@@ -1,0 +1,571 @@
+{
+	"id": "py-05-bucles",
+	"track": "python",
+	"order": 5,
+	"title": "Bucles: while, for y control de iteraciones",
+	"subtitle": "Repetir trabajo sin copiar código: contadores, acumuladores y las herramientas para salir a tiempo",
+	"level": "principiante",
+	"minutes": 40,
+	"tags": [
+		"bucles",
+		"while",
+		"for",
+		"range"
+	],
+	"keywords": [
+		"bucle while",
+		"bucle for",
+		"range en python",
+		"break continue pass",
+		"else de un bucle",
+		"acumulador",
+		"contador",
+		"bucle infinito",
+		"bucle anidado",
+		"iterar una lista",
+		"recorrer con índice",
+		"off by one"
+	],
+	"summary": "Un bucle repite un bloque de instrucciones mientras se cumpla una condición o hasta agotar una colección. Aquí aprendes a escribir while y for, a controlar range, a usar break, continue y pass, a acumular resultados y a evitar los dos fallos clásicos: el bucle infinito y el error de un elemento.",
+	"objectives": [
+		"Elegir entre while y for según el problema",
+		"Recorrer secuencias y rangos con la firma correcta de range",
+		"Controlar la iteración con break, continue y pass",
+		"Acumular totales y contar elementos sin perder inicializaciones",
+		"Detectar y corregir bucles infinitos y errores de un elemento"
+	],
+	"prerequisites": [
+		"Condicionales: if, elif y else"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Imagina que tienes que sumar las ventas de 40 000 filas de un archivo. Escribir 40 000 sumas es imposible; copiar y pegar la misma línea tampoco es programar. La solución es indicar el patrón una vez y pedirle a Python que lo repita: eso es un **bucle**."
+		},
+		{
+			"type": "p",
+			"md": "Python ofrece dos herramientas. `while` repite **mientras** una condición siga siendo verdadera. `for` recorre los elementos de una colección y se detiene cuando no quedan. Saber cuál usar es la mitad del trabajo."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un bucle?"
+		},
+		{
+			"type": "p",
+			"md": "Un bucle es una estructura de control que ejecuta un bloque varias veces. Cada repetición se llama **iteración**. El bloque puede leer y modificar variables, y esas modificaciones son las que permiten que el bucle termine o que haga algo distinto en cada vuelta."
+		},
+		{
+			"type": "p",
+			"md": "Piensa en lavar platos: repites «toma un plato, lávalo, déjalo en el escurridor» hasta que no queden platos. La condición de parada no es un número fijo, es un estado del mundo. Un `while` funciona exactamente así; un `for` se parece más a recorrer una lista de invitados y saludar a cada uno."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven?"
+		},
+		{
+			"type": "p",
+			"md": "Cualquier tarea repetitiva con un patrón es candidata a un bucle. En un proyecto real aparecen constantemente:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Procesar datos**: recorrer las filas de un CSV y sumar una columna.",
+				"**Calcular agregados**: total, promedio, máximo o cuántas veces se cumple algo.",
+				"**Buscar**: detenerte en cuanto encuentras el primer valor negativo.",
+				"**Generar secuencias**: imprimir una tabla, contar del 1 al 10, avanzar de dos en dos.",
+				"**Machine Learning**: repetir el entrenamiento durante `n_epocas` y detenerlo si la pérdida deja de mejorar."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "En un `while`, Python evalúa la condición antes de cada vuelta. Si es verdadera, ejecuta el cuerpo y **vuelve a la condición**; si es falsa, sale y continúa con la línea siguiente. No hay un número máximo de vueltas: si la condición nunca se vuelve falsa, el programa se queda ahí."
+		},
+		{
+			"type": "p",
+			"md": "En un `for`, Python pide elementos a un **iterador** hasta que se agota. No hay contador visible ni condición que escribir: la colección decide cuándo terminar. Cuando no quedan elementos, el iterador lanza internamente una señal de parada y el bucle acaba."
+		},
+		{
+			"type": "p",
+			"md": "`range` no es una lista: es un objeto que genera números bajo demanda. Por eso `range(1_000_000)` no ocupa un millón de posiciones en memoria. Si necesitas verlo completo, conviértelo con `list(...)`, pero para recorrerlo no hace falta."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: `while`"
+		},
+		{
+			"type": "p",
+			"md": "La forma es `while condición:` seguido de un bloque indentado. Antes del bucle debes inicializar las variables que la condición usa, y dentro debes actualizarlas; si no, la condición se queda congelada."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "retiros.py",
+			"code": "saldo = 100\nretiro = 30\nmeses = 0\n\nwhile saldo >= retiro:\n    saldo -= retiro\n    meses += 1\n\nprint(meses, saldo)",
+			"highlight": [
+				5,
+				6
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"La condición `saldo >= retiro` se evalúa antes de cada vuelta.",
+				"`saldo -= retiro` actualiza la variable que controla el final: sin esta línea el bucle sería infinito.",
+				"`meses += 1` acumula cuántas veces se ejecutó el cuerpo.",
+				"Cuando el saldo queda en 10, la condición es falsa y el bucle sale.",
+				"El resultado es `3 10`: tres retiros y diez soles restantes."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: `for` y `range`"
+		},
+		{
+			"type": "p",
+			"md": "La forma es `for variable in iterable:` y el bloque indentado. En cada vuelta, `variable` toma el siguiente elemento. `range` genera enteros y tiene tres formas: `range(fin)`, `range(inicio, fin)` y `range(inicio, fin, paso)`. El límite `fin` **nunca se incluye**."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "rangos.py",
+			"code": "for i in range(1, 6):\n    print(i, i ** 2)\n\nprint(list(range(5, 0, -2)))",
+			"highlight": [
+				1,
+				4
+			]
+		},
+		{
+			"type": "p",
+			"md": "La primera línea recorre `1, 2, 3, 4, 5`: empieza en 1 y se detiene antes de 6. El cuerpo imprime cada número y su cuadrado, de `1 1` a `5 25`. La última línea convierte a lista el rango `5, 3, 1`, que usa paso negativo para contar hacia atrás. Si necesitaras incluir el 6, escribirías `range(1, 7)`."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "`range` no guarda los números",
+			"md": "`range(10**9)` se crea al instante porque solo guarda inicio, fin y paso; los números aparecen al iterar. Eso es lo que permite recorrer colecciones enormes con memoria constante. No lo conviertas a `list` salvo que realmente necesites la lista completa."
+		},
+		{
+			"type": "compare",
+			"title": "Recorrer del 1 al 5",
+			"python": {
+				"caption": "for_range.py",
+				"code": "for i in range(1, 6):\n    print(i)"
+			},
+			"cpp": {
+				"caption": "for_clasico.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    for (int i = 1; i <= 5; ++i) {\n        std::cout << i << std::endl;\n    }\n    return 0;\n}"
+			},
+			"note": "En Python el final de `range` es exclusivo, por eso se escribe 6 para llegar a 5. En C++ el límite se escribe en la condición y suele ser inclusivo. Ese detalle provoca la mitad de los errores de un elemento cuando cambias de lenguaje."
+		},
+		{
+			"type": "h",
+			"text": "Control fino: `break`, `continue` y `pass`"
+		},
+		{
+			"type": "p",
+			"md": "A veces no quieres esperar al final natural del bucle. `break` lo abandona por completo; `continue` salta al siguiente elemento sin ejecutar el resto del cuerpo; `pass` no hace nada y sirve como marcador cuando la sintaxis exige un bloque."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "pedidos.py",
+			"code": "pedidos = [12, 0, 8, -1, 20]\nvalidos = 0\n\nfor pedido in pedidos:\n    if pedido < 0:\n        break\n    if pedido == 0:\n        continue\n    validos += 1\n\nprint(validos)",
+			"highlight": [
+				5,
+				8,
+				10
+			]
+		},
+		{
+			"type": "p",
+			"md": "El 12 se cuenta, el 0 se salta con `continue`, el 8 se cuenta y el -1 corta todo con `break`. El 20 nunca se visita, así que `validos` termina en `2`. Con `continue` en lugar de `break`, el -1 se saltaría y el 20 se contaría: el resultado sería 3."
+		},
+		{
+			"type": "p",
+			"md": "Los bucles admiten un `else` que se ejecuta **solo si el bucle terminó sin `break`**. Es útil para búsquedas: si recorres una colección buscando algo y no lo encuentras, el `else` lo informa sin necesidad de una bandera extra."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "buscar.py",
+			"code": "objetivo = 7\n\nfor n in [2, 3, 4, 6]:\n    if n == objetivo:\n        print(\"encontrado\")\n        break\nelse:\n    print(\"no encontrado\")",
+			"highlight": [
+				7
+			]
+		},
+		{
+			"type": "p",
+			"md": "Ningún elemento es 7, el `break` no se ejecuta y por eso se imprime `no encontrado`. Si el objetivo fuera 4, se imprimiría `encontrado` y el `else` se saltaría. El `else` pertenece al `for`, no al `if`: su indentación está al mismo nivel que el `for`."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "El `else` del bucle no significa «si no se cumple»",
+			"md": "No es el `else` de un condicional. Se ejecuta cuando el bucle agota su colección normalmente, aunque el cuerpo nunca haya entrado. Si usas `break` en cualquier punto, el `else` no corre. Muchos programadores lo evitan por su mala fama; si lo usas, deja un comentario que lo aclare."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: total y promedio de ventas"
+		},
+		{
+			"type": "p",
+			"md": "El patrón del **acumulador** aparece en casi todos los análisis: una variable empieza en cero y crece dentro del bucle. Aquí se suma una lista de ventas y se calcula su promedio:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "ventas.py",
+			"code": "ventas = [120, 80, 150, 90]\n\ntotal = 0\nfor venta in ventas:\n    total = total + venta\n\nprint(f\"Total: {total}\")\nprint(f\"Promedio: {total / len(ventas)}\")",
+			"highlight": [
+				4,
+				5
+			]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`ventas` es la colección; el `for` la recorre de izquierda a derecha.",
+				"`total = 0` es la inicialización: si la omites, `total = total + venta` falla con `NameError` en la primera vuelta.",
+				"`total = total + venta` también se escribe `total += venta`; suma el elemento actual al acumulado.",
+				"Al terminar, `total` vale 440 y `len(ventas)` es 4.",
+				"`440 / 4` da `110.0`; la división con `/` produce `float` aunque el resultado sea exacto."
+			]
+		},
+		{
+			"type": "p",
+			"md": "El bucle no imprime nada por sí mismo: solo construye el resultado. Imprimir dentro del bucle mostraría cuatro totales parciales, que a veces es útil para depurar pero no es lo que pide el problema. Separa el cálculo de la presentación."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: bucles anidados"
+		},
+		{
+			"type": "p",
+			"md": "Un bucle dentro de otro genera combinaciones: filas y columnas, alumnos y materias, productos y meses. El bucle interno se ejecuta completo por **cada** vuelta del externo."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "tabla.py",
+			"code": "for fila in range(1, 4):\n    linea = \"\"\n    for columna in range(1, 4):\n        linea += str(fila * columna) + \" \"\n    print(linea)",
+			"highlight": [
+				3
+			]
+		},
+		{
+			"type": "p",
+			"md": "El bucle externo da tres vueltas y el interno también: el cuerpo de la multiplicación se ejecuta 9 veces. En la primera fila, `linea` acumula `1 2 3 `; en la segunda, `2 4 6 `; en la tercera, `3 6 9 `. `linea` se reinicia a cadena vacía en cada fila, y eso es lo que impide que las filas se mezclen."
+		},
+		{
+			"type": "p",
+			"md": "Los anidados crecen rápido: dos bucles de 1 000 elementos producen un millón de iteraciones. Antes de anidar, pregúntate si basta un solo recorrido o una estructura auxiliar."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: seguimiento de ventas mensuales"
+		},
+		{
+			"type": "p",
+			"md": "Tienes las ventas de seis meses y una meta de 1 000. Necesitas el total, el promedio y cuántos meses superaron la meta. Un solo recorrido puede calcular las tres cosas a la vez:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "resumen_ventas.py",
+			"code": "ventas = [1250, 980, 1420, 1100, 870, 1600]\nmeta = 1000\n\nsobre_meta = 0\ntotal = 0\nfor venta in ventas:\n    total += venta\n    if venta >= meta:\n        sobre_meta += 1\n\npromedio = total / len(ventas)\nprint(f\"Total: {total}\")\nprint(f\"Promedio: {promedio:.2f}\")\nprint(f\"Meses sobre la meta: {sobre_meta}\")",
+			"highlight": [
+				6,
+				8,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "La suma da `7220` y el promedio `1203.33`, porque `7220 / 6` es `1203.333...` y el formato corta a dos decimales. Alcanzaron la meta enero, marzo, abril y junio: cuatro meses. El condicional vive **dentro** del bucle, así que se evalúa seis veces, una por venta. Esta combinación de bucle y condicional es el esqueleto de casi cualquier informe."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el acumulador paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "La traza recorre una lista de dos ventas. Observa cómo `total` conserva su valor entre vueltas y cómo `venta` cambia en cada iteración."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Cómo crece un acumulador",
+			"code": "ventas = [120, 80]\ntotal = 0\nfor venta in ventas:\n    total += venta\nprint(total)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se crea la lista con dos elementos.",
+					"vars": {
+						"ventas": "[120, 80]"
+					},
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "El acumulador empieza en 0 antes de entrar al bucle.",
+					"vars": {
+						"ventas": "[120, 80]",
+						"total": "0"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Primera vuelta: `venta` toma el primer elemento, 120.",
+					"vars": {
+						"ventas": "[120, 80]",
+						"total": "0",
+						"venta": "120"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Se suma 0 + 120 y `total` pasa a 120. La lista no cambia.",
+					"vars": {
+						"ventas": "[120, 80]",
+						"total": "120",
+						"venta": "120"
+					},
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Segunda vuelta: `venta` toma 80. `total` conserva 120.",
+					"vars": {
+						"ventas": "[120, 80]",
+						"total": "120",
+						"venta": "80"
+					},
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "120 + 80 da 200; el iterador se agota y el bucle termina.",
+					"vars": {
+						"ventas": "[120, 80]",
+						"total": "200",
+						"venta": "80"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`print` escribe el acumulador final.",
+					"vars": {
+						"ventas": "[120, 80]",
+						"total": "200",
+						"venta": "80"
+					},
+					"output": "200\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Mensaje o síntoma",
+				"Por qué ocurre",
+				"Cómo se arregla"
+			],
+			"rows": [
+				[
+					"El programa no termina nunca",
+					"La condición del `while` no cambia",
+					"Actualiza la variable dentro del bucle o añade un `break`"
+				],
+				[
+					"`NameError: name 'total' is not defined`",
+					"Usaste `total += x` sin inicializar `total`",
+					"Escribe `total = 0` antes del bucle"
+				],
+				[
+					"`TypeError: 'int' object is not iterable`",
+					"Escribiste `for i in 5:`",
+					"Usa `for i in range(5):`"
+				],
+				[
+					"`IndentationError: expected an indented block`",
+					"El cuerpo del bucle quedó al mismo nivel",
+					"Indenta con 4 espacios"
+				],
+				[
+					"Falta o sobra una iteración",
+					"Confundiste el final exclusivo de `range`",
+					"Para 1..5 usa `range(1, 6)`"
+				]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "El bucle infinito más común",
+			"wrong": {
+				"caption": "Nunca termina",
+				"code": "i = 1\nwhile i <= 3:\n    print(i)"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "i = 1\nwhile i <= 3:\n    print(i)\n    i += 1"
+			},
+			"explain": "En la versión incorrecta, `i` vale 1 para siempre y la condición nunca se vuelve falsa; la terminal se llena de unos hasta que interrumpes con `Ctrl+C`. La actualización debe estar dentro del bucle, no antes ni después."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Usa `for` cuando conozcas la colección y `while` cuando la parada dependa de un estado.",
+				"Inicializa contadores y acumuladores justo antes del bucle, nunca dentro.",
+				"Evita modificar la colección que estás recorriendo: itera sobre una copia si hace falta.",
+				"Si el cuerpo supera las 15 líneas, extrae parte del trabajo a una función.",
+				"Desconfía de los anidados con colecciones grandes: la cantidad de vueltas se multiplica.",
+				"En un `while`, escribe la actualización en las primeras líneas del cuerpo para no olvidarla."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Suma de pares del 1 al 20",
+			"md": "Suma todos los números pares entre 1 y 20 inclusive y muestra el total. El resultado debe ser `110`. Resuélvelo con un `for` y un acumulador, sin escribir la lista a mano.",
+			"hint": "`range` acepta un paso: empieza en 2 y avanza de 2 en 2. Recuerda que el límite superior es exclusivo.",
+			"solution": {
+				"lang": "python",
+				"caption": "pares.py",
+				"code": "total = 0\n\nfor numero in range(2, 21, 2):\n    total += numero\n\nprint(total)",
+				"explain": "El rango genera 2, 4, 6, ..., 20; son diez números y su suma es 110. Si usaras `range(2, 20, 2)` te faltaría el 20 y obtendrías 90: el clásico error de un elemento."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Factorial con un bucle",
+			"md": "Calcula el factorial de 6, es decir, `1 * 2 * 3 * 4 * 5 * 6`, usando un `for` y una variable que empiece en 1. Muestra el resultado, que debe ser `720`.",
+			"hint": "El acumulador de un producto se inicializa en 1, no en 0: cualquier cosa multiplicada por 0 da 0.",
+			"solution": {
+				"lang": "python",
+				"caption": "factorial.py",
+				"code": "factorial = 1\n\nfor i in range(1, 7):\n    factorial *= i\n\nprint(factorial)",
+				"explain": "La variable recorre 1, 2, 3, 4, 5 y 6. El valor final es 720. Si el acumulador empezara en 0, el resultado sería 0 en todas las vueltas, y si el rango fuera `range(1, 6)` faltaría el factor 6."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el acumulador",
+			"lang": "python",
+			"code": "total = 0\n\nfor numero in ___(1, 6):\n    total ___ numero\n\nprint(total)",
+			"answers": [
+				"range",
+				"+="
+			],
+			"hint": "Necesitas generar del 1 al 5 y sumar cada número al total.",
+			"explain": "`range(1, 6)` produce 1, 2, 3, 4 y 5; `total += numero` acumula la suma, que es 15. Escribir `total = numero` borraría el acumulado en cada vuelta y el resultado sería 5."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En la suma de pares, el paso 2 evita el `if` y reduce las iteraciones a la mitad. El límite 21 parece raro hasta que recuerdas que `range` excluye el final. Comprueba siempre el primer y el último valor de cada rango."
+		},
+		{
+			"type": "p",
+			"md": "En el factorial, la inicialización en 1 es la decisión crítica. El mismo patrón sirve para productos, potencias acumuladas y probabilidades conjuntas. Si el problema pidiera el factorial de 0, el bucle no se ejecutaría y el resultado sería correctamente 1: el caso base queda cubierto por la inicialización."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un bucle repite un bloque; cada vuelta es una iteración.",
+				"`while` depende de una condición y exige inicializar y actualizar sus variables.",
+				"`for` recorre una colección y termina cuando el iterador se agota.",
+				"`range(inicio, fin, paso)` excluye el final; el paso puede ser negativo.",
+				"`break` sale del bucle, `continue` salta a la siguiente vuelta y `pass` no hace nada.",
+				"El `else` de un bucle se ejecuta solo si no hubo `break`.",
+				"Los acumuladores se inicializan antes del bucle: 0 para sumas, 1 para productos.",
+				"Los bucles anidados multiplican las iteraciones y deben usarse con cuidado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué números produce `range(2, 10, 3)`?",
+			"options": [
+				"`2, 5, 8`",
+				"`2, 5, 8, 11`",
+				"`2, 4, 6, 8`",
+				"`3, 6, 9`"
+			],
+			"answer": 0,
+			"explain": "Empieza en 2, suma 3 y se detiene antes de 10: 2, 5, 8. El siguiente sería 11 y queda fuera porque el límite es exclusivo."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuántas veces se ejecuta el cuerpo de `for i in range(4):`?",
+			"options": [
+				"3",
+				"4",
+				"5",
+				"Depende del cuerpo"
+			],
+			"answer": 1,
+			"explain": "`range(4)` genera 0, 1, 2 y 3: cuatro valores. `range(1, 5)` también genera cuatro, pero empieza en 1; en ambos casos el límite superior queda excluido."
+		},
+		{
+			"type": "quiz",
+			"question": "En `for n in [1, 2, 3]: if n == 2: break`, ¿qué ocurre?",
+			"options": [
+				"Se salta el 2 y sigue con el 3",
+				"El bucle termina en la segunda vuelta",
+				"Se ejecuta el `else` del bucle",
+				"Lanza un error"
+			],
+			"answer": 1,
+			"explain": "`break` abandona el bucle por completo en cuanto `n` vale 2; el 3 nunca se visita y un `else` asociado al bucle no se ejecutaría."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "Bucles en el tutorial oficial",
+					"url": "https://docs.python.org/es/3/tutorial/controlflow.html#for-statements",
+					"note": "for, range, break, continue y else"
+				},
+				{
+					"label": "La función range",
+					"url": "https://docs.python.org/es/3/library/stdtypes.html#range",
+					"note": "firma completa y comportamiento del paso"
+				},
+				{
+					"label": "Python Tutor",
+					"url": "https://pythontutor.com/",
+					"note": "observa el acumulador vuelta a vuelta"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,455 @@
+{
+	"id": "cpp-20-excepciones-hilos",
+	"track": "cpp",
+	"order": 20,
+	"title": "Excepciones y std::thread",
+	"subtitle": "Informar de errores sin códigos de retorno y ejecutar trabajo en paralelo sin corromper datos",
+	"level": "avanzado",
+	"minutes": 50,
+	"tags": ["excepciones", "hilos", "mutex", "concurrencia"],
+	"keywords": [
+		"try catch throw c++",
+		"noexcept",
+		"excepciones estándar",
+		"RAII excepciones",
+		"std::thread",
+		"std::mutex",
+		"lock_guard",
+		"race condition",
+		"std::async future",
+		"std::jthread",
+		"excepciones en hilos"
+	],
+	"summary": "Una excepción separa el lugar donde falla algo del lugar que sabe recuperarse; un hilo permite que dos tareas avancen a la vez. Aquí verás cómo se propaga una excepción, cómo se libera un recurso al desenrollar la pila y cómo compartir datos entre hilos con un mutex.",
+	"objectives": [
+		"Lanzar y capturar excepciones estándar por referencia constante",
+		"Explicar el desenrollado de pila y el papel de RAII al lanzar",
+		"Crear hilos con std::thread y sincronizar accesos con std::mutex",
+		"Reconocer una condición de carrera y evitarla con lock_guard",
+		"Usar std::async, std::future y std::jthread para tareas y cancelación"
+	],
+	"prerequisites": ["RAII y punteros inteligentes", "Move semantics, optional y variant"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un programa real falla: el archivo no existe, la red se corta, el usuario escribe texto donde esperabas un número. La pregunta no es si habrá errores, sino cómo se entera el código que puede reaccionar. C++ ofrece **excepciones** para ese aviso e **hilos** para repartir trabajo; ambas comparten un requisito: dejar los recursos coherentes."
+		},
+		{
+			"type": "p",
+			"md": "Una excepción interrumpe el flujo normal y busca un `catch` que sepa manejarla. Un hilo ejecuta una función en paralelo. Si los combinas sin cuidado, un error puede terminar el proceso y dos hilos pueden escribir la misma variable a la vez."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una excepción?"
+		},
+		{
+			"type": "p",
+			"md": "Una excepción es un objeto que se crea con `throw` y viaja hacia arriba por la pila de llamadas hasta que alguien lo captura con `catch`. Mientras viaja, las variables locales de las funciones abandonadas se destruyen en orden inverso: eso es el **desenrollado de pila** (*stack unwinding*)."
+		},
+		{
+			"type": "p",
+			"md": "No es lo mismo que un `return` con código de error: un código puede ignorarse sin querer, mientras que una excepción no capturada termina el programa. A cambio, lanzar tiene coste. Úsalas para lo excepcional, no para el flujo normal."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Excepciones y errores de programación",
+			"md": "Un archivo ausente es un error esperable y se maneja con excepción. Acceder fuera de un vector o desreferenciar `nullptr` es un error de programación: el estándar lo declara comportamiento indefinido y ninguna excepción te va a salvar. Para esos casos usa `at()`, comprobaciones y aserciones."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirven las excepciones y los hilos?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Separar detección de manejo**: la función que lee un archivo detecta el fallo; la capa que decide reintentar o avisar al usuario lo maneja.",
+				"**Propagar sin ensuciar firmas**: no tienes que devolver un `pair` con código y valor por cada llamada.",
+				"**Liberar recursos con RAII**: al desenrollar, los destructores de `vector`, `string`, `unique_ptr` y `lock_guard` se ejecutan igual.",
+				"**Aprovechar varios núcleos**: un hilo por tarea permite paralelizar sumas, predicciones o lecturas mientras el hilo principal responde.",
+				"**Modelar concurrencia estructurada**: `std::jthread` une automáticamente y `std::async` devuelve un `future` que transporta el resultado o la excepción."
+			]
+		},
+		{
+			"type": "table",
+			"head": ["Mecanismo", "Qué aporta", "Coste o riesgo"],
+			"rows": [
+				["Código de retorno", "Simple y visible en la firma", "Se puede ignorar; mezcla resultado y estado"],
+				["Excepción", "Propagación automática y RAII", "Coste al lanzar; un `catch` mal puesto la oculta"],
+				["`std::thread`", "Control directo del ciclo de vida", "Debes unir o separar antes del destructor"],
+				["`std::jthread`", "Une solo y permite cancelar con `stop_token`", "Requiere C++20 y cooperación de la tarea"],
+				["`std::async`", "Devuelve un `future` con el resultado", "La política de lanzamiento puede ser diferida"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: propagación y desenrollado"
+		},
+		{
+			"type": "p",
+			"md": "Cuando ejecutas `throw std::invalid_argument(\"mensaje\")`, el compilador crea una copia del objeto en una zona especial y comienza a salir de la función actual. Destruye sus locales, pasa a la llamante y repite. Si encuentra un `try` con un `catch` compatible, se detiene allí; si llega a `main` sin captura, llama a `std::terminate`."
+		},
+		{
+			"type": "p",
+			"md": "Ese recorrido es la razón por la que RAII funciona con excepciones: no necesitas un bloque `finally`. Un `std::lock_guard` guarda el mutex en su constructor y lo libera en el destructor; si el cuerpo lanza, el destructor corre durante el desenrollado y el mutex no queda bloqueado para siempre."
+		},
+		{
+			"type": "p",
+			"md": "Una función marcada `noexcept` promete no lanzar. Si a pesar de eso lanza, el programa llama a `std::terminate` inmediatamente; no hay `catch` que lo salve. Los constructores de movimiento y los destructores suelen ser `noexcept` porque los contenedores dependen de ello. Si un destructor lanza durante otro desenrollado, el resultado también es `terminate`."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: throw, try/catch, noexcept y RAII"
+		},
+		{
+			"type": "p",
+			"md": "El `try` encierra el código que puede fallar y cada `catch` declara el tipo que maneja. Captura por `const&`: por valor cortas el objeto y pierdes la parte derivada. `catch (...)` captura cualquier cosa, pero no dice qué pasó."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "excepcion.cpp",
+			"code": "#include <iostream>\n#include <stdexcept>\n\ndouble dividir(double a, double b) {\n    if (b == 0.0) {\n        throw std::invalid_argument(\"division por cero\");\n    }\n    return a / b;\n}\n\nint main() {\n    try {\n        std::cout << dividir(6.0, 2.0) << '\\n'; // 3\n        std::cout << dividir(1.0, 0.0) << '\\n'; // no se imprime\n    } catch (const std::invalid_argument& e) {\n        std::cout << \"error: \" << e.what() << '\\n';\n    }\n    std::cout << \"el programa continua\\n\";\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Todas las excepciones estándar heredan de `std::exception`, que ofrece `what()`. Las más útiles son `std::invalid_argument`, `std::out_of_range`, `std::runtime_error`, `std::domain_error` y `std::bad_alloc`. Si defines una propia, hereda de `std::runtime_error` y pasa el mensaje al constructor base."
+		},
+		{
+			"type": "p",
+			"md": "RAII significa que un objeto posee un recurso y lo libera en su destructor. Así se ve en la práctica: el recurso se abre en el constructor, el cuerpo puede lanzar y el destructor cierra pase lo que pase. No hay que escribir `finally` ni acordarse de liberar en cada `return`."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "raii.cpp",
+			"code": "#include <iostream>\n#include <stdexcept>\n#include <string>\n#include <utility>\n\nclass Recurso {\npublic:\n    explicit Recurso(std::string nombre) : nombre_(std::move(nombre)) {\n        std::cout << \"abrir \" << nombre_ << '\\n';\n    }\n    ~Recurso() {\n        std::cout << \"cerrar \" << nombre_ << '\\n';\n    }\n\nprivate:\n    std::string nombre_;\n};\n\nvoid cargar(bool falla) {\n    Recurso r(\"archivo\");\n    if (falla) {\n        throw std::runtime_error(\"no se pudo leer\");\n    }\n    std::cout << \"datos leidos\\n\";\n}\n\nint main() {\n    try {\n        cargar(true);\n    } catch (const std::exception& e) {\n        std::cout << \"error: \" << e.what() << '\\n';\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "La salida es `abrir archivo`, `cerrar archivo` y `error: no se pudo leer`. El cierre aparece antes del mensaje porque el destructor se ejecuta al desenrollar: esa garantía hace seguros los recursos."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: capturar y continuar"
+		},
+		{
+			"type": "p",
+			"md": "El primer programa imprime `3`, luego `error: division por cero` y termina con `el programa continua`. La segunda llamada nunca devuelve un valor: la excepción salta directamente al `catch`."
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`dividir(6.0, 2.0)` comprueba que el divisor no es cero y devuelve 3.",
+				"`dividir(1.0, 0.0)` encuentra `b == 0.0` y ejecuta `throw` con un `std::invalid_argument`.",
+				"El `try` abandona la expresión y busca un `catch` compatible con ese tipo.",
+				"El `catch` recibe la excepción por `const&`, lee `what()` y la imprime.",
+				"El flujo sigue después del bloque `try`, no dentro de él: la línea que imprimiría el resultado no se ejecuta."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: dos hilos y un mutex"
+		},
+		{
+			"type": "p",
+			"md": "Un `std::thread` se construye con una función o un callable y empieza a ejecutarse de inmediato. `join()` espera a que termine; `detach()` lo deja suelto. Si destruyes un `std::thread` que sigue unible, el programa llama a `std::terminate`: el estándar no quiere adivinar si querías esperar o separar."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "hilos.cpp",
+			"code": "#include <iostream>\n#include <mutex>\n#include <thread>\n#include <vector>\n\nint main() {\n    long long total = 0;\n    std::mutex candado;\n    std::vector<std::thread> hilos;\n\n    for (int i = 0; i < 4; ++i) {\n        hilos.emplace_back([&total, &candado, i]() {\n            long long parcial = 0;\n            for (int k = 1; k <= 1000; ++k) {\n                parcial += i * 1000 + k;\n            }\n            std::lock_guard<std::mutex> bloqueo(candado);\n            total += parcial;\n        });\n    }\n\n    for (std::thread& h : hilos) {\n        h.join();\n    }\n\n    std::cout << total << '\\n'; // 8002000\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Cada hilo suma su bloque en una variable local `parcial` y solo toca `total` dentro del `lock_guard`. El orden en que los cuatro hilos toman el candado varía entre ejecuciones, pero el total impreso es siempre 8002000. Si quitaras el mutex, dos hilos podrían leer el mismo valor de `total`, sumarle su parcial y escribir uno encima del otro: una **condición de carrera** y comportamiento indefinido."
+		},
+		{
+			"type": "callout",
+			"tone": "danger",
+			"title": "Un hilo que sigue unible termina el programa",
+			"md": "Si `main` regresa mientras un `std::thread` sigue activo, su destructor llama a `std::terminate`. Une siempre con `join()` o, mejor, usa `std::jthread`, cuyo destructor pide parar y une automáticamente."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: async, future y jthread"
+		},
+		{
+			"type": "p",
+			"md": "`std::async` lanza una tarea y devuelve un `std::future`, un objeto que representa un resultado que todavía no está listo. `get()` espera y devuelve el valor; si la tarea lanzó una excepción, `get()` la vuelve a lanzar en el hilo que llama. Esa es la forma de transportar errores entre hilos sin compartir estado."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "async.cpp",
+			"code": "#include <future>\n#include <iostream>\n\nlong long sumar_hasta(int n) {\n    long long total = 0;\n    for (int i = 1; i <= n; ++i) {\n        total += i;\n    }\n    return total;\n}\n\nint main() {\n    std::future<long long> fut = std::async(std::launch::async, sumar_hasta, 1000);\n    std::cout << \"trabajando...\\n\";\n    std::cout << fut.get() << '\\n'; // 500500\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "La política `std::launch::async` obliga a ejecutar en otro hilo. Sin ella, la implementación puede diferir la tarea hasta que llames a `get()`, y entonces el trabajo ocurriría en el mismo hilo. Para medir paralelismo real, sé explícito."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "jthread.cpp",
+			"code": "#include <iostream>\n#include <stop_token>\n#include <thread>\n\nint main() {\n    std::jthread tarea([](std::stop_token token) {\n        for (int i = 1; i <= 3 && !token.stop_requested(); ++i) {\n            std::cout << \"paso \" << i << '\\n';\n        }\n    });\n\n    tarea.join();   // espera a que termine\n    std::cout << \"unido\\n\";\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "`std::jthread` es un hilo que se une solo al destruirse y que recibe un `std::stop_token` si la función lo declara. La tarea consulta `stop_requested()` para terminar de forma cooperativa. Aquí no se pide parada, así que la salida es siempre `paso 1`, `paso 2`, `paso 3` y `unido`; con `request_stop()` inmediato, el número de pasos variaría según cuándo arranque el hilo."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el viaje de una excepción"
+		},
+		{
+			"type": "p",
+			"md": "Sigue la excepción desde la línea que la lanza hasta el `catch`. Observa que `r` nunca llega a inicializarse y que la función `dividir` no devuelve nada en ese camino."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Desenrollado hasta el catch",
+			"code": "#include <iostream>\n#include <stdexcept>\n\ndouble dividir(double a, double b) {\n    if (b == 0.0) {\n        throw std::invalid_argument(\"division por cero\");\n    }\n    return a / b;\n}\n\nint main() {\n    try {\n        double r = dividir(8.0, 0.0);\n        std::cout << r << '\\n';\n    } catch (const std::invalid_argument& e) {\n        std::cout << \"error: \" << e.what() << '\\n';\n    }\n}",
+			"steps": [
+				{
+					"line": 13,
+					"note": "`main` llama a `dividir(8.0, 0.0)`. Entra un nuevo frame con `a = 8`, `b = 0`; `r` aún no existe.",
+					"vars": { "r": "sin inicializar" },
+					"frames": [
+						{ "name": "main", "vars": { "r": "—" } },
+						{ "name": "dividir(8.0, 0.0)", "vars": { "a": "8", "b": "0" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "La condición `b == 0.0` es verdadera. Todavía no se ha creado ninguna excepción.",
+					"vars": { "r": "sin inicializar" },
+					"frames": [
+						{ "name": "main", "vars": { "r": "—" } },
+						{ "name": "dividir(8.0, 0.0)", "vars": { "a": "8", "b": "0" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`throw` construye el `invalid_argument`. El frame de `dividir` se marca para abandonarse.",
+					"vars": { "r": "sin inicializar" },
+					"frames": [
+						{ "name": "main", "vars": { "r": "—" } },
+						{ "name": "dividir(8.0, 0.0) → excepción", "vars": { "a": "8", "b": "0" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 12,
+					"note": "El frame de `dividir` se destruye y el control vuelve a `main` buscando un `catch` compatible. `r` nunca se inicializa.",
+					"vars": { "r": "sin inicializar", "e": "—" },
+					"frames": [{ "name": "main", "vars": { "r": "—", "e": "—" } }],
+					"output": ""
+				},
+				{
+					"line": 15,
+					"note": "El `catch` acepta la excepción por `const&`; `e` referencia el objeto lanzado y `what()` devuelve su mensaje.",
+					"vars": { "r": "sin inicializar", "e": "\"division por cero\"" },
+					"frames": [{ "name": "main", "vars": { "r": "—", "e": "invalid_argument" } }],
+					"output": ""
+				},
+				{
+					"line": 16,
+					"note": "Se imprime el mensaje. Al salir del `catch`, la excepción se considera manejada y el programa continúa.",
+					"vars": { "r": "sin inicializar", "e": "\"division por cero\"" },
+					"frames": [{ "name": "main", "vars": { "r": "—", "e": "invalid_argument" } }],
+					"output": "error: division por cero\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Capturar por valor**: `catch (std::exception e)` corta el objeto y pierde la parte derivada. Usa `catch (const std::exception& e)`.",
+				"**Tragarse todo con `catch (...)`**: el programa sigue como si nada y el fallo reaparece más tarde. Captura solo lo que sepas manejar y deja subir el resto.",
+				"**Lanzar desde un destructor**: si ya hay otra excepción en vuelo, el programa llama a `std::terminate`. Los destructores no deben lanzar.",
+				"**Olvidar `join()` o `detach()`**: el destructor de un `std::thread` unible termina el proceso. Usa `std::jthread` o une en todos los caminos, incluido el de excepción.",
+				"**Compartir una variable sin mutex**: dos hilos escribiendo el mismo `int` producen una condición de carrera. El resultado puede cambiar entre ejecuciones y el estándar lo considera indefinido.",
+				"**Marcar `noexcept` una función que lanza**: la excepción no se puede capturar y el proceso termina. `noexcept` es una promesa, no una sugerencia.",
+				"**Pensar que el orden de ejecución es fijo**: los hilos se intercalan de forma distinta en cada ejecución. Sincroniza el resultado, no el orden de las impresiones."
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Un hilo sin unir",
+			"wrong": {
+				"caption": "Incorrecto: el destructor llama a terminate",
+				"code": "void lanzar() {\n    std::thread t([] { trabajo(); });\n}   // t sigue unible al salir"
+			},
+			"right": {
+				"caption": "Correcto: esperar o usar jthread",
+				"code": "void lanzar() {\n    std::jthread t([] { trabajo(); });\n}   // pide parar y une al salir"
+			},
+			"explain": "`std::thread` no decide por ti entre esperar y separar, así que su destructor aborta si el hilo sigue unible. `std::jthread` une automáticamente y además ofrece cancelación cooperativa con `stop_token`."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Lanza tipos con significado (`std::invalid_argument`, `std::runtime_error`) y captura por `const&`.",
+				"Mantén el `try` lo más pequeño posible: cuanto menos código envuelvas, más claro es qué puede fallar.",
+				"Deja que RAII libere: usa `std::lock_guard` o `std::scoped_lock` en lugar de `lock()`/`unlock()` manual.",
+				"Prefiere `std::jthread` a `std::thread` en código nuevo; el destructor seguro evita terminaciones accidentales.",
+				"Protege cada dato compartido con un mutex o evita compartirlo: calcula en local y combina al final.",
+				"Documenta si una función es `noexcept`; no lo pongas por costumbre si el cuerpo puede lanzar.",
+				"Para tareas con resultado, usa `std::async` y `future`; para muchas tareas cortas, mide antes de crear un hilo por elemento."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Errores en Python y en C++",
+			"python": {
+				"caption": "errores.py",
+				"code": "def dividir(a, b):\n    if b == 0:\n        raise ValueError(\"division por cero\")\n    return a / b\n\ntry:\n    print(dividir(1, 0))\nexcept ValueError as e:\n    print(\"error:\", e)"
+			},
+			"cpp": {
+				"caption": "errores.cpp",
+				"code": "double dividir(double a, double b) {\n    if (b == 0.0) throw std::invalid_argument(\"division por cero\");\n    return a / b;\n}\n\ntry {\n    std::cout << dividir(1.0, 0.0);\n} catch (const std::invalid_argument& e) {\n    std::cout << \"error: \" << e.what();\n}"
+			},
+			"note": "La estructura es casi idéntica, pero C++ obliga a declarar el tipo en el `catch` y a capturar por referencia para no copiar. En Python cualquier excepción deriva de `BaseException`; en C++ solo las que heredan de `std::exception` ofrecen `what()`."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Raíz cuadrada con dominio validado",
+			"md": "Escribe `double raiz(double x)` que lance `std::domain_error` si `x < 0` y devuelva `std::sqrt(x)` en caso contrario. En `main`, prueba con 16 y con -4 dentro de un `try`, captura `const std::exception&` e imprime `what()`. Añade una función auxiliar `bool es_no_negativo(double) noexcept`.",
+			"hint": "Incluye `<cmath>` y `<stdexcept>`. `std::sqrt` de un negativo devuelve NaN, así que la comprobación debe hacerse antes.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "raiz.cpp",
+				"code": "#include <cmath>\n#include <iostream>\n#include <stdexcept>\n\nbool es_no_negativo(double x) noexcept {\n    return x >= 0.0;\n}\n\ndouble raiz(double x) {\n    if (!es_no_negativo(x)) {\n        throw std::domain_error(\"no existe raiz real de un negativo\");\n    }\n    return std::sqrt(x);\n}\n\nint main() {\n    try {\n        std::cout << raiz(16.0) << '\\n'; // 4\n        std::cout << raiz(-4.0) << '\\n'; // no se imprime\n    } catch (const std::exception& e) {\n        std::cout << \"error: \" << e.what() << '\\n';\n    }\n    return 0;\n}",
+				"explain": "El chequeo ocurre antes de llamar a `sqrt`, así que nunca se calcula un NaN silencioso. `es_no_negativo` se marca `noexcept` porque una comparación de `double` no puede lanzar; esa promesa permite al compilador y a los contenedores optimizar. El `catch` por `const std::exception&` también capturaría un `std::domain_error` futuro."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Suma paralela con cuatro hilos",
+			"md": "Suma los enteros de 1 a 1 000 000 usando cuatro hilos. Cada hilo debe calcular su parcial en una variable local y sumarlo a un `long long` compartido dentro de un `std::lock_guard`. Une todos los hilos y muestra el total, que debe ser 500000500000.",
+			"hint": "Divide el rango en cuatro bloques de 250 000. Pasa `inicio` y `fin` por valor al lambda y captura `total` y el mutex por referencia.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "suma_paralela.cpp",
+				"code": "#include <iostream>\n#include <mutex>\n#include <thread>\n#include <vector>\n\nint main() {\n    const int n = 1000000;\n    const int partes = 4;\n    const int bloque = n / partes;\n\n    long long total = 0;\n    std::mutex candado;\n    std::vector<std::thread> hilos;\n\n    for (int i = 0; i < partes; ++i) {\n        const int inicio = i * bloque + 1;\n        const int fin = (i == partes - 1) ? n : (i + 1) * bloque;\n\n        hilos.emplace_back([inicio, fin, &total, &candado]() {\n            long long parcial = 0;\n            for (int k = inicio; k <= fin; ++k) {\n                parcial += k;\n            }\n            std::lock_guard<std::mutex> bloqueo(candado);\n            total += parcial;\n        });\n    }\n\n    for (std::thread& h : hilos) {\n        h.join();\n    }\n\n    std::cout << total << '\\n'; // 500000500000\n    return 0;\n}",
+				"explain": "Cada hilo escribe solo en su `parcial` local, así que no hay contención durante el cálculo. El mutex protege únicamente la suma final, que es la sección crítica. El último bloque usa `n` como fin para cubrir el resto si la división no fuera exacta; con 1 000 000 y 4 el reparto es exacto."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el manejo y el bloqueo",
+			"lang": "cpp",
+			"code": "try {\n    lanzar();\n} ___ (const std::exception& e) {\n    std::cout << e.___();\n}\n\nstd::mutex m;\nstd::___<std::mutex> bloqueo(m);",
+			"answers": ["catch", "what", "lock_guard"],
+			"hint": "La palabra que captura es la pareja de `try`; el método que devuelve el mensaje está en `std::exception`; el guardián de alcance se llama `lock_guard`.",
+			"explain": "`catch` recibe la excepción por referencia constante, `what()` devuelve su descripción y `lock_guard` libera el mutex en su destructor, incluso si el bloque lanza. Sin el guardián, deberías llamar a `unlock()` en todos los caminos."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la validación ocurre antes del cálculo. Si llamaras a `std::sqrt(-4.0)` sin comprobar, obtendrías `NaN` y el error se propagaría en silencio hasta una comparación o una impresión. Lanzar `std::domain_error` convierte un valor inválido en una señal explícita que el llamador puede manejar o dejar subir."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el reparto del rango es lo que garantiza el resultado: los bloques 1–250000, 250001–500000, 500001–750000 y 750001–1000000 son disjuntos y cubren todo. El mutex no hace que la suma sea más rápida; hace que sea correcta. El tiempo no baja a la cuarta parte: crear hilos y sincronizar tiene coste, y para una suma simple el hilo principal puede ser igual de rápido."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`throw` crea una excepción; `catch` la captura por referencia y `what()` describe el error.",
+				"Al lanzar, la pila se desenrolla y los destructores liberan los recursos: eso es RAII en acción.",
+				"`noexcept` promete no lanzar; si la promesa se rompe, el programa termina.",
+				"Un `std::thread` debe unirse o separarse antes de su destructor; `std::jthread` lo hace solo.",
+				"Un mutex y `lock_guard` convierten varias operaciones en una sección crítica.",
+				"Sin sincronización, dos hilos sobre el mismo dato producen una condición de carrera.",
+				"`std::async` y `future` transportan resultados y excepciones de vuelta al hilo que llama."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué se captura con `const std::exception&` en lugar de `std::exception`?",
+			"options": [
+				"Porque las excepciones no se pueden copiar",
+				"Porque capturar por valor corta el objeto y pierde la parte derivada",
+				"Porque `const&` hace que el programa sea más rápido al lanzar",
+				"Porque el estándar prohíbe capturar por valor"
+			],
+			"answer": 1,
+			"explain": "Capturar por valor construye un `std::exception` a partir del objeto lanzado: si era un `std::invalid_argument`, se pierde esa parte (slicing). La referencia conserva el objeto original y permite llamar a sus métodos virtuales."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué ocurre si un `std::thread` sigue unible cuando se destruye?",
+			"options": [
+				"Se une automáticamente",
+				"Se separa automáticamente",
+				"El programa llama a `std::terminate`",
+				"El hilo se cancela sin más"
+			],
+			"answer": 2,
+			"explain": "El destructor de `std::thread` no elige entre esperar y separar; si el hilo sigue unible, aborta el proceso. `std::jthread` existe precisamente para unir de forma automática."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué protege exactamente `std::lock_guard<std::mutex> bloqueo(m);`?",
+			"options": [
+				"Todo el programa mientras el objeto exista",
+				"Solo la siguiente instrucción",
+				"El bloque de código donde vive el guardián, hasta su destructor",
+				"Solo las variables declaradas después de él"
+			],
+			"answer": 2,
+			"explain": "El guardián bloquea en su constructor y libera en su destructor, al salir del ámbito. Por eso conviene declararlo en el bloque más pequeño posible: todo lo que esté dentro queda protegido, y todo lo que esté fuera, no."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · Excepciones",
+					"url": "https://en.cppreference.com/w/cpp/language/exceptions",
+					"note": "throw, try y catch"
+				},
+				{
+					"label": "cppreference · std::thread",
+					"url": "https://en.cppreference.com/w/cpp/thread/thread",
+					"note": "hilos y unión"
+				},
+				{
+					"label": "cppreference · std::jthread",
+					"url": "https://en.cppreference.com/w/cpp/thread/jthread",
+					"note": "cancelación cooperativa en C++20"
+				}
+			]
+		}
+	]
+}

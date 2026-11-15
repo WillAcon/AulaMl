@@ -1,0 +1,522 @@
+{
+	"id": "cpp-04-condicionales",
+	"track": "cpp",
+	"order": 4,
+	"title": "Condicionales y switch",
+	"subtitle": "Tomar decisiones con if, operadores lógicos, ternario y switch",
+	"level": "principiante",
+	"minutes": 32,
+	"tags": [
+		"condicionales",
+		"switch",
+		"lógica",
+		"control de flujo"
+	],
+	"keywords": [
+		"if else c++",
+		"operadores lógicos",
+		"operador ternario",
+		"switch case",
+		"break",
+		"fallthrough",
+		"comparar floats",
+		"cortocircuito",
+		"condiciones",
+		"validar entrada"
+	],
+	"summary": "Los condicionales permiten que un programa elija entre varios caminos. En esta lección escribes cadenas if/else if/else, combinas condiciones con && y ||, usas el ternario y switch con break, y aprendes por qué los reales se comparan con tolerancia.",
+	"objectives": [
+		"Escribir cadenas de condiciones en el orden correcto",
+		"Combinar comparaciones con &&, || y ! sin ambigüedad",
+		"Usar el operador ternario para decisiones cortas",
+		"Elegir entre if y switch según el tipo de dato",
+		"Evitar los errores clásicos: asignación en la condición, fallthrough y comparación de reales"
+	],
+	"prerequisites": [
+		"Variables, const, auto y operadores"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un programa deja de ser una calculadora cuando puede elegir. Esa elección se escribe con `if`, con el operador ternario o con `switch`, y siempre se reduce a lo mismo: evaluar una condición booleana y decidir qué bloque se ejecuta."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una condición?"
+		},
+		{
+			"type": "p",
+			"md": "Una condición es una expresión que produce `true` o `false`. En C++ cualquier valor numérico se convierte a booleano: `0` es falso y todo lo demás es verdadero. Esa flexibilidad viene de C y es una fuente de errores si la usas sin querer."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Comparación**: `a > b`, `a == b`, `a != b`, `a <= b`.",
+				"**Lógicos**: `&&` (y), `||` (o), `!` (no).",
+				"**Ternario**: `cond ? valor_si_true : valor_si_false`.",
+				"**switch**: elige entre varios casos de un valor entero o enumerado."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Validar entradas antes de usarlas: edad positiva, nota dentro de rango, divisor distinto de cero.",
+				"Clasificar valores en categorías: aprobado o desaprobado, fiebre o normal.",
+				"Elegir una ruta en un menú de opciones.",
+				"Aplicar umbrales de decisión sobre probabilidades.",
+				"Evitar cálculos costosos con el cortocircuito de `&&` y `||`."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En un clasificador binario, la etiqueta final sale de comparar una probabilidad con un umbral. Cambiar el umbral cambia la decisión sin reentrenar el modelo: eso es un `if` con consecuencias reales."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El compilador evalúa la condición y genera un salto condicional: si el resultado es falso, salta al bloque siguiente. El coste es una comparación y un salto, y por eso los condicionales son baratos."
+		},
+		{
+			"type": "p",
+			"md": "`&&` y `||` **cortocircuitan**: en `a && b`, si `a` es falso, `b` no se evalúa. Eso permite escribir `if (i < v.size() && v[i] > 0)` sin salirte del rango. El orden importa: si inviertes los operandos, el acceso ocurre antes de la comprobación."
+		},
+		{
+			"type": "p",
+			"md": "Los `double` no se comparan con `==` salvo que sepas exactamente cómo se construyeron. `0.1 + 0.2` no es `0.3` en binario; la diferencia es minúscula pero suficiente para que la igualdad falle."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "comparar_reales.cpp",
+			"code": "#include <cmath>\n#include <iomanip>\n#include <iostream>\n\nint main() {\n    double a = 0.1 + 0.2;\n    double b = 0.3;\n\n    std::cout << std::setprecision(17);\n    std::cout << \"0.1 + 0.2 = \" << a << '\\n';\n    std::cout << \"a == b:    \" << (a == b ? \"true\" : \"false\") << '\\n';\n    std::cout << \"casi igual: \" << (std::abs(a - b) < 1e-9 ? \"true\" : \"false\") << '\\n';\n    return 0;\n}",
+			"highlight": [
+				11,
+				12,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida confirma el problema: `0.30000000000000004` frente a `0.3`. La comparación con tolerancia `std::abs(a - b) < 1e-9` es la forma correcta cuando trabajas con medidas o con resultados de un modelo."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica encadena condiciones y deja el caso general en el `else`:"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "cadena de condiciones",
+			"code": "if (condicion1) {\n    // se ejecuta si condicion1 es true\n} else if (condicion2) {\n    // se ejecuta si condicion1 es false y condicion2 es true\n} else {\n    // ningún caso anterior\n}"
+		},
+		{
+			"type": "p",
+			"md": "Las llaves son opcionales cuando el bloque tiene una sola sentencia, pero el curso las exige siempre: evitan el error de la rama colgante y facilitan añadir líneas después."
+		},
+		{
+			"type": "p",
+			"md": "El ternario devuelve un valor, no ejecuta bloques: `std::string estado = nota >= 11 ? \"aprobado\" : \"desaprobado\";`. Úsalo para expresiones cortas; si anidas dos, pierdes legibilidad."
+		},
+		{
+			"type": "p",
+			"md": "`switch` compara un valor entero o `char` contra etiquetas `case` constantes. Cada `case` termina en `break` (o en `return`) si no quieres que continúe; `default` cubre el resto."
+		},
+		{
+			"type": "compare",
+			"title": "La misma decisión en los dos lenguajes",
+			"python": {
+				"caption": "nota.py",
+				"code": "nota = 15\n\nif nota >= 18:\n    print(\"Excelente\")\nelif nota >= 14:\n    print(\"Bueno\")\nelse:\n    print(\"En proceso\")"
+			},
+			"cpp": {
+				"caption": "nota.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    int nota = 15;\n    if (nota >= 18) {\n        std::cout << \"Excelente\\n\";\n    } else if (nota >= 14) {\n        std::cout << \"Bueno\\n\";\n    } else {\n        std::cout << \"En proceso\\n\";\n    }\n    return 0;\n}"
+			},
+			"note": "Python usa `elif` y bloques por indentación; C++ usa `else if`, llaves y paréntesis en la condición. La condición de Python no necesita paréntesis; en C++ son parte de la sintaxis."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: clasificar una nota"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "notas.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int nota = 15;\n\n    if (nota >= 18) {\n        std::cout << \"Excelente\\n\";\n    } else if (nota >= 14) {\n        std::cout << \"Bueno\\n\";\n    } else if (nota >= 11) {\n        std::cout << \"Aprobado\\n\";\n    } else {\n        std::cout << \"Desaprobado\\n\";\n    }\n    return 0;\n}",
+			"highlight": [
+				7,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "El orden de las condiciones importa. `nota >= 18` se comprueba primero; si es falsa, se pasa a `nota >= 14`, y así. Si empezaras por `nota >= 11`, una nota de 20 caería en «Aprobado» porque la primera condición ya sería verdadera."
+		},
+		{
+			"type": "p",
+			"md": "Con `nota = 15` la salida es `Bueno`: 15 no llega a 18, pero sí a 14. Cambia el valor a 10 y comprueba que ahora entra por el `else` final."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: combinar condiciones"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "acceso.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int edad = 20;\n    bool tiene_entrada = true;\n    bool vetado = false;\n\n    bool puede_entrar = edad >= 18 && tiene_entrada && !vetado;\n\n    std::cout << \"¿Puede entrar? \" << (puede_entrar ? \"sí\" : \"no\") << '\\n';\n    return 0;\n}",
+			"highlight": [
+				8
+			]
+		},
+		{
+			"type": "p",
+			"md": "`puede_entrar` combina tres condiciones con `&&` y una negación. El resultado es un `bool` que después se usa en el ternario. Evaluar por partes con nombres claros (`tiene_entrada`, `vetado`) hace que la condición se lea casi como una frase."
+		},
+		{
+			"type": "p",
+			"md": "Añade `||` y la cosa se complica: `edad >= 18 || tiene_permiso` deja pasar a un menor con permiso. Los paréntesis no son obligatorios por precedencia (`&&` antes que `||`), pero casi siempre aclaran la intención."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: umbral de decisión"
+		},
+		{
+			"type": "p",
+			"md": "Un modelo devuelve una probabilidad; el programa decide. Este esquema es el corazón de la inferencia binaria y permite comparar umbrales sin tocar el modelo."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "umbral.cpp",
+			"code": "#include <iomanip>\n#include <iostream>\n\nint main() {\n    double probabilidad = 0.73;\n    constexpr double umbral = 0.5;\n\n    std::cout << std::fixed << std::setprecision(2);\n    std::cout << \"P(clase 1) = \" << probabilidad << '\\n';\n\n    if (probabilidad >= umbral) {\n        std::cout << \"Predicción: clase 1\\n\";\n    } else {\n        std::cout << \"Predicción: clase 0\\n\";\n    }\n\n    // Un umbral más exigente cambia la decisión\n    constexpr double exigente = 0.9;\n    std::cout << \"Con umbral 0.90: \"\n              << (probabilidad >= exigente ? \"clase 1\" : \"clase 0\") << '\\n';\n    return 0;\n}",
+			"highlight": [
+				11,
+				19
+			]
+		},
+		{
+			"type": "p",
+			"md": "Con `P = 0.73` y umbral 0.5, la predicción es clase 1. Con umbral 0.90, la misma probabilidad ya no alcanza y la predicción cambia a clase 0. El modelo no cambió; cambió la regla. En problemas con clases desbalanceadas, subir el umbral reduce falsos positivos a costa de más falsos negativos."
+		},
+		{
+			"type": "p",
+			"md": "La comparación usa `>=`, no `>`. La diferencia solo importa cuando la probabilidad es exactamente el umbral, pero conviene decidirla y documentarla."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué rama se ejecuta"
+		},
+		{
+			"type": "p",
+			"md": "La traza muestra las dos comparaciones y el momento en que se elige una rama. Observa que la cadena se detiene en cuanto una condición es verdadera: las siguientes no se evalúan."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Una cadena if / else if / else",
+			"code": "#include <iostream>\n\nint main() {\n    int nota = 15;\n    if (nota >= 18) {\n        std::cout << \"Excelente\\n\";\n    } else if (nota >= 14) {\n        std::cout << \"Bueno\\n\";\n    } else {\n        std::cout << \"En proceso\\n\";\n    }\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 4,
+					"note": "`nota` guarda 15.",
+					"vars": {
+						"nota": "15"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`15 >= 18` es falso: el bloque de la línea 6 se salta.",
+					"vars": {
+						"nota": "15"
+					},
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "`15 >= 14` es verdadero: esta rama se queda con el control.",
+					"vars": {
+						"nota": "15"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "Se ejecuta la única sentencia de la rama.",
+					"vars": {
+						"nota": "15"
+					},
+					"output": "Bueno\n"
+				},
+				{
+					"line": 9,
+					"note": "La cadena ya se resolvió, así que el `else` final no se evalúa ni se ejecuta.",
+					"vars": {
+						"nota": "15"
+					},
+					"output": ""
+				},
+				{
+					"line": 12,
+					"note": "`return 0` termina el programa con éxito.",
+					"vars": {
+						"nota": "15"
+					},
+					"output": ""
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "switch en la práctica"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "menu.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int opcion = 2;\n\n    switch (opcion) {\n        case 1:\n            std::cout << \"Entrenar modelo\\n\";\n            break;\n        case 2:\n            std::cout << \"Evaluar modelo\\n\";\n            break;\n        case 3:\n            std::cout << \"Exportar métricas\\n\";\n            break;\n        default:\n            std::cout << \"Opción no válida\\n\";\n            break;\n    }\n    return 0;\n}",
+			"highlight": [
+				7,
+				8,
+				9,
+				10
+			]
+		},
+		{
+			"type": "p",
+			"md": "`switch` no admite `std::string`; para texto se usa `if` o se compara con `==`. Sí admite `char`, enums y enteros. `default` no es obligatorio, pero omitirlo deja casos sin cubrir y el compilador no siempre avisa."
+		},
+		{
+			"type": "p",
+			"md": "Si olvidas un `break`, la ejecución **cae** al siguiente `case`: es el *fallthrough*. A veces se busca a propósito (varios casos comparten código), y entonces se documenta con `[[fallthrough]];`. Si no es intencional, es un error silencioso."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Error",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`if (nota = 18)`",
+					"Asignación en lugar de comparación",
+					"Escribe `==`; `-Wall` suele avisar"
+				],
+				[
+					"`error: switch quantity not an integer`",
+					"Intentaste hacer `switch` sobre un `std::string`",
+					"Usa `if`/`else` con `==` para texto"
+				],
+				[
+					"Dos `case` imprimen lo mismo",
+					"Falta `break`",
+					"Añádelo o marca `[[fallthrough]];`"
+				],
+				[
+					"`if (0.1 + 0.2 == 0.3)` nunca entra",
+					"Comparación exacta de reales",
+					"Compara con tolerancia: `std::abs(a - b) < 1e-9`"
+				],
+				[
+					"El `else` se ejecuta cuando no debería",
+					"Rama colgante por falta de llaves",
+					"Usa llaves siempre"
+				],
+				[
+					"`expected primary-expression before 'else'`",
+					"Punto y coma después de `if (...)`",
+					"Quita el `;` antes del bloque"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El primero merece énfasis: `if (x = 0)` asigna 0 a `x` y evalúa 0, así que la rama nunca se ejecuta. Es un error que compila sin quejarse en muchos casos."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Señales de que una condición miente",
+			"md": "Un `if` con una asignación dentro, un `switch` sin `default` o un `==` entre `double` son señales de alarma. Compila con `-Wall -Wextra`: el aviso `-Wparentheses` detecta muchas asignaciones sospechosas antes de que las pruebes."
+		},
+		{
+			"type": "diff",
+			"title": "El case que se cuela",
+			"wrong": {
+				"caption": "Incorrecto",
+				"code": "#include <iostream>\n\nint main() {\n    int opcion = 1;\n\n    switch (opcion) {\n        case 1:\n            std::cout << \"Uno\\n\";\n        case 2:\n            std::cout << \"Dos\\n\";\n            break;\n        default:\n            break;\n    }\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "#include <iostream>\n\nint main() {\n    int opcion = 1;\n\n    switch (opcion) {\n        case 1:\n            std::cout << \"Uno\\n\";\n            break;\n        case 2:\n            std::cout << \"Dos\\n\";\n            break;\n        default:\n            break;\n    }\n    return 0;\n}"
+			},
+			"explain": "Sin el `break`, la ejecución continúa en el `case 2` e imprime las dos líneas. El programa compila y no avisa: solo se detecta probando con la opción 1. Ese silencio es lo que hace peligroso el fallthrough accidental."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe llaves aunque el bloque sea de una línea.",
+				"Ordena las condiciones de lo más específico a lo más general.",
+				"Extrae condiciones complejas a variables `bool` con nombre.",
+				"Declara los umbrales como `constexpr` en un solo lugar.",
+				"No compares `double` con `==`; usa una tolerancia.",
+				"En `switch`, cubre siempre `default` y termina cada `case`.",
+				"Prefiere `if` para rangos y `switch` para valores discretos."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Clasificador de temperatura",
+			"md": "Escribe un programa que clasifique una temperatura corporal: `>= 39.0` es fiebre alta, `>= 37.5` es fiebre, `>= 36.0` es normal y por debajo es hipotermia. Prueba con 38.5, 36.5 y 35.0, y comprueba que cada valor cae en la categoría correcta.",
+			"hint": "Ordena las comparaciones de mayor a menor. Si empiezas por la más baja, todos los valores altos caerán en la primera categoría.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "temperatura.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    double temperatura = 38.5;\n\n    if (temperatura >= 39.0) {\n        std::cout << \"Fiebre alta\\n\";\n    } else if (temperatura >= 37.5) {\n        std::cout << \"Fiebre\\n\";\n    } else if (temperatura >= 36.0) {\n        std::cout << \"Normal\\n\";\n    } else {\n        std::cout << \"Hipotermia\\n\";\n    }\n    return 0;\n}",
+				"explain": "Cada `else if` solo se evalúa si las anteriores fallaron, así que el orden de mayor a menor evita solapamientos. Con 38.5 imprime «Fiebre»."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Año bisiesto",
+			"md": "Un año es bisiesto si es divisible entre 4 y no entre 100, o si es divisible entre 400. Escribe la condición en una sola variable `bool` y muestra el resultado con un ternario. Verifica con 2024 (bisiesto), 1900 (no bisiesto) y 2000 (bisiesto).",
+			"hint": "Combina `%` con `&&` y `||`. Recuerda que `&&` tiene más prioridad que `||`; los paréntesis aclaran la regla.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "bisiesto.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    int anio = 2024;\n    bool bisiesto = (anio % 4 == 0 && anio % 100 != 0) || (anio % 400 == 0);\n\n    std::cout << anio << (bisiesto ? \" es bisiesto\\n\" : \" no es bisiesto\\n\");\n    return 0;\n}",
+				"explain": "La primera parte cubre los múltiplos de 4 que no son de 100; la segunda rescata los múltiplos de 400, como 2000. 1900 falla ambas y no es bisiesto."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la decisión",
+			"lang": "cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int nota = 16;\n    if (nota ___ 14) {\n        std::cout << \"Aprobado\\n\";\n    } ___ {\n        std::cout << \"Desaprobado\\n\";\n    }\n    return 0;\n}",
+			"answers": [
+				">=",
+				"else"
+			],
+			"hint": "La segunda rama se ejecuta cuando la condición es falsa.",
+			"explain": "`>=` compara sin asignar y `else` cubre el caso contrario. Con 16 el programa imprime «Aprobado». Si escribieras `=` en lugar de `>=`, el programa compilaría pero la condición sería una asignación."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el clasificador de temperatura, la decisión clave es el orden. Las condiciones se evalúan de arriba abajo y la primera verdadera gana, así que poner `>= 36.0` antes que `>= 39.0` haría que una fiebre alta se etiquetara como normal. Ese error no lo detecta el compilador: solo una prueba con valores de cada rango."
+		},
+		{
+			"type": "p",
+			"md": "En el año bisiesto, los paréntesis traducen la regla del calendario a precedencia explícita. Sin ellos, `&&` seguiría agrupando igual, pero el lector tendría que reconstruir la regla mentalmente. Probar 1900 y 2000 es lo que separa una condición correcta de una que solo funciona con años recientes."
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de completar, la diferencia entre `=` y `>=` es la misma que separa un programa correcto de uno que compila y miente. El `else` no lleva condición porque representa el complemento exacto de la anterior."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una condición produce `true` o `false`; en C++, `0` es falso y el resto verdadero.",
+				"La cadena `if / else if / else` se detiene en la primera condición verdadera.",
+				"`&&` y `||` cortocircuitan: el orden de los operandos puede evitar accesos inválidos.",
+				"El ternario devuelve un valor y sirve para decisiones cortas.",
+				"`switch` funciona con enteros, `char` y enums; cada `case` necesita `break`.",
+				"`default` cubre los valores no contemplados y evita fallos silenciosos.",
+				"Compara `double` con tolerancia, nunca con `==`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué ocurre con `int x = 0; if (x = 5) { ... }`?",
+			"options": [
+				"La rama no se ejecuta porque 0 es falso",
+				"La rama se ejecuta porque la asignación vale 5",
+				"El compilador rechaza el programa siempre",
+				"Se ejecuta dos veces"
+			],
+			"answer": 1,
+			"explain": "`x = 5` asigna 5 y el valor de la expresión es 5, que se convierte en `true`. El programa entra en la rama aunque la intención fuera comparar. Con `-Wall` suele aparecer un aviso."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué se escribe `if (i < v.size() && v[i] > 0)` en ese orden?",
+			"options": [
+				"Porque `&&` evalúa siempre ambos lados",
+				"Porque si `i` está fuera de rango, el segundo operando no se evalúa",
+				"Porque `v[i]` tiene prioridad sobre la comparación",
+				"Porque el compilador ordena las condiciones alfabéticamente"
+			],
+			"answer": 1,
+			"explain": "`&&` cortocircuita: si la primera condición es falsa, la segunda no se evalúa. Así se evita acceder a `v[i]` con un índice inválido. Invertir el orden provocaría un acceso fuera de rango."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué pasa si haces `switch` sobre una variable `std::string`?",
+			"options": [
+				"Funciona si los `case` son cadenas",
+				"Funciona solo con `default`",
+				"No compila: `switch` requiere un tipo entero o enumerado",
+				"Compila pero ignora los `case`"
+			],
+			"answer": 2,
+			"explain": "`switch` solo admite expresiones integrales o de tipo enumerado. Para texto se usa una cadena de `if`/`else if` con `==`, o se convierte el texto en un enum antes de decidir."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference: if",
+					"url": "https://en.cppreference.com/w/cpp/language/if",
+					"note": "condicionales y ámbitos"
+				},
+				{
+					"label": "cppreference: switch",
+					"url": "https://en.cppreference.com/w/cpp/language/switch",
+					"note": "etiquetas, break y fallthrough"
+				},
+				{
+					"label": "cppreference: operadores lógicos",
+					"url": "https://en.cppreference.com/w/cpp/language/operator_logical",
+					"note": "cortocircuito y precedencia"
+				}
+			]
+		}
+	]
+}

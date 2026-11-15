@@ -1,0 +1,499 @@
+{
+	"id": "cpp-05-bucles",
+	"track": "cpp",
+	"order": 5,
+	"title": "Bucles for, while y do-while",
+	"subtitle": "Repetir trabajo con control: cuándo usar cada bucle y cómo no salirte del rango",
+	"level": "principiante",
+	"minutes": 36,
+	"tags": [
+		"bucles",
+		"for",
+		"while",
+		"iteración"
+	],
+	"keywords": [
+		"bucle for c++",
+		"bucle while c++",
+		"do while c++",
+		"diferencia for while",
+		"break continue c++",
+		"bucles anidados",
+		"error off by one",
+		"bucle infinito",
+		"range for c++",
+		"complejidad de un bucle"
+	],
+	"summary": "Un bucle repite un bloque mientras se cumpla una condición. Aprenderás a escribir for, while y do-while, a cortar iteraciones con break y continue, a recorrer datos sin salirte del rango y a estimar cuántas veces se ejecuta el cuerpo.",
+	"objectives": [
+		"Elegir entre for, while y do-while según el problema",
+		"Escribir la condición de un bucle sin errores de uno de más o de uno de menos",
+		"Usar break y continue sin volver ilegible el flujo",
+		"Recorrer arrays y acumular resultados con bucles anidados",
+		"Estimar cuántas iteraciones ejecuta un bucle sencillo"
+	],
+	"prerequisites": [
+		"Condicionales y switch"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Supón que quieres sumar los números del 1 al 1000. Escribir mil sentencias es posible y absurdo: el mismo patrón se repite con un valor distinto. Un **bucle** captura ese patrón y deja que la máquina haga la repetición mientras tú describes la regla."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un bucle?"
+		},
+		{
+			"type": "p",
+			"md": "Un bucle es una estructura de control que **ejecuta un bloque varias veces**. Cada repetición se llama *iteración*. Para que el bucle termine, necesita tres piezas coordinadas: un estado inicial, una condición que se comprueba antes de cada vuelta y una actualización que acerca el estado al final."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Inicialización**: crea la variable que lleva la cuenta, por ejemplo `int i = 1`.",
+				"**Condición**: decide si se entra otra vez, por ejemplo `i <= 5`.",
+				"**Actualización**: cambia la cuenta, por ejemplo `++i`.",
+				"**Cuerpo**: el trabajo que se repite: sumar, imprimir, leer un dato."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Si olvidas la actualización, la condición nunca deja de ser verdadera y el programa se queda girando: es el famoso **bucle infinito**. Si la actualización va en la dirección equivocada, ocurre lo mismo. Un bucle correcto siempre avanza hacia su condición de salida."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Acumular**: sumar notas, contar aprobados, multiplicar una lista de factores.",
+				"**Recorrer datos**: visitar cada elemento de un array o, más adelante, de un `std::vector`.",
+				"**Repetir hasta que algo ocurra**: leer hasta encontrar un cero, dividir un número hasta que sea de un dígito.",
+				"**Entrenar modelos**: una época de descenso de gradiente es un bucle sobre lotes de datos.",
+				"**Generar tablas**: imprimir una tabla de multiplicar o una matriz de distancias."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning, el bucle externo recorre épocas y lotes; el interno recorre las features de cada ejemplo. Contar iteraciones es el primer paso para estimar el coste de un entrenamiento."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "El orden es siempre el mismo: inicialización **una vez**, condición, cuerpo y actualización. Luego se vuelve a evaluar la condición. Cuando es falsa, el control salta a la primera línea después del bucle."
+		},
+		{
+			"type": "p",
+			"md": "Ese orden explica un detalle que sorprende: en `for (int i = 0; i < 5; ++i)` la condición se evalúa **seis** veces para cinco iteraciones: una comprobación inicial y una tras cada vuelta, incluida la que falla. El cuerpo, en cambio, se ejecuta exactamente cinco veces."
+		},
+		{
+			"type": "p",
+			"md": "La variable de la cabecera del `for` vive solo dentro del bucle; si la necesitas después, declárala antes. En un `while` la variable de control se declara fuera porque la condición la usa."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Tres bucles, tres preguntas",
+			"md": "Usa `for` cuando sabes cuántas veces repetir o tienes un contador claro. Usa `while` cuando la repetición depende de una condición que puede no cumplirse nunca. Usa `do-while` cuando el cuerpo debe ejecutarse **al menos una vez**, como al pedir un dato hasta que sea válido."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "p",
+			"md": "Las tres formas comparten la idea de condición, pero colocan las piezas en sitios distintos. Observa que `do-while` cierra con `while (condición);`: el punto y coma final es obligatorio y su ausencia es un error de compilación frecuente."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    for (int i = 0; i < 3; ++i) {\n        std::cout << \"for \" << i << '\\n';\n    }\n\n    int j = 0;\n    while (j < 3) {\n        std::cout << \"while \" << j << '\\n';\n        ++j;\n    }\n\n    int k = 0;\n    do {\n        std::cout << \"do-while \" << k << '\\n';\n        ++k;\n    } while (k < 3);\n\n    return 0;\n}",
+			"highlight": [
+				4,
+				10,
+				18
+			]
+		},
+		{
+			"type": "p",
+			"md": "El `for` agrupa las tres piezas en la cabecera. El `while` solo declara la condición; la inicialización va antes y la actualización dentro. El `do-while` evalúa la condición **después** del cuerpo, así que entra siempre la primera vez."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: sumar del 1 al 5"
+		},
+		{
+			"type": "p",
+			"md": "Este programa acumula los enteros del 1 al 5. La variable `suma` se declara fuera del bucle porque debe sobrevivir a todas las iteraciones; `i` se declara en la cabecera porque solo sirve para contar."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "suma.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int suma = 0;\n\n    for (int i = 1; i <= 5; ++i) {\n        suma += i;          // suma = suma + i\n    }\n\n    std::cout << \"Suma de 1 a 5: \" << suma << '\\n';\n    return 0;\n}",
+			"highlight": [
+				7
+			]
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`int suma = 0;` crea el acumulador con el elemento neutro de la suma.",
+				"`int i = 1` ocurre una sola vez, antes de la primera comprobación.",
+				"`i <= 5` se evalúa antes de cada vuelta; con `i == 6` el bucle termina.",
+				"`suma += i` equivale a `suma = suma + i` y modifica el acumulador.",
+				"`++i` incrementa el contador al final de cada vuelta, nunca antes del cuerpo."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `Suma de 1 a 5: 15`. Con `i < 5` sumarías 1, 2, 3 y 4: el error de uno de menos; con `i <= 6`, 21. La condición es el contrato del bucle."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: while, do-while y control de iteraciones"
+		},
+		{
+			"type": "p",
+			"md": "Contar los dígitos de un número es un caso donde no sabes cuántas vueltas harán falta: divides entre diez hasta que no quede nada. Ese es territorio de `while`. Con `do-while` el cuerpo se ejecuta aunque el número sea cero, y así `0` cuenta como un dígito en lugar de cero."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "digitos.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    int numero = 407;\n    int copia = numero;\n    int digitos = 0;\n\n    do {\n        copia /= 10;        // elimina el ultimo digito\n        ++digitos;\n    } while (copia > 0);\n\n    std::cout << numero << \" tiene \" << digitos << \" digitos\\n\";\n    return 0;\n}",
+			"highlight": [
+				10,
+				12
+			]
+		},
+		{
+			"type": "p",
+			"md": "Con `numero = 407`, la primera vuelta deja `40` y cuenta 1; la segunda deja `4` y cuenta 2; la tercera deja `0` y cuenta 3. La condición `copia > 0` falla y el bucle termina. La salida es `407 tiene 3 digitos`. Si cambiaras la división por `copia -= 1`, el bucle seguiría terminando, pero con 407 iteraciones en lugar de 3: la actualización también decide el coste."
+		},
+		{
+			"type": "p",
+			"md": "Dentro de cualquier bucle puedes alterar el recorrido con dos sentencias. `break` abandona el bucle por completo; `continue` salta al final del cuerpo y pasa a la siguiente iteración. Ninguna de las dos sale de una función: solo del bucle más interno en el que aparecen."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "control.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    for (int i = 1; i <= 10; ++i) {\n        if (i % 2 == 0) {\n            continue;       // salta los pares\n        }\n        if (i > 7) {\n            break;          // corta el bucle\n        }\n        std::cout << i << ' ';\n    }\n    std::cout << '\\n';\n    return 0;\n}",
+			"highlight": [
+				6,
+				9
+			]
+		},
+		{
+			"type": "p",
+			"md": "El programa imprime `1 3 5 7`. Los pares se descartan con `continue` antes de imprimir; al llegar a 9, `i > 7` activa `break` y el 9 nunca se imprime. Fíjate en que `continue` no incrementa `i`: de eso se encarga la cabecera del `for` al terminar la vuelta."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: normalizar features con bucles"
+		},
+		{
+			"type": "p",
+			"md": "Antes de entrenar un modelo conviene escalar las variables. Un método sencillo resta la media y divide entre la desviación máxima absoluta, de modo que el valor con mayor desvío quede en -1 o 1. El cálculo exige dos recorridos sobre los mismos datos: uno para la media y otro para el máximo."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "normalizar.cpp",
+			"code": "#include <iostream>\n\nint main() {\n    constexpr int n = 6;\n    double datos[n] = {2.0, 4.0, 4.0, 4.0, 5.0, 9.0};\n    double suma = 0.0;\n\n    for (int i = 0; i < n; ++i) {\n        suma += datos[i];\n    }\n    const double media = suma / n;\n\n    double maxDesv = 0.0;\n    for (int i = 0; i < n; ++i) {\n        double desv = datos[i] - media;\n        if (desv < 0.0) {\n            desv = -desv;\n        }\n        if (desv > maxDesv) {\n            maxDesv = desv;\n        }\n    }\n\n    std::cout << \"media = \" << media << '\\n';\n    for (int i = 0; i < n; ++i) {\n        std::cout << (datos[i] - media) / maxDesv << ' ';\n    }\n    std::cout << '\\n';\n    return 0;\n}",
+			"highlight": [
+				7,
+				14,
+				29
+			]
+		},
+		{
+			"type": "p",
+			"md": "Con `{2, 4, 4, 4, 5, 9}` la media es 4.6667 y el desvío máximo es 4.3333. El primer valor normalizado es `(2 - 4.6667) / 4.3333 = -0.6154`. El bucle final imprime seis números entre -1 y 1. Si el desvío máximo fuera cero, la división produciría `nan`: un caso límite que conviene comprobar en código real."
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Complejidad en una frase",
+			"md": "Un recorrido completo sobre `n` elementos cuesta `O(n)`. Dos recorridos seguidos siguen siendo `O(n)`. Dos bucles anidados, cada uno de `n` vueltas, cuestan `O(n²)`: por eso conviene evitar anidar cuando basta con acumular en una sola pasada."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: qué hace el for paso a paso"
+		},
+		{
+			"type": "p",
+			"md": "Avanza por la traza y comprueba el orden: primero la inicialización, después la condición, luego el cuerpo y por último la actualización. La variable `i` desaparece al terminar el bucle; el acumulador `suma` sobrevive porque se declaró antes."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Suma 1 + 2 + 3 con un for",
+			"code": "#include <iostream>\n\nint main() {\n    int suma = 0;\n    for (int i = 1; i <= 3; ++i) {\n        suma += i;\n    }\n    std::cout << suma << '\\n';\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 4,
+					"note": "Se crea el acumulador en el stack con valor 0. Todavía no hay contador.",
+					"vars": {
+						"suma": "0"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "La inicialización `int i = 1` se ejecuta una vez. La condición `1 <= 3` es verdadera y se entra al cuerpo.",
+					"vars": {
+						"suma": "0",
+						"i": "1"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Primera vuelta: `suma` pasa de 0 a 1.",
+					"vars": {
+						"suma": "1",
+						"i": "1"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`++i` deja `i` en 2. La condición `2 <= 3` sigue siendo verdadera.",
+					"vars": {
+						"suma": "1",
+						"i": "2"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Segunda vuelta: `suma` pasa de 1 a 3.",
+					"vars": {
+						"suma": "3",
+						"i": "2"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`++i` deja `i` en 3. La condición `3 <= 3` es verdadera: es la última vuelta.",
+					"vars": {
+						"suma": "3",
+						"i": "3"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "Tercera vuelta: `suma` pasa de 3 a 6.",
+					"vars": {
+						"suma": "6",
+						"i": "3"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "`++i` deja `i` en 4 y la condición falla. El bucle termina y se imprime el acumulador.",
+					"vars": {
+						"suma": "6"
+					},
+					"output": "6\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Off-by-one**: `for (int i = 0; i <= n; ++i)` visita `n + 1` elementos. Con índices, la condición correcta casi siempre es `<` para un array de tamaño `n`.",
+				"**Bucle infinito por olvidar la actualización**: `while (i < 10)` sin `++i` dentro nunca termina. Si el programa se cuelga, revisa qué variable debería cambiar.",
+				"**Punto y coma después de la cabecera**: `for (int i = 0; i < 3; ++i);` ejecuta un cuerpo vacío tres veces y luego una sola línea. El compilador no avisa porque es sintaxis válida.",
+				"**Modificar el contador dentro del cuerpo**: si haces `i += 2` dentro de un `for` que ya hace `++i`, el avance real es de 3 y el número de vueltas deja de ser el que crees.",
+				"**`continue` que salta la actualización**: en un `while`, un `continue` antes de `++i` produce un bucle infinito. En un `for` no ocurre, porque la actualización está en la cabecera.",
+				"**Declarar el acumulador dentro del bucle**: `int suma = 0;` dentro del cuerpo reinicia el valor en cada vuelta y el resultado final es solo el último término."
+			]
+		},
+		{
+			"type": "p",
+			"md": "El error off-by-one no siempre se ve en la primera ejecución: un array de cinco elementos acepta el índice 5 sin quejarse, y el programa puede imprimir basura. Compila con `-Wall -Wextra` y prueba el caso mínimo y el máximo."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Declara el contador en la cabecera del `for` para limitar su ámbito al bucle.",
+				"Usa nombres que digan qué se recorre: `fila`, `lote`, `intento` en lugar de `i` cuando haya varios niveles.",
+				"Reserva `while (true)` para cuando el escape esté claro con un `break` cercano; si no, expresa la condición en la cabecera.",
+				"Evita anidar más de dos bucles: si necesitas tres, probablemente falte una función o una estructura de datos.",
+				"Cuando el recorrido sea completo sobre un contenedor, considera `for (const auto& x : datos)`, la forma moderna que verás en la lección de contenedores."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Recorrer del 1 al 5",
+			"python": {
+				"caption": "recorrer.py",
+				"code": "for i in range(1, 6):\n    print(i)"
+			},
+			"cpp": {
+				"caption": "recorrer.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    for (int i = 1; i <= 5; ++i) {\n        std::cout << i << '\\n';\n    }\n    return 0;\n}"
+			},
+			"note": "En Python, `range(1, 6)` excluye el límite superior y produce 1, 2, 3, 4 y 5. En C++ el límite se escribe en la condición y decides tú si es `<` o `<=`. Esa libertad es la fuente del error off-by-one: en Python el rango lo pone la función, en C++ lo pones tú."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "p",
+			"md": "Dos ejercicios con dificultad creciente y un hueco para completar. Compila cada solución con `g++ -std=c++20 -Wall -Wextra` antes de darla por buena."
+		},
+		{
+			"type": "exercise",
+			"title": "Tabla de multiplicar",
+			"md": "Pide por teclado un número entero entre 1 y 10 y muestra su tabla de multiplicar del 1 al 10 con el formato `7 x 3 = 21`. Usa un `for` y comprueba que imprime exactamente diez líneas. Después cambia el límite a 12 y observa qué cambia.",
+			"hint": "Lee el número con `std::cin` y recorre `i` de 1 a 10. La condición debe incluir el 10.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "tabla.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    int numero = 0;\n    std::cout << \"Numero: \";\n    std::cin >> numero;\n\n    for (int i = 1; i <= 10; ++i) {\n        std::cout << numero << \" x \" << i << \" = \" << numero * i << '\\n';\n    }\n    return 0;\n}",
+				"explain": "El contador `i` empieza en 1 y la condición `i <= 10` produce diez iteraciones. Si usaras `i < 10`, la tabla se quedaría en el 9. La multiplicación se calcula en cada vuelta; no hace falta guardarla."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Pasos de Collatz",
+			"md": "La conjetura de Collatz dice: si un número es par, divídelo entre 2; si es impar, multiplícalo por 3 y súmale 1. Repite hasta llegar a 1. Escribe un programa que cuente cuántos pasos necesita un número leído por teclado. Si el número es menor o igual que cero, muestra un error y no ejecutes el bucle.",
+			"hint": "Usa un `while (n != 1)` y un contador que empiece en 0. Recuerda que `n % 2 == 0` detecta los pares.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "collatz.cpp",
+				"code": "#include <iostream>\n\nint main() {\n    long long n = 0;\n    std::cout << \"Numero: \";\n    std::cin >> n;\n\n    if (n <= 0) {\n        std::cerr << \"Debe ser positivo\\n\";\n        return 1;\n    }\n\n    int pasos = 0;\n    while (n != 1) {\n        if (n % 2 == 0) {\n            n /= 2;\n        } else {\n            n = 3 * n + 1;\n        }\n        ++pasos;\n    }\n\n    std::cout << \"Pasos: \" << pasos << '\\n';\n    return 0;\n}",
+				"explain": "El bucle no sabe cuántas vueltas hará, por eso es un `while`. La actualización ocurre en las dos ramas del `if`, y el contador se incrementa siempre. Se usa `long long` porque los términos intermedios pueden superar el rango de `int`. Con 27 se necesitan 111 pasos."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el bucle que cuenta pares",
+			"lang": "cpp",
+			"code": "int pares = 0;\nfor (int i = 0; i ___ 10; ___) {\n    if (i % 2 == 0) {\n        ___pares;\n    }\n}",
+			"answers": [
+				"<",
+				"++i",
+				"++"
+			],
+			"hint": "El 10 no debe contarse; el contador se incrementa en la cabecera.",
+			"explain": "`i < 10` recorre 0 a 9 sin llegar al 10, `++i` avanza una unidad por vuelta y `++pares` incrementa el contador solo cuando el número es par. El resultado es 5 pares."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En la tabla de multiplicar, el trabajo real es una multiplicación que cambia en cada vuelta. La decisión importante es el límite: `i <= 10` incluye el diez, así que hay diez entradas porque el rango empieza en uno. Con `i < 10` obtendrías nueve líneas y perderías justo la última."
+		},
+		{
+			"type": "p",
+			"md": "En Collatz, el número de iteraciones no se conoce de antemano: por eso el `while` es la herramienta natural. La comprobación de entrada evita un bucle sin salida cuando el dato es cero o negativo. Y el tipo `long long` no es un capricho: para algunos valores iniciales los términos intermedios superan los dos mil millones y un `int` desbordaría, produciendo una secuencia incorrecta."
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de completar, las tres piezas sostienen el resultado: el límite decide cuántos números se visitan, la actualización decide cuántas vueltas hay y el incremento decide qué se acumula. Leer la condición en voz alta —«mientras i sea menor que diez»— evita la mitad de los errores."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Todo bucle necesita inicialización, condición y actualización; si falta una, el bucle no termina o no hace lo que crees.",
+				"`for` es para conteos conocidos; `while`, para condiciones; `do-while`, para ejecutar al menos una vez.",
+				"La condición se evalúa una vez más que el número de iteraciones.",
+				"`break` sale del bucle; `continue` salta a la siguiente vuelta.",
+				"El error off-by-one aparece al confundir `<` con `<=`; con arrays, usa `<` y el tamaño.",
+				"Dos bucles anidados de `n` vueltas cuestan `O(n²)`; uno solo cuesta `O(n)`.",
+				"La variable declarada en la cabecera del `for` no existe fuera del bucle."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuántas veces se ejecuta el cuerpo de `for (int i = 0; i < 5; ++i)`?",
+			"options": [
+				"4",
+				"5",
+				"6",
+				"Depende del compilador"
+			],
+			"answer": 1,
+			"explain": "Con `i` igual a 0, 1, 2, 3 y 4 la condición es verdadera: cinco vueltas. Cuando `i` vale 5, la condición falla y no se entra. La condición se evalúa seis veces, pero el cuerpo solo cinco."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué imprime este fragmento?\n\n`int i = 0; while (i < 3) { std::cout << i; ++i; }`",
+			"options": [
+				"012",
+				"123",
+				"0123",
+				"No termina"
+			],
+			"answer": 0,
+			"explain": "Se imprimen 0, 1 y 2. Al llegar a 3 la condición falla. Si se hubiera olvidado `++i`, el programa imprimiría ceros para siempre."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Cuándo conviene un `do-while` en lugar de un `while`?",
+			"options": [
+				"Cuando el número de iteraciones es conocido",
+				"Cuando el cuerpo debe ejecutarse al menos una vez",
+				"Cuando se quiere recorrer un array",
+				"Cuando el bucle contiene un `break`"
+			],
+			"answer": 1,
+			"explain": "El `do-while` comprueba la condición después del cuerpo, así que siempre entra una vez. Es lo adecuado para pedir un dato hasta que sea válido o para procesar algo que existe al menos una vez."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · for",
+					"url": "https://en.cppreference.com/w/cpp/language/for",
+					"note": "reglas del bucle for"
+				},
+				{
+					"label": "cppreference · while",
+					"url": "https://en.cppreference.com/w/cpp/language/while",
+					"note": "while y do-while"
+				},
+				{
+					"label": "cppreference · break y continue",
+					"url": "https://en.cppreference.com/w/cpp/language/break",
+					"note": "control de iteraciones"
+				}
+			]
+		}
+	]
+}

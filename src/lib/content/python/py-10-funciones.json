@@ -1,0 +1,450 @@
+{
+	"id": "py-10-funciones",
+	"track": "python",
+	"order": 10,
+	"title": "Funciones: parámetros y retorno",
+	"subtitle": "Dar nombre a un cálculo, pasarle datos y devolver un resultado en lugar de imprimirlo",
+	"level": "principiante",
+	"minutes": 40,
+	"tags": ["funciones", "parámetros", "return", "reutilización"],
+	"keywords": [
+		"qué es una función",
+		"def python",
+		"parámetro y argumento",
+		"return vs print",
+		"None implícito",
+		"valores por defecto",
+		"docstring",
+		"composición de funciones",
+		"pila de llamadas",
+		"llamar una función",
+		"TypeError argumento faltante",
+		"reutilizar código"
+	],
+	"summary": "Una función encapsula un cálculo bajo un nombre, recibe parámetros y devuelve un resultado con return. Aprenderás a definirla, a distinguir imprimir de devolver, a usar valores por defecto y a seguir la pila de llamadas cuando algo falla.",
+	"objectives": [
+		"Definir funciones con def, parámetros y return",
+		"Distinguir el efecto de print del valor que entrega return",
+		"Explicar por qué una función sin return devuelve None",
+		"Usar valores por defecto y argumentos con nombre",
+		"Componer varias funciones para resolver un cálculo mayor",
+		"Leer la pila de llamadas y los errores de argumentos"
+	],
+	"prerequisites": ["Recorridos y comprensiones"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Ya escribes programas que recorren datos, toman decisiones y acumulan resultados. El problema aparece cuando un cálculo se repite en cinco lugares: si mañana cambia la regla del IGV o el umbral de aprobación, tienes que buscar y corregir los cinco bloques."
+		},
+		{
+			"type": "p",
+			"md": "Una **función** resuelve exactamente eso: le pones nombre a un fragmento de lógica, lo escribes una vez y lo usas tantas veces como necesites. En esta lección vas a aprender a definirla, a pasarle información, a recoger su resultado y a leer la pila de llamadas cuando algo se rompe. Es el paso que convierte un script suelto en un programa que se puede entender y reutilizar."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una función?"
+		},
+		{
+			"type": "p",
+			"md": "Una **función** es un bloque de código con nombre que recibe cero o más datos de entrada, hace un trabajo y puede devolver un resultado. Definirla no ejecuta nada: es como escribir una receta en una tarjeta. Llamarla es cocinar el plato; puedes cocinarlo diez veces con ingredientes distintos y la receta no cambia."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Nombre**: la etiqueta con la que la llamas después, por ejemplo `precio_con_igv`.",
+				"**Parámetros**: los huecos que declaras entre paréntesis en la definición, como `precio`.",
+				"**Argumentos**: los valores concretos que pasas al llamarla, como `250`.",
+				"**Cuerpo**: las líneas indentadas que se ejecutan en cada llamada.",
+				"**Return**: la instrucción que termina la función y entrega un valor a quien la llamó."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Parámetro y argumento no son lo mismo",
+			"md": "El **parámetro** es el nombre que aparece en el `def`; el **argumento** es el valor que llega en una llamada concreta. En `def area(base, altura)`, `base` y `altura` son parámetros. En `area(4, 3)`, los argumentos son `4` y `3`. La distinción importa al leer errores: Python dice qué argumento falta, no qué parámetro."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "p",
+			"md": "Cada vez que un cálculo aparece más de una vez, o que un bloque necesita un comentario para explicarse, hay una función esperando a nacer. Estos son los usos que verás de inmediato:"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Evitar duplicación**: la fórmula del IGV se escribe una vez y se aplica a cien productos.",
+				"**Nombrar la intención**: `calcular_total(items)` se lee mejor que quince líneas de multiplicaciones.",
+				"**Dividir un problema**: un informe se convierte en `leer_datos`, `limpiar`, `calcular` y `mostrar`.",
+				"**Probar por piezas**: puedes comprobar una función con valores concretos sin ejecutar todo el programa.",
+				"**Reutilizar**: la misma función de normalización sirve en un script, en una API y en un notebook de Machine Learning."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cuando Python ejecuta un `def`, no ejecuta el cuerpo: crea un objeto de tipo función y lo asocia al nombre. Puedes comprobarlo con `print(precio_con_igv)`: verás algo como `<function precio_con_igv at 0x...>`, una dirección de memoria."
+		},
+		{
+			"type": "p",
+			"md": "Al llegar a `precio_con_igv(250)`, Python busca el objeto, crea un **marco de ejecución** (en inglés, *frame*), enlaza cada parámetro con su argumento y ejecuta el cuerpo línea por línea. Cuando encuentra `return`, calcula la expresión, destruye el marco y entrega el valor al punto exacto desde donde se hizo la llamada. Si el cuerpo termina sin `return`, el valor entregado es `None`."
+		},
+		{
+			"type": "p",
+			"md": "Los marcos se apilan: si `resumen` llama a `subtotal`, el marco de `resumen` queda esperando debajo mientras `subtotal` trabaja arriba. Esa **pila de llamadas** es la que verás en la visualización y la que Python imprime, de abajo hacia arriba, cuando ocurre una excepción."
+		},
+		{
+			"type": "table",
+			"head": ["Momento", "Qué hace Python", "Qué ves"],
+			"rows": [
+				["`def f(...)`", "Crea un objeto función y lo guarda en el nombre", "Nada en pantalla"],
+				["`f(3)`", "Crea un marco nuevo y enlaza los parámetros", "Nada hasta un `print`"],
+				["`return x`", "Cierra el marco y devuelve `x` a quien llamó", "Nada en pantalla por sí solo"],
+				["`print(f(3))`", "Imprime el valor devuelto", "El resultado en la terminal"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: def, parámetros y return"
+		},
+		{
+			"type": "p",
+			"md": "La forma canónica es `def nombre(parámetros):`, seguida de un bloque indentado. El `return` es opcional, pero si lo omites la función devuelve `None`. Los parámetros con valor por defecto se escriben después de los obligatorios; si los mezclas al revés, Python lanza un `SyntaxError`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "anatomía.py",
+			"code": "# Nombre, parámetro obligatorio y parámetro con valor por defecto\ndef saludar(nombre, saludo=\"Hola\"):\n    \"\"\"Devuelve un saludo personalizado para nombre.\"\"\"\n    return f\"{saludo}, {nombre}\"\n\nprint(saludar(\"Ada\"))\nprint(saludar(\"Grace\", saludo=\"Buenos días\"))\nprint(saludar(\"Alan\", \"Bienvenido\"))",
+			"highlight": [2, 3, 4, 6, 7]
+		},
+		{
+			"type": "list",
+			"items": [
+				"Los dos puntos `:` al final del `def` son obligatorios; sin ellos hay `SyntaxError`.",
+				"El cuerpo va indentado con 4 espacios, igual que dentro de un `if` o un `for`.",
+				"La **docstring** es la cadena de la primera línea del cuerpo: explica qué hace la función y se consulta con `help()`.",
+				"`return` sin expresión devuelve `None` y también termina la ejecución en ese punto.",
+				"Puedes devolver varios valores separados por comas: en realidad devuelves una tupla.",
+				"Si un parámetro tiene valor por defecto, todos los que vengan después también deben tenerlo."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: precio con IGV"
+		},
+		{
+			"type": "p",
+			"md": "Empecemos por el cálculo que aparece en cualquier boleta. La función recibe un precio neto y devuelve el total. Fíjate en que no imprime nada: solo entrega el número."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "igv.py",
+			"code": "def precio_con_igv(precio):\n    \"\"\"Recibe un precio neto y devuelve el total con 18 % de IGV.\"\"\"\n    total = precio * 1.18\n    return total\n\nneto = 250\nfinal = precio_con_igv(neto)\nprint(f\"Neto: {neto} | Final: {final:.2f}\")",
+			"highlight": [3, 4, 6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "La línea 1 define la función; en ese instante no se calcula nada. La línea 2 es una docstring: texto informativo que Python guarda como documentación. En la línea 3 se crea la variable local `total` dentro del marco de la llamada, con el resultado de `250 * 1.18`, es decir `295.0`."
+		},
+		{
+			"type": "p",
+			"md": "La línea 4 devuelve ese valor y cierra el marco. La asignación de la línea 7 lo recibe en `final`, y la f-string de la línea 8 lo formatea con dos decimales: `295.00`. Si borraras el `return`, `final` valdría `None` y el formato `:.2f` lanzaría un `TypeError`."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: promedio con umbral"
+		},
+		{
+			"type": "p",
+			"md": "Una función puede devolver más de un dato y puede tener un comportamiento especial para entradas vacías. Este ejemplo calcula la media de una lista y también si alcanza la nota mínima, que por defecto es 13."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "promedio.py",
+			"code": "def promedio(notas, aprobado=13):\n    \"\"\"Devuelve la media y si alcanza la nota mínima.\"\"\"\n    if not notas:\n        return None\n    media = sum(notas) / len(notas)\n    return media, media >= aprobado\n\nmedia, aprobo = promedio([14, 9, 17])\nprint(f\"Media: {media:.1f} | Aprobó: {aprobo}\")\nprint(promedio([]))",
+			"highlight": [3, 4, 6, 8, 10]
+		},
+		{
+			"type": "p",
+			"md": "La línea 3 es una **cláusula de guarda**: si la lista está vacía, sale de inmediato devolviendo `None`. Sin ella, `len(notas)` valdría cero y la división lanzaría `ZeroDivisionError`. Es mejor devolver un valor reconocible que provocar una excepción en un caso previsible."
+		},
+		{
+			"type": "p",
+			"md": "La línea 6 devuelve una tupla con dos elementos. La línea 8 la **desempaqueta** en dos variables: `media` recibe `13.333...` y `aprobo` recibe `True`, porque 13.33 supera el umbral. La última línea muestra que la lista vacía produce `None`, no un error."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: tres funciones que colaboran"
+		},
+		{
+			"type": "p",
+			"md": "En una tienda, el total de una venta combina cantidad, precio y descuento. En lugar de un bloque largo, separa cada responsabilidad: una función multiplica, otra aplica el porcentaje y una tercera coordina. Así puedes cambiar la regla del descuento sin tocar el cálculo del subtotal."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "venta.py",
+			"code": "def subtotal(precio, cantidad):\n    \"\"\"Importe antes de descuentos.\"\"\"\n    return precio * cantidad\n\n\ndef aplicar_descuento(monto, porcentaje):\n    \"\"\"Resta el porcentaje indicado al monto.\"\"\"\n    return monto * (1 - porcentaje / 100)\n\n\ndef resumen_venta(precio, cantidad, descuento=0):\n    \"\"\"Devuelve el importe base y el total con descuento.\"\"\"\n    base = subtotal(precio, cantidad)\n    total = aplicar_descuento(base, descuento)\n    return base, total\n\n\nbase, total = resumen_venta(48.5, 3, descuento=10)\nprint(f\"Base: {base:.2f}\")\nprint(f\"Total: {total:.2f}\")",
+			"highlight": [3, 8, 13, 14, 15, 18]
+		},
+		{
+			"type": "p",
+			"md": "`resumen_venta` demuestra la **composición**: su cuerpo no repite fórmulas, delega en las otras dos. Si mañana el IGV entra en el subtotal, solo cambia `subtotal`. El resultado es `145.50` de base y `130.95` tras el 10 %, porque `48.5 * 3 = 145.5` y `145.5 * 0.9 = 130.95`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la pila de llamadas"
+		},
+		{
+			"type": "p",
+			"md": "Observa paso a paso qué ocurre cuando el programa llama a `area(4, 3)`. La línea resaltada indica dónde está Python en cada momento; el panel de la izquierda muestra los marcos activos y el de variables, el estado del módulo principal."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "Qué ocurre al llamar a una función",
+			"code": "def area(base, altura):\n    resultado = base * altura\n    return resultado\n\ntotal = area(4, 3)\nprint(total)",
+			"steps": [
+				{
+					"line": 1,
+					"note": "El `def` crea el objeto función y lo guarda en `area`. El cuerpo todavía no se ha ejecutado: no existe ningún marco de `area`.",
+					"vars": { "area": "<function area>" },
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Se evalúan los argumentos y se crea un marco para `area`. `base` vale 4 y `altura` vale 3. El marco del módulo queda debajo, esperando el resultado.",
+					"vars": { "area": "<function area>", "total": "(sin asignar)" },
+					"frames": [
+						{ "name": "<module>", "vars": { "total": "(sin asignar)" } },
+						{ "name": "area", "vars": { "base": "4", "altura": "3" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 2,
+					"note": "Dentro del marco de `area` se calcula `4 * 3` y se crea la variable local `resultado` con 12.",
+					"vars": { "area": "<function area>", "total": "(sin asignar)" },
+					"frames": [
+						{ "name": "<module>", "vars": { "total": "(sin asignar)" } },
+						{ "name": "area", "vars": { "base": "4", "altura": "3", "resultado": "12" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "`return` evalúa `resultado` y prepara la entrega de 12 a la llamada. Es el último paso dentro del marco de `area`.",
+					"vars": { "area": "<function area>", "total": "(sin asignar)" },
+					"frames": [
+						{ "name": "<module>", "vars": { "total": "(sin asignar)" } },
+						{ "name": "area", "vars": { "base": "4", "altura": "3", "resultado": "12" } }
+					],
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "El valor devuelto se asigna a `total`; el marco de `area` ya se cerró y solo queda el del módulo.",
+					"vars": { "area": "<function area>", "total": "12" },
+					"frames": [{ "name": "<module>", "vars": { "total": "12" } }],
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`print` recibe 12 y lo escribe en la terminal. Ese texto es la única salida del programa.",
+					"vars": { "area": "<function area>", "total": "12" },
+					"frames": [{ "name": "<module>", "vars": { "total": "12" } }],
+					"output": "12\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "En el paso 4 el marco de `area` aún muestra `resultado = 12`, pero al volver al módulo desaparece. Por eso `print(resultado)` fuera de la función lanzaría `NameError`: esa variable vivía en un marco que ya no existe."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Mensaje o síntoma", "Por qué ocurre", "Cómo se arregla"],
+			"rows": [
+				["`TypeError: area() missing 1 required positional argument: 'altura'`", "Llamaste con menos argumentos de los declarados", "Pasa todos los obligatorios o dale un valor por defecto"],
+				["`TypeError: area() takes 2 positional arguments but 3 were given`", "Pasaste un argumento de más", "Revisa la firma del `def` y la llamada"],
+				["La función devuelve `None`", "Usaste `print` en vez de `return`, o no devolviste nada", "Sustituye el `print` por `return` y guarda el valor"],
+				["`NameError: name 'total' is not defined`", "Intentaste leer una variable local fuera del marco", "Devuelve el valor con `return` y recíbelo fuera"],
+				["`SyntaxError: non-default argument follows default argument`", "Un obligatorio va después de uno con valor por defecto", "Reordena: primero los obligatorios"]
+			]
+		},
+		{
+			"type": "diff",
+			"title": "Imprimir no es devolver",
+			"wrong": {
+				"caption": "Devuelve None",
+				"code": "def doble(n):\n    print(n * 2)\n\nresultado = doble(5)\nprint(resultado + 1)"
+			},
+			"right": {
+				"caption": "Correcto",
+				"code": "def doble(n):\n    return n * 2\n\nresultado = doble(5)\nprint(resultado + 1)"
+			},
+			"explain": "La primera versión escribe 10 en pantalla, pero la función termina sin `return`, así que `resultado` vale `None` y `None + 1` lanza `TypeError: unsupported operand type(s) for +: 'NoneType' and 'int'`. Con `return`, el valor viaja a la variable y se puede seguir usando."
+		},
+		{
+			"type": "p",
+			"md": "Regla práctica: usa `print` solo en la capa que presenta resultados, nunca dentro de una función que calcula. Si una función imprime además de devolver, tendrás salida duplicada y costará reutilizarla."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un nombre de función describe una acción: `calcular_total`, `validar_correo`, `cargar_datos`.",
+				"Haz una sola cosa por función; si necesitas «y» para describirla, probablemente son dos.",
+				"Devuelve valores en lugar de imprimirlos: así la función sirve en una web, en un test y en un notebook.",
+				"Escribe una docstring breve con qué recibe y qué devuelve; cuesta diez segundos y ahorra minutos.",
+				"Evita más de tres o cuatro parámetros posicionales: usa valores por defecto o agrupa en un diccionario.",
+				"Usa cláusulas de guarda al principio para los casos inválidos y deja el camino normal sin anidar."
+			]
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Nombra el resultado antes de devolverlo",
+			"md": "Escribir `total = precio * 1.18` y luego `return total` hace el código más legible y facilita depurarlo: puedes imprimir `total` justo antes del `return` mientras investigas. `return precio * 1.18` es más corto, pero esconde el paso intermedio."
+		},
+		{
+			"type": "compare",
+			"title": "Una función en los dos lenguajes",
+			"python": {
+				"caption": "promedio.py",
+				"code": "def promedio(a, b):\n    return (a + b) / 2\n\nprint(promedio(14, 17))"
+			},
+			"cpp": {
+				"caption": "promedio.cpp",
+				"code": "#include <iostream>\n\ndouble promedio(double a, double b) {\n    return (a + b) / 2.0;\n}\n\nint main() {\n    std::cout << promedio(14, 17) << std::endl;\n    return 0;\n}"
+			},
+			"note": "En C++ hay que declarar el tipo de cada parámetro y del valor devuelto, y la función debe existir antes de usarse (o declararse antes). En Python los tipos son dinámicos y el `def` puede aparecer en cualquier punto anterior a la llamada. La división también cambia: `14/2` en Python da `7.0`; en C++ con enteros daría `7`."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Temperatura media",
+			"md": "Escribe una función `a_fahrenheit(celsius)` que devuelva la conversión con la fórmula `c * 9 / 5 + 32`, y otra `promedio(datos)` que devuelva la media de una lista no vacía. Después calcula la media de `[18.5, 21.0, 19.4]` y muestra su equivalente en Fahrenheit con un decimal.",
+			"hint": "La segunda función puede usar `sum(datos) / len(datos)`. Llama a `promedio` primero y pasa su resultado a `a_fahrenheit`: esa es la composición.",
+			"solution": {
+				"lang": "python",
+				"caption": "temperatura.py",
+				"code": "def a_fahrenheit(celsius):\n    \"\"\"Convierte grados Celsius a Fahrenheit.\"\"\"\n    return celsius * 9 / 5 + 32\n\n\ndef promedio(datos):\n    \"\"\"Devuelve la media aritmética de una lista no vacía.\"\"\"\n    return sum(datos) / len(datos)\n\n\nmedia = promedio([18.5, 21.0, 19.4])\nprint(f\"Media: {media:.1f} °C\")\nprint(f\"Equivalente: {a_fahrenheit(media):.1f} °F\")",
+				"explain": "Cada función resuelve una sola cosa y devuelve el resultado en lugar de imprimirlo; el `print` queda al final, en el nivel que presenta la información. La media es 19.6333 y se muestra como 19.6 °C; al convertirla, 67.34 se muestra como 67.3 °F. Si en lugar de devolver se imprimiera dentro, no podrías encadenar las dos funciones."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el área",
+			"lang": "python",
+			"code": "def area_rectangulo(base, altura):\n    \"\"\"Devuelve el área del rectángulo.\"\"\"\n    return ___ * ___\n\nprint(area_rectangulo(4, 3))",
+			"answers": ["base", "altura"],
+			"hint": "Dentro de la función solo existen los nombres declarados en el `def`; los valores concretos llegan en la llamada.",
+			"explain": "El cuerpo usa los parámetros `base` y `altura`, no los números `4` y `3`: así la misma función sirve para cualquier rectángulo. Con la llamada `area_rectangulo(4, 3)` la multiplicación da 12."
+		},
+		{
+			"type": "exercise",
+			"title": "Descuento por tramo",
+			"md": "Una tienda aplica 5 % de descuento a partir de 100 y 10 % a partir de 300. Escribe `descuento_para(monto)` que devuelva el porcentaje, y `total_final(monto)` que lo aplique y devuelva el importe a pagar. Prueba con 80, 150 y 420, mostrando cada resultado con dos decimales.",
+			"hint": "En `descuento_para`, evalúa primero el tramo más alto. Recuerda que una función termina en el primer `return` que se ejecuta.",
+			"solution": {
+				"lang": "python",
+				"caption": "descuentos.py",
+				"code": "def descuento_para(monto):\n    \"\"\"Devuelve el porcentaje de descuento según el monto.\"\"\"\n    if monto >= 300:\n        return 10\n    if monto >= 100:\n        return 5\n    return 0\n\n\ndef total_final(monto):\n    \"\"\"Aplica el descuento correspondiente y devuelve el total.\"\"\"\n    porcentaje = descuento_para(monto)\n    return monto * (1 - porcentaje / 100)\n\n\nfor monto in (80, 150, 420):\n    print(f\"{monto}: {total_final(monto):.2f}\")",
+				"explain": "El orden de los `if` importa: si comprobaras primero `monto >= 100`, un monto de 420 se quedaría en el 5 %. Al evaluar el tramo de 300 primero, la función devuelve 10 y sale. Los resultados son 80.00, 142.50 y 378.00. `total_final` no repite la regla: pregunta el porcentaje a la otra función, de modo que un cambio de tramos se hace en un solo sitio."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la tentación es imprimir dentro de `a_fahrenheit`. Al devolver, en cambio, el valor se puede guardar, formatear o pasar a otra función. La composición `a_fahrenheit(promedio(datos))` funciona porque ambas respetan el mismo contrato: reciben un número y devuelven un número. Ese contrato es lo que hace que las piezas encajen."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, la clave es separar la decisión del cálculo. `descuento_para` responde una pregunta («¿qué porcentaje toca?») y `total_final` hace la aritmética. Si mañana los tramos cambian, solo se toca la primera. Además, el `return 0` final actúa como caso por defecto y evita que la función termine devolviendo `None` cuando el monto es pequeño."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"`def nombre(parámetros):` define una función; el cuerpo va indentado con 4 espacios.",
+				"Definir no ejecuta: la llamada es la que crea un marco y ejecuta el cuerpo.",
+				"`return` termina la función y entrega un valor; sin `return`, el resultado es `None`.",
+				"`print` muestra en pantalla; `return` entrega a quien llamó. No son equivalentes.",
+				"Los parámetros con valor por defecto van después de los obligatorios.",
+				"Una función puede devolver una tupla y el llamador puede desempaquetarla.",
+				"La pila de llamadas muestra los marcos activos; al volver, el local desaparece."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve una función cuyo cuerpo termina sin ejecutar ningún `return`?",
+			"options": ["`0`", "`None`", "Una cadena vacía", "El último valor calculado"],
+			"answer": 1,
+			"explain": "Python añade un `return None` implícito al final de toda función. Por eso una función que solo imprime entrega `None`, y por eso falla al intentar sumarle un número."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué ocurre al ejecutar únicamente `def f(): print(\"hola\")`?",
+			"options": [
+				"Se imprime `hola` una vez",
+				"Se imprime `hola` cada vez que se importa el archivo",
+				"No se imprime nada: solo se crea la función",
+				"Lanza un `SyntaxError` porque falta `return`"
+			],
+			"answer": 2,
+			"explain": "El `def` crea el objeto función y guarda el cuerpo, pero no lo ejecuta. Para ver `hola` hace falta llamarla con `f()`. `return` es opcional."
+		},
+		{
+			"type": "quiz",
+			"question": "Con `def f(a, b=2)`, ¿cuál de estas llamadas falla?",
+			"options": ["`f(1)`", "`f(1, 3)`", "`f(b=4, a=1)`", "`f()`"],
+			"answer": 3,
+			"explain": "`a` no tiene valor por defecto, así que es obligatorio. `f()` lanza `TypeError: f() missing 1 required positional argument: 'a'`. Las otras tres son válidas: `f(1)` usa `b=2` y `f(b=4, a=1)` pasa ambos por nombre."
+		},
+		{
+			"type": "links",
+			"title": "Documentación y práctica",
+			"items": [
+				{
+					"label": "Definición de funciones (Python docs)",
+					"url": "https://docs.python.org/es/3/tutorial/controlflow.html#defining-functions",
+					"note": "referencia oficial con ejemplos"
+				},
+				{
+					"label": "Python Tutor",
+					"url": "https://pythontutor.com/",
+					"note": "visualiza marcos y pila de llamadas paso a paso"
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,618 @@
+{
+	"id": "cpp-07-referencias-sobrecarga",
+	"track": "cpp",
+	"order": 7,
+	"title": "Paso por valor, referencia, sobrecarga y recursión",
+	"subtitle": "Elegir cómo viaja un argumento y cómo una función se llama a sí misma",
+	"level": "intermedio",
+	"minutes": 46,
+	"tags": [
+		"referencias",
+		"sobrecarga",
+		"recursión",
+		"paso por valor"
+	],
+	"keywords": [
+		"paso por valor c++",
+		"paso por referencia c++",
+		"const referencia",
+		"diferencia referencia y puntero",
+		"sobrecarga de funciones",
+		"ambigüedad de sobrecarga",
+		"recursión c++",
+		"pila de llamadas recursión",
+		"caso base",
+		"cuándo usar referencia"
+	],
+	"summary": "Pasar un argumento por valor copia; por referencia, comparte la variable original. Aprenderás a elegir entre valor, referencia, const& y puntero, a sobrecargar funciones sin crear ambigüedades y a escribir recursión con caso base y pila de llamadas controlada.",
+	"objectives": [
+		"Distinguir paso por valor, por referencia y por puntero en el código",
+		"Usar `const&` para leer datos grandes sin copiarlos",
+		"Sobrecargar funciones y reconocer una llamada ambigua",
+		"Escribir una función recursiva con caso base y caso recursivo",
+		"Seguir la pila de llamadas de una recursión paso a paso"
+	],
+	"prerequisites": [
+		"Funciones: declaración, parámetros y retorno"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "En la lección anterior viste que un parámetro es una copia del argumento. Esa regla es segura, pero costosa para un objeto grande y a veces inútil: si quieres que la función cambie tu variable, una copia no sirve. C++ ofrece varias formas de pasar datos, y elegir bien es una decisión de diseño, no un detalle de sintaxis."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es el paso de argumentos?"
+		},
+		{
+			"type": "p",
+			"md": "Pasar un argumento es decidir **qué recibe la función** cuando la llamas. En C++ esa decisión se toma en la firma: el tipo del parámetro determina si hay copia, si hay un alias a la variable original o si se pasa una dirección."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Por valor** (`int x`): la función recibe una copia independiente. Modificarla no afecta al original.",
+				"**Por referencia** (`int& x`): el parámetro es otro nombre para la misma variable. Modificarlo la cambia.",
+				"**Por referencia constante** (`const int& x`): alias de solo lectura, sin copia. No puedes modificarlo.",
+				"**Por puntero** (`int* p`): recibe una dirección; puede ser `nullptr` y puede reasignarse."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La **sobrecarga** permite que varias funciones compartan nombre si difieren en el número o el tipo de parámetros. La **recursión** es una función que se llama a sí misma con un problema más pequeño. Las tres ideas se juntan aquí porque todas dependen de la firma y de la pila de llamadas."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Evitar copias costosas**: una matriz de un millón de elementos se pasa como `const Matrix&`, no por valor.",
+				"**Modificar el original**: una función que incrementa un contador o intercambia dos valores necesita referencia.",
+				"**Expresar intención**: `const&` dice «solo leo»; `int&` dice «voy a escribir»; el valor dice «trabajo con una copia».",
+				"**Nombrar igual operaciones parecidas**: `area(lado)`, `area(ancho, alto)` y `area(radio)` sin inventar sufijos.",
+				"**Resolver problemas recursivos**: recorrer árboles, dividir y conquistar, calcular factoriales o máximos comunes divisores."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning, una función que recibe una matriz la recibe como `const&` para no duplicar memoria. La recursión aparece en árboles, búsqueda binaria y definiciones matemáticas; en producción se prefiere iteración si la profundidad puede ser grande."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Con paso por valor, el argumento se copia dentro del marco de la función. La copia ocupa su propio espacio y desaparece al volver. Con paso por referencia, el compilador no copia el objeto: guarda una dirección interna y trata el nombre del parámetro como otro nombre del argumento. Por eso una escritura a través de la referencia es una escritura en la variable original."
+		},
+		{
+			"type": "p",
+			"md": "Una referencia debe inicializarse al declararse y no puede quedar sin apuntar a nada: no existe una referencia nula. Tampoco puede cambiar de destino. Un puntero sí puede ser `nullptr` o apuntar a otra parte, y por eso se usa cuando «no hay valor» es un estado posible."
+		},
+		{
+			"type": "p",
+			"md": "La sobrecarga se resuelve en compilación. El compilador compara el número y los tipos de los argumentos con cada firma candidata, prefiere la coincidencia exacta y luego las promociones. Si dos candidatas requieren conversiones igual de buenas, la llamada es **ambigua** y el programa no compila."
+		},
+		{
+			"type": "p",
+			"md": "En una recursión, cada llamada crea un marco nuevo. Los marcos se apilan hasta que se alcanza el **caso base**, que devuelve sin llamar otra vez. A partir de ahí se desapilan en orden inverso, multiplicando o combinando los resultados. Si el caso base nunca se alcanza, la pila crece hasta desbordarse."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Referencia no es puntero",
+			"md": "Una referencia no se puede reasignar ni dejar nula, y se usa con la sintaxis de un valor normal: `x`, no `*x`. Un puntero necesita `&` para obtener la dirección, `*` para acceder y una comprobación si puede ser nulo. Prefiere referencia cuando el dato siempre existe; reserva el puntero para lo opcional."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "p",
+			"md": "El `&` forma parte del tipo cuando está junto al nombre del parámetro. En la llamada no se escribe nada especial para una referencia; para un puntero, se pasa la dirección con `&`. El `const` puede ir antes del tipo o después, pero el significado que importa es que el dato apuntado no se modifica."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sintaxis.cpp",
+			"code": "#include <iostream>\n#include <string>\n\nint porValor(int x) {\n    return x + 1;\n}\n\nvoid porReferencia(int& x) {\n    ++x;\n}\n\nvoid porPuntero(int* x) {\n    ++(*x);\n}\n\nvoid porConstRef(const std::string& texto) {\n    std::cout << \"longitud: \" << texto.size() << '\\n';\n}\n\nint main() {\n    int a = 1;\n    int b = 1;\n\n    a = porValor(a);        // a sigue siendo 1 hasta la asignacion\n    porReferencia(b);       // modifica b\n    porPuntero(&b);         // modifica b otra vez\n    porConstRef(\"hola\");    // no copia la cadena\n\n    std::cout << a << ' ' << b << '\\n';\n    return 0;\n}",
+			"highlight": [
+				7,
+				11,
+				15,
+				19
+			]
+		},
+		{
+			"type": "table",
+			"head": [
+				"Forma",
+				"Copia",
+				"Modifica el original",
+				"Puede ser nula"
+			],
+			"rows": [
+				[
+					"`int x`",
+					"Sí",
+					"No",
+					"No"
+				],
+				[
+					"`int& x`",
+					"No",
+					"Sí",
+					"No"
+				],
+				[
+					"`const int& x`",
+					"No",
+					"No",
+					"No"
+				],
+				[
+					"`int* x`",
+					"No (copia la dirección)",
+					"Sí, con `*x`",
+					"Sí, `nullptr`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "Las cuatro formas conviven en el mismo programa. `porConstRef` recibe el literal `\"hola\"` sin construir una copia de la cadena: el parámetro es una referencia a un objeto temporal que vive durante la llamada."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: valor frente a referencia"
+		},
+		{
+			"type": "p",
+			"md": "Dos funciones con el mismo cuerpo lógico, `x = 100`, producen efectos distintos según cómo reciben el parámetro. Compara `a` con `b` al final: el valor de `a` no cambió, el de `b` sí."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "valor_referencia.cpp",
+			"code": "#include <iostream>\n\nint porValor(int x) {\n    x = 100;\n    return x;\n}\n\nvoid porReferencia(int& x) {\n    x = 100;\n}\n\nint main() {\n    int a = 1;\n    int b = 1;\n\n    int copia = porValor(a);\n    porReferencia(b);\n\n    std::cout << \"a = \" << a << '\\n';\n    std::cout << \"copia = \" << copia << '\\n';\n    std::cout << \"b = \" << b << '\\n';\n    return 0;\n}",
+			"highlight": [
+				3,
+				8,
+				17,
+				18
+			]
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`porValor(a)` copia el 1 en `x`; `x = 100` modifica la copia y `return` entrega 100.",
+				"`copia` guarda ese 100, pero `a` sigue valiendo 1 porque nunca se tocó.",
+				"`porReferencia(b)` no copia: `x` es otro nombre de `b`.",
+				"`x = 100` escribe en la celda de `b`; al volver, `b` vale 100."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `a = 1`, `copia = 100` y `b = 100`. Si `porValor` no devolviera el valor, su escritura se perdería por completo. Y si `porReferencia` recibiera un literal como `porReferencia(5)`, no compilaría: una referencia a `int` no puede enlazar con una constante temporal."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: sobrecarga y ambigüedad"
+		},
+		{
+			"type": "p",
+			"md": "Tres funciones llamadas `area` calculan superficies distintas. El nombre es el mismo porque la operación conceptual también lo es; lo que cambia es qué figura recibe. El compilador elige la versión por el número y el tipo de argumentos."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sobrecarga.cpp",
+			"code": "#include <iostream>\n\nint area(int lado) {\n    return lado * lado;\n}\n\nint area(int ancho, int alto) {\n    return ancho * alto;\n}\n\ndouble area(double radio) {\n    return 3.141592653589793 * radio * radio;\n}\n\nint main() {\n    std::cout << area(4) << '\\n';       // cuadrado\n    std::cout << area(3, 5) << '\\n';    // rectangulo\n    std::cout << area(2.5) << '\\n';     // circulo\n    return 0;\n}",
+			"highlight": [
+				3,
+				7,
+				11
+			]
+		},
+		{
+			"type": "p",
+			"md": "`area(4)` elige la versión de un `int` y devuelve 16. `area(3, 5)` elige la de dos enteros y devuelve 15. `area(2.5)` elige la de `double` y devuelve 19.635. Si escribieras `area(2L)`, el argumento sería `long` y ninguna versión coincide exactamente: convertir a `int` o a `double` son conversiones igual de válidas, así que la llamada sería ambigua."
+		},
+		{
+			"type": "p",
+			"md": "La sobrecarga solo debe usarse cuando todas las versiones hacen lo mismo con tipos distintos. Si una versión imprime y otra calcula, el nombre compartido engaña. Tampoco puedes sobrecargar cambiando solo el tipo de retorno: el compilador no puede decidir qué versión llamar mirando el resultado."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: recursión con caso base"
+		},
+		{
+			"type": "p",
+			"md": "La potencia se define recursivamente: `base^0 = 1` y `base^n = base * base^(n-1)`. El máximo común divisor usa el algoritmo de Euclides: `mcd(a, 0) = a` y `mcd(a, b) = mcd(b, a % b)`. En ambos casos, el caso base corta la cadena de llamadas."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "recursion.cpp",
+			"code": "#include <iostream>\n\nlong long potencia(int base, int exponente) {\n    if (exponente == 0) {\n        return 1;\n    }\n    return base * potencia(base, exponente - 1);\n}\n\nint mcd(int a, int b) {\n    if (b == 0) {\n        return a;\n    }\n    return mcd(b, a % b);\n}\n\nint main() {\n    std::cout << \"2^10 = \" << potencia(2, 10) << '\\n';\n    std::cout << \"mcd(48, 18) = \" << mcd(48, 18) << '\\n';\n    return 0;\n}",
+			"highlight": [
+				3,
+				4,
+				12,
+				13
+			]
+		},
+		{
+			"type": "p",
+			"md": "`potencia(2, 10)` encadena once marcos: exponentes 10, 9, ..., 0. Al llegar a cero devuelve 1 y cada marco multiplica por 2 al desapilarse, hasta 1024. `mcd(48, 18)` sigue la cadena 18, 12, 6, 0 y devuelve 6. La salida es `2^10 = 1024` y `mcd(48, 18) = 6`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: la pila de una recursión"
+		},
+		{
+			"type": "p",
+			"md": "Observa cómo la pila crece hasta el caso base y después se vacía. Cada marco tiene su propio `n`: no hay una sola variable compartida. El resultado se construye al volver, de dentro hacia fuera."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "factorial(3) con tres marcos",
+			"code": "#include <iostream>\n\nint factorial(int n) {\n    if (n <= 1) {\n        return 1;\n    }\n    return n * factorial(n - 1);\n}\n\nint main() {\n    std::cout << factorial(3) << '\\n';\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 11,
+					"note": "`main` empieza a evaluar la expresión. Todavía no hay ningún marco de `factorial`.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Entra `factorial(3)`. El marco guarda su propio `n = 3`; la comprobación `3 <= 1` es falsa, así que no es el caso base.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "3"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "Se evalúa `3 * factorial(2)`: entra un segundo marco con `n = 2`. La primera llamada sigue esperando el resultado.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "3",
+								"esperando": "3 * factorial(2)"
+							}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "2"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "`factorial(2)` llama a `factorial(1)`: tercer marco y altura máxima de la pila. `1 <= 1` sí es verdadero.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "3",
+								"esperando": "3 * factorial(2)"
+							}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "2",
+								"esperando": "2 * factorial(1)"
+							}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "1"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "`1 <= 1` es verdadero: caso base. Este marco devuelve 1 sin llamar a nadie más.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "3",
+								"esperando": "3 * factorial(2)"
+							}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "2",
+								"esperando": "2 * factorial(1)"
+							}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "1",
+								"retorno": "1"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "Se desapila el marco de 1. El de `n = 2` calcula `2 * 1 = 2` y devuelve 2.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "3",
+								"esperando": "3 * factorial(2)"
+							}
+						},
+						{
+							"name": "factorial",
+							"vars": {
+								"n": "2",
+								"retorno": "2"
+							}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 7,
+					"note": "El marco de `n = 3` recibe 2, calcula `3 * 2 = 6` y devuelve 6. Solo queda `main`.",
+					"vars": {},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {}
+						}
+					],
+					"output": ""
+				},
+				{
+					"line": 11,
+					"note": "`std::cout` recibe el 6 y lo escribe. La recursión terminó y la pila volvió a su estado inicial.",
+					"vars": {
+						"resultado": "6"
+					},
+					"frames": [
+						{
+							"name": "main",
+							"vars": {
+								"resultado": "6"
+							}
+						}
+					],
+					"output": "6\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Ambigüedad de sobrecarga**: `void f(long)` y `void f(double)` con `f(3)` dejan al compilador sin una conversión mejor. Convierte explícitamente: `f(3.0)`.",
+				"**Devolver una referencia a una variable local**: la variable muere al volver y la referencia queda colgando. El compilador suele avisar con `-Wreturn-local-addr`.",
+				"**Intentar modificar un `const&`**: `x = 5` dentro de la función no compila. Si necesitas escribir, quita el `const`; si no, la protección está haciendo su trabajo.",
+				"**Recursión sin caso base**: `return n * factorial(n - 1);` sin comprobar `n` desborda la pila y el programa aborta.",
+				"**Caso base inalcanzable**: si el argumento no se acerca al caso base, la recursión no termina aunque exista un `if`.",
+				"**Sobrecargar solo por el retorno**: `int f()` y `double f()` no pueden convivir; la llamada no aporta información para elegir."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los errores de referencia aparecen lejos de su causa: una función devuelve una referencia válida en apariencia y el fallo ocurre tres llamadas después. Compila con `-Wall -Wextra` y reduce el caso a la llamada mínima que falla."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Pasa por valor los tipos pequeños (`int`, `double`, `bool`) y los que la función va a modificar de todos modos.",
+				"Pasa por `const&` los objetos grandes que solo se leen: cadenas, vectores, matrices.",
+				"Pasa por `&` solo cuando la función deba modificar el argumento, y que el nombre lo sugiera (`actualizar`, `normalizar`).",
+				"Reserva punteros para datos opcionales o estructuras enlazadas; si el dato siempre existe, una referencia expresa mejor el contrato.",
+				"En recursión, escribe el caso base primero y comprueba que cada llamada reduce el problema.",
+				"No sobrecargues si las versiones tienen comportamientos distintos: un nombre distinto documenta mejor la diferencia."
+			]
+		},
+		{
+			"type": "compare",
+			"title": "Modificar un argumento",
+			"python": {
+				"caption": "modificar.py",
+				"code": "def intento(x):\n    x = 100\n\na = 1\nintento(a)\nprint(a)   # 1"
+			},
+			"cpp": {
+				"caption": "modificar.cpp",
+				"code": "#include <iostream>\n\nvoid modificar(int& x) {\n    x = 100;\n}\n\nint main() {\n    int a = 1;\n    modificar(a);\n    std::cout << a << '\\n';   // 100\n    return 0;\n}"
+			},
+			"note": "En Python el nombre se reasigna dentro de la función y el entero original no cambia, porque los enteros son inmutables. En C++ una referencia permite escribir en la variable del llamador, y la firma lo declara con `&`. La diferencia no es de capacidad sino de explicitud: el llamador ve si su dato puede cambiar."
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Intercambio con referencias",
+			"md": "Escribe `void intercambiar(int& a, int& b)` que intercambie los valores de dos variables. Llámala desde `main` con dos enteros, imprime antes y después, y comprueba que el cambio se conserva al volver. No uses `std::swap`.",
+			"hint": "Guarda uno de los valores en una variable temporal antes de sobrescribirlo. Con referencias no necesitas `*` ni `&` en la llamada.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "intercambiar.cpp",
+				"code": "#include <iostream>\n\nvoid intercambiar(int& a, int& b) {\n    int temporal = a;\n    a = b;\n    b = temporal;\n}\n\nint main() {\n    int x = 3;\n    int y = 8;\n    std::cout << x << ' ' << y << '\\n';\n    intercambiar(x, y);\n    std::cout << x << ' ' << y << '\\n';\n    return 0;\n}",
+				"explain": "`a` y `b` son alias de `x` e `y`, así que las asignaciones modifican las variables de `main`. La temporal conserva el primer valor antes de que `a` se sobrescriba. La salida es `3 8` y luego `8 3`."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Suma de dígitos recursiva",
+			"md": "Escribe `int sumaDigitos(int n)` que devuelva la suma de los dígitos de un número positivo. Debe ser recursiva: el caso base es un número de un solo dígito y el caso recursivo suma el último dígito con la suma del resto. Prueba con 407 y con 9999.",
+			"hint": "El último dígito es `n % 10`; el resto es `n / 10`. Con `n < 10` puedes devolver `n` directamente.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "suma_digitos.cpp",
+				"code": "#include <iostream>\n\nint sumaDigitos(int n) {\n    if (n < 10) {\n        return n;\n    }\n    return (n % 10) + sumaDigitos(n / 10);\n}\n\nint main() {\n    std::cout << sumaDigitos(407) << '\\n';\n    std::cout << sumaDigitos(9999) << '\\n';\n    return 0;\n}",
+				"explain": "Cada llamada elimina un dígito con `n / 10`, así que el argumento se acerca al caso base. Para 407: 7 + sumaDigitos(40), luego 0 + sumaDigitos(4), que devuelve 4; el total es 11. Para 9999 el resultado es 36."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa la firma por referencia",
+			"lang": "cpp",
+			"code": "void duplicar(int___ x) {\n    x ___ 2;\n}\n\nint main() {\n    int a = 7;\n    duplicar(a);\n    std::cout << a << '\\n';   // 14\n}",
+			"answers": [
+				"&",
+				"*="
+			],
+			"hint": "El parámetro debe ser un alias y la operación debe escribir en él.",
+			"explain": "`int& x` convierte el parámetro en otro nombre de `a`. `x *= 2` multiplica el valor actual por 2 y lo guarda en la misma celda. Sin `&`, `a` seguiría valiendo 7."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el intercambio, la referencia evita punteros y hace que la llamada se lea como una operación sobre las variables. La temporal es obligatoria: si asignas `a = b` antes de guardar `a`, pierdes el primer valor. Podrías usar `std::swap`, pero escribirlo a mano muestra por qué el paso por referencia importa."
+		},
+		{
+			"type": "p",
+			"md": "En la suma de dígitos, el caso base devuelve el propio dígito cuando ya no hay más. El caso recursivo combina el último dígito con el resultado del resto, y cada llamada reduce el número en un dígito. Con 407 se apilan tres marcos y se desapilan sumando 4, 0 y 7 en orden inverso: el resultado es 11."
+		},
+		{
+			"type": "p",
+			"md": "En el ejercicio de completar, el `&` y el `*=` son dos caras del mismo contrato: el primero dice que la función puede escribir en el argumento, el segundo ejerce esa escritura. Si cambiaras `*=` por `=`, el resultado sería 2 en lugar de 14, y el `&` quedaría como una promesa incumplida."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Por valor se copia; por referencia se comparte la variable original.",
+				"`const&` evita la copia y prohíbe la modificación: es la forma habitual de leer objetos grandes.",
+				"Una referencia no puede ser nula ni cambiar de destino; un puntero sí.",
+				"La sobrecarga elige la función por número y tipo de argumentos, en compilación.",
+				"Si dos candidatas exigen conversiones equivalentes, la llamada es ambigua.",
+				"Toda recursión necesita un caso base y un avance que lo alcance.",
+				"Cada llamada recursiva apila un marco; el resultado se construye al desapilar."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué firma permite modificar la variable del llamador sin copiarla?",
+			"options": [
+				"`void f(int x)`",
+				"`void f(const int& x)`",
+				"`void f(int& x)`",
+				"`void f(int x = 0)`"
+			],
+			"answer": 2,
+			"explain": "`int&` es una referencia no constante: alias directo y escribible. `const int&` evita la copia pero prohíbe escribir, y `int` copia el valor. La opción con valor por defecto sigue siendo una copia."
+		},
+		{
+			"type": "quiz",
+			"question": "Con `void f(long)` y `void f(double)`, ¿qué ocurre al llamar `f(3)`?",
+			"options": [
+				"Se llama a `f(long)` porque `int` se promociona a `long`",
+				"Se llama a `f(double)` porque es la conversión más usual",
+				"La llamada es ambigua y no compila",
+				"Se llama a las dos en orden"
+			],
+			"answer": 2,
+			"explain": "Convertir `int` a `long` y a `double` son conversiones estándar igual de válidas; ninguna es mejor que la otra. El compilador no elige al azar: rechaza la llamada. Se resuelve con `f(3L)` o `f(3.0)`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué falta si una función recursiva compila pero el programa aborta con un desbordamiento de pila?",
+			"options": [
+				"Un `return` en el caso recursivo",
+				"Un caso base que se alcance o un avance que reduzca el problema",
+				"Declarar la función como `inline`",
+				"Pasar el parámetro por referencia"
+			],
+			"answer": 1,
+			"explain": "La pila crece con cada llamada. Si el argumento no se acerca a una condición de corte, nunca se deja de llamar y la memoria de la pila se agota. El caso base debe existir y ser alcanzable."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · Referencias",
+					"url": "https://en.cppreference.com/w/cpp/language/reference",
+					"note": "tipos de referencia y reglas"
+				},
+				{
+					"label": "cppreference · Sobrecarga",
+					"url": "https://en.cppreference.com/w/cpp/language/overload_resolution",
+					"note": "resolución de sobrecarga"
+				}
+			]
+		}
+	]
+}

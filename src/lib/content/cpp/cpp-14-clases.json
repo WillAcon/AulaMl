@@ -1,0 +1,515 @@
+{
+	"id": "cpp-14-clases",
+	"track": "cpp",
+	"order": 14,
+	"title": "Clases, constructores y encapsulamiento",
+	"subtitle": "Agrupar datos y comportamiento sin dejar que cualquiera rompa las reglas",
+	"level": "intermedio",
+	"minutes": 46,
+	"tags": [
+		"clases",
+		"poo",
+		"constructores",
+		"encapsulamiento"
+	],
+	"keywords": [
+		"qué es una clase",
+		"class vs struct",
+		"constructor c++",
+		"lista de inicialización",
+		"this",
+		"método const",
+		"encapsulamiento",
+		"miembros estáticos",
+		"header cpp",
+		"public private",
+		"destructor"
+	],
+	"summary": "Una clase reúne datos y las operaciones que los mantienen válidos. En esta lección escribes constructores que inicializan de verdad, métodos const que prometen no modificar el objeto, miembros estáticos compartidos y separas la declaración en un header de la implementación en un .cpp.",
+	"objectives": [
+		"Definir clases con atributos privados y una interfaz pública mínima",
+		"Inicializar miembros con la lista de inicialización y explicar por qué importa el orden",
+		"Marcar como const los métodos que solo leen y usarlos sobre objetos const",
+		"Usar this y miembros static cuando el diseño lo requiere",
+		"Separar una clase en header y archivo de implementación"
+	],
+	"prerequisites": [
+		"Arrays, std::vector y std::string",
+		"Paso por valor, referencia, sobrecarga y recursión"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Hasta ahora tus datos vivían en variables sueltas: un vector por aquí, un umbral por allá, y funciones que reciben todo por parámetro. Una **clase** cambia eso: define un tipo nuevo que lleva sus datos y las operaciones que los mantienen coherentes. El molde es la clase; cada objeto concreto es una instancia con sus propios valores."
+		},
+		{
+			"type": "p",
+			"md": "La idea central es el **invariante**: una condición que siempre debe cumplirse, por ejemplo «el saldo nunca es negativo» o «el mínimo es menor que el máximo». Si los datos son públicos, cualquiera puede romper esa condición desde fuera. El encapsulamiento consiste en esconder los datos y ofrecer métodos que los cambien solo de formas válidas."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es una clase?"
+		},
+		{
+			"type": "p",
+			"md": "Una clase es una plantilla que describe dos cosas: qué datos guarda cada objeto y qué mensajes acepta. En C++ la diferencia entre `class` y `struct` es solo el acceso por defecto: en `class` los miembros son privados y en `struct` son públicos. Todo lo demás es idéntico, y por convención se usa `struct` para agrupaciones simples sin invariantes."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Miembros de datos**: las variables que forman parte de cada objeto (`saldo_`, `nombre_`).",
+				"**Métodos**: funciones que operan sobre ese objeto y pueden leer o modificar sus datos.",
+				"**Constructor**: se ejecuta al crear el objeto y deja todos los miembros en un estado válido.",
+				"**Destructor**: se ejecuta al destruirlo y libera lo que el objeto posea.",
+				"**Especificadores de acceso**: `public` para la interfaz, `private` para la representación interna."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve el encapsulamiento?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Mantener la coherencia**: un método `retirar` puede rechazar montos negativos que un atributo público aceptaría sin protestar.",
+				"**Cambiar la implementación sin romper a nadie**: si mañana guardas el saldo en céntimos, la interfaz `saldo()` sigue igual.",
+				"**Expresar intención**: `modelo.entrenar(datos)` dice más que cinco líneas sueltas que tocan tres vectores.",
+				"**Controlar la vida del recurso**: el constructor reserva y el destructor libera, sin que el usuario lo recuerde.",
+				"**Modelar el dominio**: un `Dataset`, un `Escalador` o una `Prediccion` se leen como conceptos, no como tuplas."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En Machine Learning casi todo lo que usas ya es un objeto: un `std::vector` sabe su tamaño y un modelo expone `fit` y `predict` sobre datos internos. Escribir tus propias clases te permite construir un pipeline con piezas comprobables por separado."
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro?"
+		},
+		{
+			"type": "p",
+			"md": "Cada objeto es un bloque de memoria contiguo con sus miembros de datos en el orden en que se declaran. Los métodos **no** ocupan espacio por objeto: son código compartido que recibe implícitamente la dirección del objeto, y esa dirección es `this`. Por eso `valor_` dentro de un método significa en realidad `this->valor_`."
+		},
+		{
+			"type": "p",
+			"md": "El compilador genera varios miembros especiales si no los escribes: un constructor por defecto (solo si no declaraste otro), un constructor de copia, un operador de asignación y un destructor. Esa generación automática es cómoda hasta que la clase posee un recurso; de eso se ocupa la lección de la regla de 0/3/5."
+		},
+		{
+			"type": "p",
+			"md": "El acceso `private` es una comprobación del compilador, no un mecanismo en tiempo de ejecución: una vez compilado no hay verificación de permisos. Un miembro `static` tampoco pertenece a ningún objeto: hay una sola copia para toda la clase."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "declaracion de una clase",
+			"code": "class Sensor {\npublic:                                  // interfaz visible\n    Sensor(std::string nombre, double valor);\n    double valor() const;                // no modifica el objeto\n    void actualizar(double nuevo);\n\nprivate:                                 // representacion interna\n    std::string nombre_;\n    double valor_;\n    static int instancias_;              // una copia compartida\n};"
+		},
+		{
+			"type": "p",
+			"md": "El guion bajo final en `nombre_` y `valor_` es una convención para distinguir miembros de parámetros. El `const` después de la lista de parámetros pertenece al método, no al valor devuelto: promete que la función no modificará el objeto. El punto y coma tras la llave de cierre es obligatorio y su olvido produce un error de compilación confuso."
+		},
+		{
+			"type": "p",
+			"md": "La lista de inicialización se escribe entre `:` y el cuerpo: `Sensor(std::string n, double v) : nombre_(std::move(n)), valor_(v) {}`. Los miembros se inicializan **en el orden en que están declarados**, no en el orden en que aparecen en la lista. Si el orden no coincide, algunos compiladores avisan con `-Wreorder` y el resultado puede sorprenderte."
+		},
+		{
+			"type": "compare",
+			"title": "El constructor en los dos lenguajes",
+			"python": {
+				"caption": "sensor.py",
+				"code": "class Sensor:\n    def __init__(self, nombre, valor):\n        self.nombre = nombre\n        self.valor = valor\n\ns = Sensor(\"temp\", 21.5)\nprint(s.valor)"
+			},
+			"cpp": {
+				"caption": "sensor.cpp",
+				"code": "#include <iostream>\n#include <string>\n#include <utility>\n\nclass Sensor {\npublic:\n    Sensor(std::string nombre, double valor)\n        : nombre_(std::move(nombre)), valor_(valor) {}\n    double valor() const { return valor_; }\nprivate:\n    std::string nombre_;\n    double valor_;\n};\n\nint main() {\n    Sensor s{\"temp\", 21.5};\n    std::cout << s.valor() << '\\n';\n    return 0;\n}"
+			},
+			"note": "Python permite crear atributos en cualquier momento y no tiene privacidad real. En C++ los miembros se declaran antes de usarlos, el constructor los inicializa en un orden fijo y `private` lo verifica el compilador."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: un sensor con estado válido"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "sensor.cpp",
+			"code": "#include <iostream>\n#include <string>\n#include <utility>\n\nclass Sensor {\npublic:\n    Sensor(std::string nombre, double valor)\n        : nombre_(std::move(nombre)), valor_(valor) {}\n\n    double valor() const { return valor_; }\n    void actualizar(double nuevo) { valor_ = nuevo; }\n\nprivate:\n    std::string nombre_;\n    double valor_;\n};\n\nint main() {\n    Sensor temp{\"temperatura\", 21.5};\n    std::cout << temp.valor() << '\\n';\n    temp.actualizar(22.8);\n    std::cout << temp.valor() << '\\n';\n    return 0;\n}",
+			"highlight": [
+				8,
+				9,
+				11,
+				19
+			]
+		},
+		{
+			"type": "list",
+			"ordered": true,
+			"items": [
+				"`Sensor temp{...}` reserva el objeto completo en el stack: un `std::string` y un `double` contiguos.",
+				"El constructor recibe los argumentos por valor y **mueve** el string al miembro con `std::move`, evitando una copia.",
+				"`valor()` es `const`, así que puede llamarse sobre un objeto que no se va a modificar y el compilador lo verifica.",
+				"`actualizar(22.8)` escribe en `valor_` del objeto `temp`; el cambio se ve en la segunda lectura."
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `21.5` y luego `22.8`. Nada fuera de la clase puede escribir `temp.valor_ = 99` porque el miembro es privado: la única vía es `actualizar`, y ahí podrías añadir una validación de rango cuando el dominio lo exija."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: contador de instancias y destructor"
+		},
+		{
+			"type": "p",
+			"md": "Un miembro `static` sirve para llevar información común a todos los objetos. Aquí cuenta cuántas cuentas bancarias están vivas: el constructor incrementa y el destructor decrementa. Observa el bloque interno de `main`: al salir de él, `b` se destruye y el contador baja sin que nadie lo llame explícitamente."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "cuentas.cpp",
+			"code": "#include <iostream>\n#include <string>\n#include <utility>\n\nclass Cuenta {\npublic:\n    Cuenta(std::string titular, double saldo_inicial)\n        : titular_(std::move(titular)), saldo_(saldo_inicial) {\n        if (saldo_ < 0.0) {\n            saldo_ = 0.0;\n        }\n        ++cuentas_;\n    }\n\n    ~Cuenta() { --cuentas_; }\n\n    bool retirar(double monto) {\n        if (monto <= 0.0 || monto > saldo_) {\n            return false;\n        }\n        saldo_ -= monto;\n        return true;\n    }\n\n    void mostrar() const {\n        std::cout << titular_ << \": \" << saldo_ << '\\n';\n    }\n\n    static int activas() { return cuentas_; }\n\nprivate:\n    std::string titular_;\n    double saldo_;\n    static int cuentas_;\n};\n\nint Cuenta::cuentas_ = 0;\n\nint main() {\n    Cuenta a{\"Ana\", 100.0};\n    {\n        Cuenta b{\"Luis\", 50.0};\n        std::cout << Cuenta::activas() << '\\n';\n        b.retirar(20.0);\n        b.mostrar();\n    }\n    std::cout << Cuenta::activas() << '\\n';\n    a.mostrar();\n    std::cout << a.retirar(500.0) << '\\n';\n    return 0;\n}",
+			"highlight": [
+				12,
+				15,
+				30,
+				40,
+				46,
+				53
+			]
+		},
+		{
+			"type": "p",
+			"md": "La salida es `2`, `Luis: 30`, `1`, `Ana: 100` y `0`. El `0` final es el `bool` de `retirar(500.0)`: la operación se rechazó y el objeto conserva 100 porque el método comprobó antes de tocar el estado."
+		},
+		{
+			"type": "p",
+			"md": "`int Cuenta::cuentas_ = 0;` es la **definición** del miembro estático, obligatoria y fuera de la clase. Si la omites, el enlace falla con `undefined reference to Cuenta::cuentas_`. En C++17 podrías escribir `inline static int cuentas_ = 0;` dentro de la clase y evitar la línea externa."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: declaración en el header, implementación en el .cpp"
+		},
+		{
+			"type": "p",
+			"md": "En un proyecto real la clase se declara en un header y se implementa en un archivo fuente. Así los demás módulos ven la interfaz sin recompilar el cuerpo de cada método. El header incluye lo mínimo, usa guardas de inclusión y declara; el `.cpp` incluye su propio header y define."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "escalador.h",
+			"code": "#ifndef ESCALADOR_H\n#define ESCALADOR_H\n\n#include <vector>\n\nclass Escalador {\npublic:\n    Escalador(double minimo, double maximo);\n    std::vector<double> aplicar(const std::vector<double>& datos) const;\n\n    double minimo() const { return minimo_; }\n    double maximo() const { return maximo_; }\n\nprivate:\n    double minimo_;\n    double maximo_;\n};\n\n#endif"
+		},
+		{
+			"type": "p",
+			"md": "Los métodos de una línea se definen dentro del header; el compilador los trata como `inline` y no hay problema de definiciones múltiples. Los métodos con lógica van al `.cpp`, donde se repite el nombre de la clase antes del método: `Escalador::aplicar`."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "escalador.cpp",
+			"code": "#include \"escalador.h\"\n\n#include <stdexcept>\n\nEscalador::Escalador(double minimo, double maximo)\n    : minimo_(minimo), maximo_(maximo) {\n    if (maximo_ <= minimo_) {\n        throw std::invalid_argument(\"maximo debe ser mayor que minimo\");\n    }\n}\n\nstd::vector<double> Escalador::aplicar(const std::vector<double>& datos) const {\n    std::vector<double> salida;\n    salida.reserve(datos.size());\n    const double rango = maximo_ - minimo_;\n    for (double x : datos) {\n        salida.push_back((x - minimo_) / rango);\n    }\n    return salida;\n}"
+		},
+		{
+			"type": "p",
+			"md": "El constructor valida el invariante «máximo mayor que mínimo» y lanza `std::invalid_argument` si no se cumple; las excepciones se explican en su propia lección, pero aquí ya ves para qué sirve tener un punto único de validación. `aplicar` es `const` porque solo lee los límites y devuelve un vector nuevo."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "main.cpp",
+			"code": "#include \"escalador.h\"\n\n#include <iomanip>\n#include <iostream>\n#include <vector>\n\nint main() {\n    const Escalador escalador{0.0, 10.0};\n    const std::vector<double> datos{2.0, 5.0, 9.0};\n\n    for (double x : escalador.aplicar(datos)) {\n        std::cout << std::fixed << std::setprecision(2) << x << ' ';\n    }\n    std::cout << '\\n';\n    return 0;\n}"
+		},
+		{
+			"type": "p",
+			"md": "Con `g++ -std=c++20 escalador.cpp main.cpp -o programa` se compilan ambas unidades. La salida es `0.20 0.50 0.90`. Llamar a un método `no const` sobre `escalador` no compilaría: esa es la protección que buscabas."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "La guarda de inclusión no es opcional",
+			"md": "Sin `#ifndef`/`#define`, incluir el mismo header dos veces en una unidad de traducción produce `error: redefinition of class`. Las guardas son la forma portable; `#pragma once` funciona en la práctica pero no está en el estándar. Nunca definas funciones no inline en un header: acabarás con `multiple definition`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: construir y destruir objetos"
+		},
+		{
+			"type": "p",
+			"md": "La traza muestra el ciclo de vida de dos objetos. Fíjate en el orden: se construyen `a` y luego `b`, pero se destruyen al revés, como una pila. Ese orden inverso es lo que permite que un objeto use recursos creados por otro anterior."
+		},
+		{
+			"type": "trace",
+			"lang": "cpp",
+			"caption": "Constructores, métodos y destructores",
+			"code": "#include <iostream>\n#include <string>\n#include <utility>\n\nstruct Sensor {\n    std::string nombre;\n    Sensor(std::string n) : nombre(std::move(n)) {\n        std::cout << \"crear \" << nombre << '\\n';\n    }\n    ~Sensor() { std::cout << \"destruir \" << nombre << '\\n'; }\n};\n\nint main() {\n    Sensor a{\"temp\"};\n    Sensor b{\"humedad\"};\n    std::cout << a.nombre << '\\n';\n    return 0;\n}",
+			"steps": [
+				{
+					"line": 5,
+					"note": "La `struct` define el molde. Cada `Sensor` ocupará lo que mida un `std::string` más el código de sus métodos, que es compartido.",
+					"vars": {
+						"a": "—",
+						"b": "—"
+					},
+					"output": ""
+				},
+				{
+					"line": 15,
+					"note": "Se construye `a`: el constructor recibe `this = &a` y mueve el string al miembro. El cuerpo imprime el primer mensaje.",
+					"vars": {
+						"a": "{nombre: \"temp\"}",
+						"b": "—"
+					},
+					"output": "crear temp\n"
+				},
+				{
+					"line": 16,
+					"note": "Se construye `b` de la misma forma, con su propio `this` y su propio string. Los dos objetos son independientes.",
+					"vars": {
+						"a": "{nombre: \"temp\"}",
+						"b": "{nombre: \"humedad\"}"
+					},
+					"output": "crear humedad\n"
+				},
+				{
+					"line": 17,
+					"note": "`a.nombre` se lee a través de la interfaz pública y se imprime. El objeto no cambia.",
+					"vars": {
+						"a": "{nombre: \"temp\"}",
+						"b": "{nombre: \"humedad\"}"
+					},
+					"output": "temp\n"
+				},
+				{
+					"line": 18,
+					"note": "Al salir de `main` se destruye primero `b`, el último construido: el destructor imprime su mensaje.",
+					"vars": {
+						"a": "{nombre: \"temp\"}",
+						"b": "destruido"
+					},
+					"output": "destruir humedad\n"
+				},
+				{
+					"line": 18,
+					"note": "Después se destruye `a`. El orden inverso garantiza que los recursos se liberan en orden seguro.",
+					"vars": {
+						"a": "destruido",
+						"b": "destruido"
+					},
+					"output": "destruir temp\n"
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "Si el objeto poseyera memoria reservada con `new`, el destructor sería el lugar para liberarla. Ese patrón, adquirir en el constructor y liberar en el destructor, es RAII, y es la razón por la que C++ no necesita un recolector de basura."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Error",
+				"Causa",
+				"Solución"
+			],
+			"rows": [
+				[
+					"`assignment of read-only member`",
+					"Asignaste un miembro `const` dentro del cuerpo del constructor",
+					"Inicialízalo en la lista: `: altura_(h)`"
+				],
+				[
+					"`no matching function for call to ... discards qualifiers`",
+					"Llamaste a un método no `const` sobre un objeto `const`",
+					"Marca el método como `const` si solo lee"
+				],
+				[
+					"`undefined reference to Cuenta::cuentas_`",
+					"Declaraste el `static` pero no lo definiste",
+					"Añade `int Cuenta::cuentas_ = 0;` en el `.cpp`"
+				],
+				[
+					"`expected ';' after class definition`",
+					"Falta el punto y coma tras la llave de cierre",
+					"Escribe `};` al final de la clase"
+				],
+				[
+					"`redefinition of class Sensor`",
+					"El header se incluyó dos veces sin guarda",
+					"Usa `#ifndef`/`#define` o `#pragma once`"
+				]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El error de `discards qualifiers` casi siempre significa un `const` olvidado en un método de consulta: añádelo al final de la firma y en la definición del `.cpp`."
+		},
+		{
+			"type": "diff",
+			"title": "Datos públicos frente a datos protegidos",
+			"wrong": {
+				"caption": "Incorrecto: cualquiera rompe el invariante",
+				"code": "#include <iostream>\n\nstruct Cuenta {\n    double saldo;\n};\n\nint main() {\n    Cuenta c{100.0};\n    c.saldo = -50.0;   // nada lo impide\n    std::cout << c.saldo << '\\n';\n    return 0;\n}"
+			},
+			"right": {
+				"caption": "Correcto: la interfaz valida",
+				"code": "#include <iostream>\n\nclass Cuenta {\npublic:\n    explicit Cuenta(double saldo) : saldo_(saldo) {}\n\n    bool retirar(double monto) {\n        if (monto <= 0.0 || monto > saldo_) {\n            return false;\n        }\n        saldo_ -= monto;\n        return true;\n    }\n\n    double saldo() const { return saldo_; }\n\nprivate:\n    double saldo_;\n};\n\nint main() {\n    Cuenta c{100.0};\n    c.retirar(150.0);\n    std::cout << c.saldo() << '\\n';\n    return 0;\n}"
+			},
+			"explain": "La versión con `struct` imprime `-50` y deja la cuenta en un estado imposible. La versión encapsulada imprime `100`: el intento de retirar más de lo disponible devuelve `false` sin tocar el saldo. `explicit` impide además que un `double` se convierta en `Cuenta` por accidente."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Declara los datos en `private` y expón solo lo que el usuario necesita.",
+				"Inicializa siempre en la lista de inicialización, en el mismo orden de declaración.",
+				"Marca `const` todo método que no modifique el objeto.",
+				"Usa sufijo `_` o prefijo `m_` para distinguir miembros de parámetros.",
+				"Pasa objetos grandes como `const&` y guarda strings con `std::move` en el constructor.",
+				"Define los `static` fuera de la clase (o usa `inline static` desde C++17).",
+				"Un header por clase, con guarda, y la implementación en su propio `.cpp`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Cuenta bancaria encapsulada",
+			"md": "Escribe una clase `CuentaBancaria` con titular y saldo privados. El constructor debe rechazar saldos negativos dejándolos en cero. Añade `depositar` y `retirar`, que devuelven `false` ante montos no positivos o retiradas mayores que el saldo, y un método `saldo() const`. Prueba un depósito de 50, una retirada de 500 y muestra el titular.",
+			"hint": "Valida en el constructor con un ternario o un `if` antes de asignar. Recuerda que `retirar` debe comprobar antes de restar, no después.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "cuenta.cpp",
+				"code": "#include <iostream>\n#include <string>\n#include <utility>\n\nclass CuentaBancaria {\npublic:\n    CuentaBancaria(std::string titular, double saldo)\n        : titular_(std::move(titular)), saldo_(saldo < 0.0 ? 0.0 : saldo) {}\n\n    bool depositar(double monto) {\n        if (monto <= 0.0) {\n            return false;\n        }\n        saldo_ += monto;\n        return true;\n    }\n\n    bool retirar(double monto) {\n        if (monto <= 0.0 || monto > saldo_) {\n            return false;\n        }\n        saldo_ -= monto;\n        return true;\n    }\n\n    double saldo() const { return saldo_; }\n    const std::string& titular() const { return titular_; }\n\nprivate:\n    std::string titular_;\n    double saldo_;\n};\n\nint main() {\n    CuentaBancaria c{\"Ana\", 100.0};\n    std::cout << c.depositar(50.0) << ' ' << c.saldo() << '\\n';\n    std::cout << c.retirar(500.0) << ' ' << c.saldo() << '\\n';\n    std::cout << c.titular() << '\\n';\n    return 0;\n}",
+				"explain": "La salida es `1 150`, `0 150` y `Ana`. El depósito se acepta y modifica el saldo; la retirada excesiva devuelve `false` y deja el saldo intacto. `titular()` devuelve `const std::string&` para no copiar el texto en cada consulta."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Dataset con estadísticas y contador estático",
+			"md": "Crea una clase `Dataset` que reciba un `std::vector<double>` por valor y lo mueva a un miembro privado. Debe lanzar `std::invalid_argument` si el vector está vacío, ofrecer `media() const` y `rango() const` (máximo menos mínimo, con `std::minmax_element`) y llevar la cuenta de instancias en un miembro `static`. Prueba con `{2.0, 4.0, 9.0}`.",
+			"hint": "Para el rango, `std::minmax_element` devuelve un par de iteradores; con `auto [minimo, maximo] = ...` obtienes ambos. Define el `static` fuera de la clase.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "dataset.cpp",
+				"code": "#include <algorithm>\n#include <iostream>\n#include <numeric>\n#include <stdexcept>\n#include <utility>\n#include <vector>\n\nclass Dataset {\npublic:\n    explicit Dataset(std::vector<double> valores)\n        : valores_(std::move(valores)) {\n        if (valores_.empty()) {\n            throw std::invalid_argument(\"el dataset no puede estar vacio\");\n        }\n        ++instancias_;\n    }\n\n    double media() const {\n        const double suma = std::accumulate(valores_.begin(), valores_.end(), 0.0);\n        return suma / static_cast<double>(valores_.size());\n    }\n\n    double rango() const {\n        const auto [minimo, maximo] =\n            std::minmax_element(valores_.begin(), valores_.end());\n        return *maximo - *minimo;\n    }\n\n    static int instancias() { return instancias_; }\n\nprivate:\n    std::vector<double> valores_;\n    static int instancias_;\n};\n\nint Dataset::instancias_ = 0;\n\nint main() {\n    const Dataset d{std::vector<double>{2.0, 4.0, 9.0}};\n    std::cout << d.media() << '\\n';\n    std::cout << d.rango() << '\\n';\n    std::cout << Dataset::instancias() << '\\n';\n    return 0;\n}",
+				"explain": "La media es 5 y el rango 7. El contador vale 1 porque solo se construyó un dataset. El constructor recibe el vector por valor y lo mueve al miembro: el llamador puede pasar un temporal sin coste de copia, y los métodos const pueden llamarse sobre `d` porque `d` es const."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el constructor y el método const",
+			"lang": "cpp",
+			"code": "class Punto {\npublic:\n    Punto(int x, int y) : x_(___), y_(___) {}\n\n    int x() ___ { return ___; }\n\nprivate:\n    int x_;\n    int y_;\n};",
+			"answers": [
+				"x",
+				"y",
+				"const",
+				"x_"
+			],
+			"hint": "La lista de inicialización usa el nombre del parámetro; el método que no modifica el objeto lleva `const` al final.",
+			"explain": "`x_(x), y_(y)` inicializa cada miembro con el parámetro homónimo; dentro de la lista, el identificador de la izquierda es siempre el miembro. `int x() const` puede llamarse sobre un `const Punto` y devuelve el miembro `x_`."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En la cuenta bancaria, la decisión de diseño importante es dónde validar. Si validaras en `main` antes de llamar a `retirar`, cualquier otro código podría olvidarlo. Al validar dentro del método, el invariante «saldo no negativo» se cumple para todos los usuarios de la clase, presentes y futuros. Eso es encapsulamiento en el sentido útil: no ocultar por ocultar, sino concentrar la regla en un solo lugar."
+		},
+		{
+			"type": "p",
+			"md": "En el dataset, `explicit` evita que un `std::vector<double>` se convierta en `Dataset` sin querer, y el `std::move` del parámetro al miembro evita copiar el vector entero. La media y el rango son `const` porque solo leen; si olvidaras ese `const`, el objeto `const Dataset d` del ejemplo no compilaría. Y el contador estático demuestra que hay estado que pertenece a la clase, no a cada instancia."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una clase agrupa datos y las operaciones que mantienen su invariante.",
+				"`class` es privada por defecto; `struct` es pública por defecto.",
+				"El constructor deja el objeto válido y la lista de inicialización construye cada miembro directamente.",
+				"Los miembros se inicializan en orden de declaración, no en el orden de la lista.",
+				"Un método `const` no modifica el objeto y puede llamarse sobre objetos `const`.",
+				"`this` es la dirección del objeto y permite distinguir miembros de parámetros.",
+				"Un `static` existe una sola vez por clase y debe definirse fuera de ella.",
+				"La clase se declara en un header con guarda y se implementa en un `.cpp`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué garantiza `double valor() const` en una clase?",
+			"options": [
+				"Que el valor devuelto no se puede modificar",
+				"Que el método no modifica el objeto y puede llamarse sobre objetos `const`",
+				"Que el método se ejecuta en tiempo de compilación",
+				"Que el miembro `valor_` es constante"
+			],
+			"answer": 1,
+			"explain": "El `const` final califica al objeto implícito (`this`), no al valor devuelto. Sin él, llamar al método sobre un `const Sensor` produce un error de compilación por descartar cualificadores."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué conviene inicializar en la lista `: nombre_(std::move(n))` en lugar de asignar en el cuerpo?",
+			"options": [
+				"Porque el cuerpo del constructor se ejecuta antes que la lista",
+				"Porque la lista construye el miembro directamente y es obligatoria para `const` y referencias",
+				"Porque así el miembro es `static`",
+				"Porque el compilador prohíbe asignar dentro del constructor"
+			],
+			"answer": 1,
+			"explain": "En el cuerpo el miembro ya está construido por defecto y luego se le asigna, lo que puede costar una construcción extra. Además, un miembro `const` o una referencia solo pueden inicializarse en la lista."
+		},
+		{
+			"type": "quiz",
+			"question": "Si una clase declara `static int instancias_;` pero no lo define fuera, ¿qué ocurre al usarlo?",
+			"options": [
+				"Se crea automáticamente una copia por objeto",
+				"El enlace falla con `undefined reference`",
+				"El valor siempre es cero y el programa funciona",
+				"El compilador genera la definición en el header"
+			],
+			"answer": 1,
+			"explain": "La declaración dentro de la clase no reserva almacenamiento. Hace falta una definición única, normalmente en el `.cpp`, o `inline static` dentro de la clase desde C++17. Sin ella, el enlazador no encuentra el símbolo."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference: clases",
+					"url": "https://en.cppreference.com/w/cpp/language/classes",
+					"note": "declaración y miembros"
+				},
+				{
+					"label": "cppreference: constructores",
+					"url": "https://en.cppreference.com/w/cpp/language/constructor",
+					"note": "lista de inicialización"
+				},
+				{
+					"label": "C++ Core Guidelines: clases",
+					"url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-class",
+					"note": "reglas de diseño"
+				}
+			]
+		}
+	]
+}

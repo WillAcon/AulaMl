@@ -1,0 +1,481 @@
+{
+	"id": "py-28-visualizacion",
+	"track": "python",
+	"order": 28,
+	"title": "Matplotlib y Seaborn",
+	"subtitle": "Figura, ejes y el gráfico que responde la pregunta en lugar de decorarla",
+	"level": "intermedio",
+	"minutes": 40,
+	"tags": ["matplotlib", "seaborn", "gráficos", "visualización"],
+	"keywords": [
+		"matplotlib python",
+		"seaborn",
+		"figura y ejes",
+		"subplots",
+		"gráfico de barras",
+		"scatter plot",
+		"histograma",
+		"boxplot",
+		"heatmap",
+		"elegir gráfico",
+		"etiquetas y leyendas",
+		"guardar figura"
+	],
+	"summary": "Un gráfico es un argumento visual: si no sabes qué pregunta responde, cualquier dibujo parece correcto. Aprenderás el modelo de figura y ejes, los gráficos esenciales de Matplotlib y Seaborn, cómo etiquetarlos y combinarlos en subplots, y qué errores de lectura evitar.",
+	"objectives": [
+		"Explicar la relación entre figura, ejes y artistas en Matplotlib",
+		"Dibujar líneas, barras, dispersiones, histogramas, cajas y mapas de calor",
+		"Etiquetar ejes, títulos y leyendas, y guardar la figura en un archivo",
+		"Componer varios gráficos con subplots y compartir escalas",
+		"Elegir el gráfico adecuado para cada tipo de pregunta y detectar ejes engañosos"
+	],
+	"prerequisites": ["Pandas: Series y DataFrames", "Estadística y análisis exploratorio"],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Puedes calcular la media de ventas por mes y presentarla en una tabla de doce números. Nadie la recordará. El mismo dato en una línea con los meses en el eje horizontal muestra en dos segundos si el negocio crece, se estanca o cae en diciembre. Esa traducción de números a forma es el trabajo de la visualización."
+		},
+		{
+			"type": "p",
+			"md": "Pero un gráfico también puede mentir sin escribir una sola palabra falsa: recortar el eje vertical, elegir barras para una serie temporal o dibujar un promedio que esconde dos grupos opuestos. Aprender las herramientas y los criterios va junto; por eso esta lección dedica tanto espacio a decidir como a dibujar."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es Matplotlib?"
+		},
+		{
+			"type": "p",
+			"md": "**Matplotlib** es la biblioteca de gráficos de referencia en Python. Casi todo lo que ves en un cuaderno, un informe o un artículo científico pasa por ella, directa o indirectamente. Su módulo `pyplot` ofrece una interfaz rápida, y la API orientada a objetos permite controlar cada detalle."
+		},
+		{
+			"type": "p",
+			"md": "**Seaborn** se construye sobre Matplotlib y añade dos cosas: funciones estadísticas listas para usar (histogramas con densidad, diagramas de caja, mapas de calor) y un estilo por defecto más cuidado. No compiten: Seaborn dibuja sobre los mismos ejes de Matplotlib, así que puedes mezclar ambos en una figura."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Cómo se instalan",
+			"md": "Ejecuta `pip install matplotlib seaborn`; Seaborn arrastra Matplotlib y pandas. En un cuaderno, las figuras aparecen solas al final de la celda. En un script necesitas `plt.show()` o, mejor, guardar con `fig.savefig(...)`. El botón «Probar» del navegador no incluye estas bibliotecas: ejecuta los ejemplos en tu equipo o en Colab."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Explorar**: ver la forma de una distribución antes de elegir una prueba estadística o un modelo.",
+				"**Detectar errores**: un histograma revela montos negativos o edades imposibles que una tabla de resumen esconde.",
+				"**Comparar grupos**: barras por sede, cajas por segmento, líneas por canal a lo largo del tiempo.",
+				"**Comunicar**: un informe con una figura clara necesita menos texto y se recuerda más.",
+				"**Depurar un modelo**: curvas de aprendizaje y residuos se leen mejor como imagen que como lista de números."
+			]
+		},
+		{
+			"type": "h",
+			"text": "¿Cómo funciona por dentro? Figura y ejes"
+		},
+		{
+			"type": "p",
+			"md": "Matplotlib organiza el dibujo en tres niveles. La **Figure** es el lienzo completo, con su tamaño en pulgadas y su resolución. Dentro hay uno o varios **Axes**, cada uno con su propio sistema de coordenadas, sus ejes y sus datos. Y dentro de cada Axes están los **artistas**: líneas, puntos, barras, textos, que son lo que finalmente se pinta."
+		},
+		{
+			"type": "p",
+			"md": "Esa jerarquía explica el patrón que usarás siempre: `fig, ax = plt.subplots()` crea un lienzo y un eje, y luego llamas a métodos de `ax`. Cuando necesitas cuatro gráficos, `plt.subplots(2, 2)` devuelve un arreglo de ejes que recorres con índices. Si usas la interfaz rápida `plt.plot(...)`, Matplotlib dibuja sobre el eje activo, y ahí nacen los gráficos superpuestos que no sabes de dónde salen."
+		},
+		{
+			"type": "p",
+			"md": "La otra noción importante es la escala. Un eje lineal no siempre es la mejor elección: para datos que crecen multiplicándose, la escala logarítmica hace visible lo que el eje lineal aplasta. Y recortar el eje vertical cambia por completo la impresión que produce la misma serie de datos, aunque los números no cambien."
+		},
+		{
+			"type": "table",
+			"head": ["Pregunta", "Gráfico", "Qué evitar"],
+			"rows": [
+				["¿Cómo evoluciona en el tiempo?", "Línea", "Barras para series continuas"],
+				["¿Cómo se compara entre categorías?", "Barras", "Ordenar por valor o el mensaje se pierde"],
+				["¿Hay relación entre dos variables?", "Dispersión", "Trazar una recta sin mirar los puntos"],
+				["¿Cómo se distribuye una variable?", "Histograma o caja", "Un solo número de resumen"],
+				["¿Cómo se cruzan dos categorías?", "Mapa de calor", "Colores sin escala ni valores"]
+			]
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: la receta mínima"
+		},
+		{
+			"type": "p",
+			"md": "Todo gráfico legible tiene título, ejes con nombre y, si hay varias series, leyenda. Matplotlib no los añade por ti porque no sabe qué significan tus datos. Estas cinco llamadas cubren el ochenta por ciento de los casos."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "esqueleto.py",
+			"code": "import matplotlib.pyplot as plt\n\nfig, ax = plt.subplots(figsize=(6, 3.5))\nax.plot([1, 2, 3], [10, 12, 9], label=\"Lima\")\nax.set_title(\"Ventas por mes\")\nax.set_xlabel(\"Mes\")\nax.set_ylabel(\"Miles de soles\")\nax.legend()\nax.grid(alpha=0.3)\nfig.savefig(\"ventas.png\", dpi=150, bbox_inches=\"tight\")",
+			"highlight": [3, 4, 5, 8, 10]
+		},
+		{
+			"type": "list",
+			"items": [
+				"`figsize` se mide en pulgadas; `dpi` multiplica los píxeles al guardar.",
+				"`ax.set_title`, `ax.set_xlabel` y `ax.set_ylabel` son la forma orientada a objetos.",
+				"`label` dentro del dibujo más `ax.legend()` producen la leyenda.",
+				"`bbox_inches=\"tight\"` recorta el espacio sobrante al exportar.",
+				"Para varios ejes: `fig, ejes = plt.subplots(1, 2, sharey=True)` y luego `ejes[0]`, `ejes[1]`."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: evolución mensual"
+		},
+		{
+			"type": "p",
+			"md": "Cuatro meses bastan para ver el patrón. La línea conecta valores consecutivos, así que sugiere continuidad: es la elección natural cuando el eje horizontal es tiempo."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "linea.py",
+			"code": "import matplotlib.pyplot as plt\n\nmeses = [\"Ene\", \"Feb\", \"Mar\", \"Abr\"]\nventas = [120, 95, 140, 165]\n\nfig, ax = plt.subplots(figsize=(6, 3))\nax.plot(meses, ventas, marker=\"o\", color=\"#4c6ef5\")\nax.set_title(\"Ventas mensuales\")\nax.set_ylabel(\"Miles de soles\")\nax.grid(alpha=0.3)\nfig.savefig(\"ventas.png\", dpi=150, bbox_inches=\"tight\")",
+			"highlight": [6, 7, 8]
+		},
+		{
+			"type": "p",
+			"md": "`plot` recibe la lista de etiquetas y la de valores; `marker=\"o\"` añade un punto en cada dato para que se vea dónde hay medición real y dónde solo interpolación. La caída de febrero y la recuperación posterior son evidentes, pero el eje empieza en cero, así que la amplitud no está exagerada."
+		},
+		{
+			"type": "p",
+			"md": "Si en lugar de una serie temporal tuvieras cuatro categorías sin orden, `ax.bar(meses, ventas)` sería más honesto: las barras no insinúan que existe un camino entre una categoría y la siguiente."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: dispersión y distribución"
+		},
+		{
+			"type": "p",
+			"md": "Supón que tienes horas de estudio y notas de diez estudiantes. La pregunta tiene dos partes: ¿hay relación entre ambas variables? ¿Y cómo se distribuyen las notas? Ninguna figura responde a las dos, así que dibuja dos ejes en la misma figura."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "dos_vistas.py",
+			"code": "import pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\nnotas = pd.DataFrame({\n    \"horas\": [2, 3, 4, 4, 5, 6, 7, 8, 9, 10],\n    \"nota\": [10, 11, 12, 14, 13, 15, 15, 17, 16, 18],\n})\n\nfig, ejes = plt.subplots(1, 2, figsize=(9, 3.5))\nsns.scatterplot(data=notas, x=\"horas\", y=\"nota\", ax=ejes[0])\nsns.histplot(data=notas, x=\"nota\", bins=5, ax=ejes[1])\nejes[0].set_title(\"Horas y nota\")\nejes[1].set_title(\"Distribución de notas\")\nfig.tight_layout()",
+			"highlight": [11, 12, 13]
+		},
+		{
+			"type": "p",
+			"md": "La dispersión asciende de izquierda a derecha: quien estudia más tiende a sacar más nota, aunque con dispersión. La nota media es 14.1 y el histograma muestra que la mayoría se concentra entre 12 y 17. Las dos vistas se complementan, y `ax=` es la clave: indica a Seaborn sobre qué eje dibujar en lugar de crear una figura nueva."
+		},
+		{
+			"type": "p",
+			"md": "Seaborn distingue funciones de ejes, como `histplot`, `scatterplot`, `boxplot` y `heatmap`, que aceptan `ax=`, y funciones de figura, como `relplot` o `displot`, que devuelven un objeto propio y gestionan varios paneles. Si mezclas las dos familias sin cuidado, acabas con figuras vacías o con dos lienzos abiertos."
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: cuatro vistas del mismo mes"
+		},
+		{
+			"type": "p",
+			"md": "Un informe de ventas suele necesitar cuatro respuestas: cuánto se vendió, quién compró, cómo se distribuyen los montos y qué producto pesa más. Cuatro paneles en una sola figura permiten compararlas sin cambiar de página."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "panel.py",
+			"code": "import pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\npedidos = pd.read_csv(\"pedidos.csv\")\nfig, ejes = plt.subplots(2, 2, figsize=(10, 6))\n\nsns.lineplot(data=pedidos, x=\"dia\", y=\"ingreso\", ax=ejes[0, 0])\nsns.barplot(data=pedidos, x=\"sede\", y=\"ingreso\", estimator=\"sum\", ax=ejes[0, 1])\nsns.histplot(data=pedidos, x=\"ingreso\", bins=20, ax=ejes[1, 0])\nsns.boxplot(data=pedidos, x=\"producto\", y=\"ingreso\", ax=ejes[1, 1])\n\nfor eje in ejes.flat:\n    eje.label_outer()\nfig.tight_layout()\nfig.savefig(\"panel_ventas.png\", dpi=150)",
+			"highlight": [8, 9, 10, 11, 13, 14]
+		},
+		{
+			"type": "p",
+			"md": "`ejes` es un arreglo de dos por dos; se indexa con `ejes[fila, columna]`. `ejes.flat` lo recorre como si fuera una lista, y `label_outer` evita repetir las etiquetas internas, que es lo que hace ilegible un panel. `barplot` con `estimator=\"sum\"` dibuja el total por sede y añade intervalos de confianza por defecto: si no los quieres, pasa `errorbar=None`."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: un mapa de calor"
+		},
+		{
+			"type": "p",
+			"md": "La matriz siguiente son las visitas a una tienda por día y franja horaria. Un mapa de calor es exactamente esto: una tabla donde el color codifica el valor. Antes de dibujarla, lee las celdas; después, comprueba si el color resalta lo mismo que los números."
+		},
+		{
+			"type": "matrix",
+			"title": "Visitas por día y franja horaria",
+			"data": [[12, 34, 28, 45], [15, 42, 31, 50], [18, 46, 35, 55], [14, 40, 30, 48], [22, 55, 44, 72]],
+			"rowLabels": ["lun", "mar", "mié", "jue", "vie"],
+			"colLabels": ["9 h", "12 h", "15 h", "18 h"],
+			"steps": [
+				{
+					"note": "Veinte celdas: cinco días por cuatro franjas. La media es 36.8 visitas.",
+					"highlight": []
+				},
+				{
+					"note": "El máximo está el viernes a las 18 h con 72 visitas, casi el doble de la media.",
+					"highlight": [[4, 3]]
+				},
+				{
+					"note": "La fila del viernes suma 22 + 55 + 44 + 72 = 193, el día más fuerte.",
+					"highlight": [[4, 0], [4, 1], [4, 2], [4, 3]]
+				},
+				{
+					"note": "La franja de 18 h suma 270 de las 736 visitas: el 37 % del total en una sola franja.",
+					"highlight": [[0, 3], [1, 3], [2, 3], [3, 3], [4, 3]]
+				},
+				{
+					"note": "Un `sns.heatmap` con `annot=True` escribe estos mismos números dentro de las celdas.",
+					"highlight": [[4, 3]]
+				}
+			]
+		},
+		{
+			"type": "p",
+			"md": "El color ayuda a ver el patrón de un vistazo, pero puede engañar si la escala no está indicada o si dos mapas distintos usan rangos diferentes. Con `annot=True` y `fmt=\"d\"` los valores quedan escritos, y `cmap=\"viridis\"` mantiene el orden perceptual incluso para quien no distingue bien los colores."
+		},
+		{
+			"type": "trace",
+			"lang": "python",
+			"caption": "De una lista a una barra con referencia",
+			"code": "import matplotlib.pyplot as plt\n\nventas = [120, 95, 140, 165]\npromedio = sum(ventas) / len(ventas)\netiquetas = [\"Ene\", \"Feb\", \"Mar\", \"Abr\"]\nfig, ax = plt.subplots(figsize=(6, 3))\nax.bar(etiquetas, ventas)\nax.axhline(promedio, color=\"gray\", linestyle=\"--\")\nprint(f\"Promedio: {promedio}\")",
+			"steps": [
+				{
+					"line": 1,
+					"note": "Se carga `pyplot`, el módulo de dibujo.",
+					"vars": { "plt": "módulo pyplot" },
+					"output": ""
+				},
+				{
+					"line": 3,
+					"note": "Cuatro meses de ventas en miles de soles.",
+					"vars": { "plt": "módulo pyplot", "ventas": "[120, 95, 140, 165]" },
+					"output": ""
+				},
+				{
+					"line": 4,
+					"note": "La suma es 520 y la media 130.0. Ese valor servirá de línea de referencia.",
+					"vars": {
+						"plt": "módulo pyplot",
+						"ventas": "[120, 95, 140, 165]",
+						"promedio": "130.0"
+					},
+					"output": ""
+				},
+				{
+					"line": 5,
+					"note": "Las etiquetas del eje horizontal deben tener el mismo largo que los datos.",
+					"vars": {
+						"plt": "módulo pyplot",
+						"ventas": "[120, 95, 140, 165]",
+						"promedio": "130.0",
+						"etiquetas": "['Ene', 'Feb', 'Mar', 'Abr']"
+					},
+					"output": ""
+				},
+				{
+					"line": 6,
+					"note": "`subplots` devuelve dos objetos: la figura entera y el eje donde se dibuja.",
+					"vars": {
+						"plt": "módulo pyplot",
+						"ventas": "[120, 95, 140, 165]",
+						"promedio": "130.0",
+						"etiquetas": "['Ene', 'Feb', 'Mar', 'Abr']",
+						"fig": "Figure 6×3 pulgadas",
+						"ax": "Axes con 4 barras"
+					},
+					"output": ""
+				},
+				{
+					"line": 8,
+					"note": "`axhline` traza una línea horizontal en y = 130 sobre las barras ya dibujadas.",
+					"vars": {
+						"plt": "módulo pyplot",
+						"ventas": "[120, 95, 140, 165]",
+						"promedio": "130.0",
+						"etiquetas": "['Ene', 'Feb', 'Mar', 'Abr']",
+						"fig": "Figure 6×3 pulgadas",
+						"ax": "Axes con 4 barras y una línea"
+					},
+					"output": ""
+				},
+				{
+					"line": 9,
+					"note": "La f-string convierte el flotante a texto. La figura ya está construida en memoria.",
+					"vars": {
+						"plt": "módulo pyplot",
+						"ventas": "[120, 95, 140, 165]",
+						"promedio": "130.0",
+						"etiquetas": "['Ene', 'Feb', 'Mar', 'Abr']",
+						"fig": "Figure 6×3 pulgadas",
+						"ax": "Axes con 4 barras y una línea"
+					},
+					"output": "Promedio: 130.0\n"
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "table",
+			"head": ["Síntoma", "Causa", "Solución"],
+			"rows": [
+				["No aparece ninguna ventana", "En un script falta `plt.show()`", "Añádelo al final o usa `fig.savefig`"],
+				["Los gráficos se superponen", "Se dibujó sobre el eje activo", "Crea `fig, ax` y usa métodos de `ax`"],
+				["`TypeError: 'Figure' object is not subscriptable`", "Asignaste solo la figura", "`fig, ax = plt.subplots()`"],
+				["`TypeError` al pasar texto a `sns.heatmap`", "El mapa de calor necesita una tabla 2D numérica", "Haz `pivot` o selecciona solo columnas numéricas"],
+				["Las etiquetas del eje x se pisan", "Demasiadas categorías o texto largo", "Rota con `rotation=45, ha=\"right\"`"]
+			]
+		},
+		{
+			"type": "p",
+			"md": "El error de interpretación más frecuente no está en el código. Recortar el eje vertical para que las barras se vean «mejor» convierte una diferencia del 2 % en una montaña rusa. Si necesitas el detalle, usa un gráfico de puntos o una escala adecuada, pero dilo en el título."
+		},
+		{
+			"type": "diff",
+			"title": "Dibujar sin saber dónde",
+			"wrong": {
+				"caption": "Usa el eje activo",
+				"code": "plt.plot(meses, ventas)\nplt.title(\"Ventas\")"
+			},
+			"right": {
+				"caption": "Controla figura y eje",
+				"code": "fig, ax = plt.subplots(figsize=(6, 3))\nax.plot(meses, ventas)\nax.set_title(\"Ventas\")"
+			},
+			"explain": "La interfaz rápida dibuja sobre el eje que Matplotlib considera activo, y en un bucle eso produce figuras que se mezclan. Crear la figura explícitamente te da control del tamaño, de los subplots y de lo que guardas."
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Escribe la pregunta antes del gráfico; si no cabe en una frase, probablemente necesites dos figuras.",
+				"Etiqueta siempre los ejes con unidades y pon un título que diga qué se está comparando.",
+				"Ordena las barras por valor: el ojo compara longitudes mejor que posiciones arbitrarias.",
+				"Usa una sola escala por eje; los ejes gemelos invitan a conclusiones falsas.",
+				"Prefiere paletas ordenadas y aptas para daltonismo: `viridis`, `cividis` o `Blues`.",
+				"Guarda con `dpi=150` o más y `bbox_inches=\"tight\"` para que el texto no se recorte."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Barras con referencia",
+			"md": "Dibuja un gráfico de barras con las unidades vendidas de café, té, jugo y agua: 120, 80, 45 y 95. Añade título, etiqueta del eje vertical con la unidad, una línea horizontal en la media y guarda el archivo como `unidades.png`. Comprueba que la media es 85.",
+			"hint": "`ax.bar` recibe las etiquetas y los valores. `ax.axhline` dibuja la referencia; súmale `linestyle=\"--\"` para distinguirla de las barras.",
+			"solution": {
+				"lang": "python",
+				"caption": "barras.py",
+				"code": "import matplotlib.pyplot as plt\n\nproductos = [\"café\", \"té\", \"jugo\", \"agua\"]\nunidades = [120, 80, 45, 95]\nmedia = sum(unidades) / len(unidades)\n\nfig, ax = plt.subplots(figsize=(6, 3.5))\nax.bar(productos, unidades, color=\"#74b9ff\")\nax.axhline(media, color=\"gray\", linestyle=\"--\")\nax.set_title(\"Unidades vendidas por producto\")\nax.set_ylabel(\"Unidades\")\nfig.savefig(\"unidades.png\", dpi=150, bbox_inches=\"tight\")",
+				"explain": "La suma es 340 y la media 85, así que la línea pasa por encima del té y del agua y por debajo del café. La referencia permite ver de inmediato qué productos están por encima del promedio sin calcularlo a ojo."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el gráfico",
+			"lang": "python",
+			"code": "fig, ax = plt.___(figsize=(6, 3))\nax.___(meses, ventas)\nax.set___(\"Ventas mensuales\")\nfig.savefig(\"ventas.png\", dpi=150)",
+			"answers": ["subplots", "bar", "title"],
+			"hint": "La función que crea figura y ejes devuelve dos objetos. El método del título se llama como el parámetro que quieres escribir.",
+			"explain": "`subplots` devuelve `fig` y `ax`. `ax.bar` dibuja barras verticales y `set_title` escribe el título del eje. Guardar con `savefig` evita depender de que se abra una ventana."
+		},
+		{
+			"type": "exercise",
+			"title": "Detectar una distribución sesgada",
+			"md": "Con los montos 12, 15, 18, 20, 22, 25, 30 y 95, dibuja un histograma y un diagrama de caja en dos subplots. Calcula la media y la mediana, y explica en una línea por qué difieren tanto. Señala si el valor 95 queda fuera de los bigotes de la caja.",
+			"hint": "La caja marca el rango intercuartílico y los bigotes llegan hasta el dato más lejano dentro de 1.5 veces ese rango. Compara media y mediana antes de mirar el gráfico.",
+			"solution": {
+				"lang": "python",
+				"caption": "sesgo.py",
+				"code": "import pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\nmontos = pd.Series([12, 15, 18, 20, 22, 25, 30, 95])\n\nfig, ejes = plt.subplots(1, 2, figsize=(9, 3.5))\nsns.histplot(x=montos, bins=8, ax=ejes[0])\nsns.boxplot(x=montos, ax=ejes[1])\nprint(round(montos.mean(), 2), montos.median())",
+				"explain": "La media es 29.62 y la mediana 21. El 95 separa ambas cifras: arrastra la media hacia arriba mientras la mediana se queda en el centro real de los datos. En el histograma la cola derecha es visible, y en la caja el 95 aparece como punto aislado más allá del bigote, que termina en 30, el mayor valor por debajo del límite de 46."
+			}
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "En el primer ejercicio, la línea de la media convierte un gráfico descriptivo en uno comparativo: ya no solo ves cuánto vendió cada producto, también cuáles están por encima del promedio. Ese pequeño añadido es el que responde una pregunta; sin él, la figura solo repite la tabla."
+		},
+		{
+			"type": "p",
+			"md": "En el segundo, el orden de las operaciones importa: calculas media y mediana antes de dibujar, para que el gráfico confirme lo que sospechas y no al revés. Los dos paneles muestran el mismo dato desde ángulos distintos, y esa es la razón de usar subplots en lugar de una sola figura sobrecargada."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Una figura contiene ejes; cada eje contiene artistas como líneas, barras o puntos.",
+				"`fig, ax = plt.subplots()` es el punto de partida de cualquier gráfico controlable.",
+				"Seaborn dibuja sobre ejes de Matplotlib si le pasas `ax=`; sus funciones de figura crean paneles propios.",
+				"Título, etiquetas con unidades y leyenda no son decoración: sin ellos el gráfico no se interpreta.",
+				"Elige el gráfico según la pregunta: línea para tiempo, barras para categorías, dispersión para relación, caja para distribución.",
+				"Un eje recortado o un doble eje pueden exagerar diferencias reales; decláralo o evítalo.",
+				"Guarda con `fig.savefig(..., dpi=150, bbox_inches=\"tight\")` para conservar lo que ves en pantalla."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `plt.subplots(2, 2)`?",
+			"options": [
+				"Cuatro figuras independientes",
+				"Una figura y un arreglo de dos por dos con sus ejes",
+				"Un solo eje con cuatro series",
+				"Una lista de cuatro figuras y un eje compartido"
+			],
+			"answer": 1,
+			"explain": "La función crea una Figure y una rejilla de Axes. Se accede a cada panel con `ejes[fila, columna]` y se comparten escalas con `sharex` o `sharey`."
+		},
+		{
+			"type": "quiz",
+			"question": "Tienes ventas de cuatro productos sin relación temporal. ¿Qué gráfico responde mejor a «cuál vende más»?",
+			"options": [
+				"Una línea, porque muestra la tendencia",
+				"Un gráfico de barras ordenado por valor",
+				"Un mapa de calor con los cuatro valores",
+				"Una dispersión de producto frente a unidades"
+			],
+			"answer": 1,
+			"explain": "Las barras comparan magnitudes con una base común, y ordenarlas hace que la diferencia se lea de inmediato. Una línea sugeriría una continuidad que no existe entre productos distintos."
+		},
+		{
+			"type": "quiz",
+			"question": "Un gráfico de barras empieza el eje vertical en 95 en lugar de 0. ¿Qué efecto tiene?",
+			"options": [
+				"Ninguno, los valores son los mismos",
+				"Exagera visualmente las diferencias entre barras",
+				"Hace que las barras sean más precisas",
+				"Obliga a usar escala logarítmica"
+			],
+			"answer": 1,
+			"explain": "La longitud de la barra deja de ser proporcional al valor, así que una diferencia pequeña parece enorme. Si el detalle importa, usa puntos o líneas y dilo en el título, pero no recortes la base sin avisar."
+		},
+		{
+			"type": "links",
+			"title": "Documentación",
+			"items": [
+				{
+					"label": "Matplotlib: guía de pyplot",
+					"url": "https://matplotlib.org/stable/tutorials/pyplot.html",
+					"note": "patrón figura y ejes con ejemplos"
+				},
+				{
+					"label": "Seaborn: galería de ejemplos",
+					"url": "https://seaborn.pydata.org/examples/index.html",
+					"note": "cada gráfico con su código"
+				}
+			]
+		}
+	]
+}

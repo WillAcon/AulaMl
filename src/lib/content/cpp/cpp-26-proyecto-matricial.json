@@ -1,0 +1,946 @@
+{
+	"id": "cpp-26-proyecto-matricial",
+	"track": "cpp",
+	"order": 26,
+	"title": "Proyecto: motor matricial",
+	"subtitle": "Diseñar una clase Matrix con memoria contigua, operadores, pruebas y mediciones reales",
+	"level": "avanzado",
+	"minutes": 62,
+	"tags": [
+		"proyecto",
+		"matrices",
+		"cmake",
+		"rendimiento"
+	],
+	"keywords": [
+		"clase matrix c++",
+		"producto de matrices c++",
+		"row major",
+		"memoria contigua matriz",
+		"operador corchetes matriz",
+		"sobrecarga de operadores c++",
+		"excepciones c++ dimensiones",
+		"tests c++ sin framework",
+		"cmake biblioteca c++",
+		"medir gflops",
+		"cache locality",
+		"proyecto c++ completo"
+	],
+	"summary": "Construirás desde cero un motor matricial en C++20: una clase Matrix con almacenamiento contiguo, suma, escala, producto, excepciones con mensajes útiles, pruebas ejecutables y un benchmark. Al terminar tendrás una biblioteca compilable, medida y lista para reutilizar en el servidor de inferencia.",
+	"objectives": [
+		"Diseñar una clase Matrix con almacenamiento contiguo y acceso comprobado",
+		"Implementar operadores aritméticos con semántica de valor y excepciones claras",
+		"Escribir una multiplicación O(n³) que respete la localidad de caché",
+		"Organizar el proyecto en include/, src/ y tests/ y compilarlo con CMake",
+		"Medir el rendimiento y distinguir cuellos de botella reales de intuiciones"
+	],
+	"prerequisites": [
+		"Regla de 0/3/5 y sobrecarga de operadores",
+		"Arrays, std::vector y std::string",
+		"Optimización, profiling y complejidad"
+	],
+	"blocks": [
+		{
+			"type": "p",
+			"md": "Un motor matricial convierte una idea matemática en algo que la máquina ejecuta: una estructura que guarda números ordenados y operaciones —crear, sumar, multiplicar, leer— con reglas explícitas. En Python esa pieza es NumPy y la das por hecha. Aquí la escribes, porque es la forma más rápida de entender qué ocurre dentro de `np.dot`."
+		},
+		{
+			"type": "p",
+			"md": "El objetivo no es competir con Eigen ni con BLAS: es tener un componente propio, con errores que se entienden, pruebas que corren en un segundo y números que puedes defender. Al final tendrás una biblioteca que el servidor de inferencia de la lección siguiente usará sin cambios."
+		},
+		{
+			"type": "h",
+			"text": "¿Qué es un motor matricial?"
+		},
+		{
+			"type": "p",
+			"md": "Formalmente, una matriz es una tabla de números con dos índices. En memoria no existen las tablas: existe una tira de bytes. El motor es el conjunto de decisiones que traduce `(i, j)` a una posición de esa tira y que define qué significa sumar o multiplicar dos de esas tiras. Todo lo demás —rendimiento, seguridad, legibilidad— se deriva de esas decisiones."
+		},
+		{
+			"type": "p",
+			"md": "La analogía útil es un estacionamiento con filas y columnas numeradas. Si guardas los autos por filas, recorrer una fila es caminar hacia adelante; recorrer una columna es saltar de un extremo a otro. El mismo conjunto de autos, dos formas de caminarlo, dos velocidades distintas."
+		},
+		{
+			"type": "h",
+			"text": "¿Para qué sirve?"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Capas de una red**: cada capa densa es `y = W * x + b`. Sin matrices no hay red.",
+				"**Transformaciones geométricas y normalización**: rotar un conjunto de puntos, estandarizar columnas, aplicar una matriz de covarianza.",
+				"**Distancias y Kernels**: el producto `X * Xᵀ` aparece en k-NN, SVM y en la atención de un Transformer.",
+				"**Sistemas de ecuaciones**: resolver `A x = b` para calibrar un modelo pequeño o un ajuste por mínimos cuadrados.",
+				"**Prototipos embebidos**: un dispositivo sin Python necesita una implementación mínima y predecible."
+			]
+		},
+		{
+			"type": "p",
+			"md": "En la lección anterior entrenaste un modelo con bucles y vectores. Cuando el modelo crece a varias features, esos bucles se vuelven matrices. Este proyecto es el paso intermedio entre «un bucle por feature» y «una biblioteca de álgebra lineal»: suficiente para un modelo real, pequeño como para leerlo entero."
+		},
+		{
+			"type": "h",
+			"text": "Cómo funciona por dentro: almacenamiento contiguo"
+		},
+		{
+			"type": "p",
+			"md": "La decisión central es el **orden de filas** (*row-major*), el mismo que usa C y NumPy por defecto: la fila 0 completa, luego la fila 1, y así. El elemento `(i, j)` vive en la posición `i * columnas + j`. Una matriz de 3x4 ocupa doce `double` consecutivos, 96 bytes, y ninguna fila está partida."
+		},
+		{
+			"type": "p",
+			"md": "Esa fórmula parece un detalle y gobierna el rendimiento. Un `double` mide 8 bytes y una línea de caché 64: caben ocho. Cuando sumas dos matrices recorriendo por filas, cada línea que traes se usa ocho veces. Cuando las recorres por columnas, cada acceso cae en una línea distinta y pagas un fallo de caché por elemento. El resultado es el mismo; el tiempo puede diferir en un factor de cinco o más."
+		},
+		{
+			"type": "p",
+			"md": "El producto tiene su propia jerarquía. Multiplicar dos matrices de `n x n` cuesta `n³` multiplicaciones y `n³` sumas, es decir `2n³` operaciones en coma flotante. Para `n = 512` son 268 millones de operaciones: si tu implementación sostiene 12 GFLOP/s, tarda unos 22 ms. Ese número —y no la elegancia del código— es lo que separa un juguete de una herramienta. Un BLAS multihilo bien ajustado hace lo mismo en bastantes menos milisegundos, y saberlo evita promesas exageradas."
+		},
+		{
+			"type": "p",
+			"md": "El orden de los bucles decide cuántas veces lees cada dato. Con `i-k-j` —fila de A, columna común, fila de B— cada `a(i, k)` se lee una vez y se usa para recorrer entera la fila `k` de B y acumular en la fila `i` del resultado. Los tres accesos del bucle interno son contiguos y el compilador puede vectorizarlos. Con `i-j-k` leerías la columna `j` de B saltando de fila en fila en cada iteración."
+		},
+		{
+			"type": "h",
+			"text": "Estructura del proyecto"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "árbol de archivos",
+			"code": "motor/\n├── CMakeLists.txt\n├── include/\n│   └── matrix.hpp      # interfaz publica: lo unico que incluyen los demas\n├── src/\n│   ├── matrix.cpp      # implementacion\n│   ├── main.cpp        # demo ejecutable\n│   └── bench.cpp       # medicion de rendimiento\n└── tests/\n    └── test_matrix.cpp # pruebas sin framework externo"
+		},
+		{
+			"type": "p",
+			"md": "La separación no es decorativa: `include/` contiene el contrato —tipos, firmas, invariantes— y `src/` cómo se cumple. Quien use la biblioteca incluye `matrix.hpp` y no necesita saber que dentro hay un `std::vector`. Si cambias la implementación, nadie más recompila su lógica."
+		},
+		{
+			"type": "h",
+			"text": "Sintaxis: la interfaz de Matrix"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "include/matrix.hpp",
+			"code": "#pragma once\n\n#include <cstddef>\n#include <initializer_list>\n#include <iosfwd>\n#include <vector>\n\n// Matriz densa de doubles con almacenamiento contiguo en orden de filas.\nclass Matrix {\npublic:\n    Matrix() = default;\n\n    // Crea filas x columnas celdas inicializadas en `valor`.\n    Matrix(std::size_t filas, std::size_t columnas, double valor = 0.0);\n\n    // Crea desde una lista de filas: {{1, 2}, {3, 4}}.\n    Matrix(std::initializer_list<std::initializer_list<double>> filas);\n\n    static Matrix identidad(std::size_t n);\n\n    std::size_t filas() const noexcept { return filas_; }\n    std::size_t columnas() const noexcept { return columnas_; }\n    std::size_t tamano() const noexcept { return datos_.size(); }\n    bool vacia() const noexcept { return datos_.empty(); }\n\n    // Acceso al buffer contiguo, sin comprobaciones.\n    double* data() noexcept { return datos_.data(); }\n    const double* data() const noexcept { return datos_.data(); }\n\n    // Acceso con comprobacion de rango.\n    double& operator()(std::size_t i, std::size_t j);\n    double operator()(std::size_t i, std::size_t j) const;\n\n    Matrix& operator+=(const Matrix& otra);\n    Matrix& operator-=(const Matrix& otra);\n    Matrix& operator*=(double escalar);\n\n    bool casi_igual(const Matrix& otra, double tolerancia = 1e-9) const noexcept;\n\n    friend Matrix operator+(Matrix a, const Matrix& b);\n    friend Matrix operator-(Matrix a, const Matrix& b);\n    friend Matrix operator*(Matrix a, double escalar);\n    friend Matrix operator*(double escalar, Matrix a);\n    friend Matrix operator*(const Matrix& a, const Matrix& b);\n    friend std::ostream& operator<<(std::ostream& os, const Matrix& m);\n\nprivate:\n    std::size_t indice(std::size_t i, std::size_t j) const noexcept {\n        return i * columnas_ + j;\n    }\n    void comprobar_indice(std::size_t i, std::size_t j) const;\n    void comprobar_forma(const Matrix& otra, const char* operacion) const;\n\n    std::size_t filas_ = 0;\n    std::size_t columnas_ = 0;\n    std::vector<double> datos_;\n};"
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Dos constructores**: uno por dimensiones con valor inicial, otro desde listas anidadas. El segundo valida que todas las filas midan lo mismo.",
+				"**`operator()` en lugar de `operator[]`**: una matriz necesita dos índices, y `m(i, j)` además acepta la comprobación de rango en un solo sitio.",
+				"**`data()`** expone el buffer para los bucles críticos, donde comprobar índices por elemento sería absurdo.",
+				"**`casi_igual` en lugar de `operator==`**: comparar `double` con `==` es una trampa; una tolerancia explícita obliga a decidir qué significa «igual».",
+				"**`friend` para los operadores binarios**: así `a + b` y `2.0 * a` funcionan con la misma naturalidad que los tipos built-in."
+			]
+		},
+		{
+			"type": "p",
+			"md": "Los constructores son el único lugar donde se valida el tamaño. A partir de ahí, todo objeto `Matrix` que exista tiene filas y columnas mayores que cero y un buffer del tamaño exacto. Ese invariante es lo que permite que el resto del código no repita comprobaciones: si sostienes la garantía en la frontera, el interior se simplifica."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo básico: crear, sumar e imprimir"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "src/main.cpp",
+			"code": "#include <exception>\n#include <iostream>\n\n#include \"matrix.hpp\"\n\nint main() {\n    const Matrix a{{1.0, 2.0}, {3.0, 4.0}};\n    const Matrix b{{5.0, 6.0}, {7.0, 8.0}};\n\n    std::cout << \"A =\\n\" << a;\n    std::cout << \"A + B =\\n\" << a + b;\n    std::cout << \"A * B =\\n\" << a * b;\n    std::cout << \"2 * A =\\n\" << 2.0 * a;\n    std::cout << \"A * I =\\n\" << a * Matrix::identidad(2);\n\n    try {\n        const Matrix c(3, 2, 1.0);\n        std::cout << a * c;\n    } catch (const std::exception& error) {\n        std::cout << \"error: \" << error.what() << '\\n';\n    }\n\n    try {\n        std::cout << a(5, 0);\n    } catch (const std::exception& error) {\n        std::cout << \"error: \" << error.what() << '\\n';\n    }\n    return 0;\n}"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "compilar y ejecutar",
+			"code": "g++ -O2 -std=c++20 -Wall -Wextra -Iinclude \\\n    src/matrix.cpp src/main.cpp -o demo\n\n./demo\n\n# A =\n# 1 2\n# 3 4\n# A + B =\n# 6 8\n# 10 12\n# A * B =\n# 19 22\n# 43 50\n# 2 * A =\n# 2 4\n# 6 8\n# A * I =\n# 1 2\n# 3 4\n# error: Matrix: A*B requiere columnas(A) == filas(B)\n# error: Matrix: indice (5, 0) fuera de rango"
+		},
+		{
+			"type": "p",
+			"md": "Fíjate en las dos últimas líneas: el programa no se cae ni imprime basura, informa qué operación era incompatible y qué índice se salió. Esa diferencia entre un error diagnosticable y un *segmentation fault* separa una biblioteca usable de un problema ajeno. `A * I` se construye con `Matrix::identidad(2)`, una función estática que devuelve una matriz nueva."
+		},
+		{
+			"type": "h",
+			"text": "Ejemplo intermedio: multiplicar sin desperdiciar memoria"
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "src/matrix.cpp",
+			"code": "#include \"matrix.hpp\"\n\n#include <cmath>\n#include <ostream>\n#include <stdexcept>\n#include <string>\n\nnamespace {\n\nstd::size_t celdas_validas(std::size_t filas, std::size_t columnas) {\n    if (filas == 0 || columnas == 0) {\n        throw std::invalid_argument(\"Matrix: las dimensiones deben ser mayores que cero\");\n    }\n    return filas * columnas;\n}\n\n}  // namespace\n\nMatrix::Matrix(std::size_t filas, std::size_t columnas, double valor)\n    : filas_(filas),\n      columnas_(columnas),\n      datos_(celdas_validas(filas, columnas), valor) {}\n\nMatrix::Matrix(std::initializer_list<std::initializer_list<double>> filas)\n    : filas_(filas.size()), columnas_(filas.size() ? filas.begin()->size() : 0) {\n    if (filas_ == 0 || columnas_ == 0) {\n        throw std::invalid_argument(\"Matrix: la lista de filas no puede estar vacia\");\n    }\n    datos_.reserve(filas_ * columnas_);\n    for (const auto& fila : filas) {\n        if (fila.size() != columnas_) {\n            throw std::invalid_argument(\"Matrix: todas las filas deben tener la misma longitud\");\n        }\n        datos_.insert(datos_.end(), fila.begin(), fila.end());\n    }\n}\n\nMatrix Matrix::identidad(std::size_t n) {\n    Matrix resultado(n, n, 0.0);\n    for (std::size_t i = 0; i < n; ++i) resultado(i, i) = 1.0;\n    return resultado;\n}\n\nvoid Matrix::comprobar_indice(std::size_t i, std::size_t j) const {\n    if (i >= filas_ || j >= columnas_) {\n        throw std::out_of_range(\"Matrix: indice (\" + std::to_string(i) + \", \" +\n                                std::to_string(j) + \") fuera de rango\");\n    }\n}\n\ndouble& Matrix::operator()(std::size_t i, std::size_t j) {\n    comprobar_indice(i, j);\n    return datos_[indice(i, j)];\n}\n\ndouble Matrix::operator()(std::size_t i, std::size_t j) const {\n    comprobar_indice(i, j);\n    return datos_[indice(i, j)];\n}\n\nvoid Matrix::comprobar_forma(const Matrix& otra, const char* operacion) const {\n    if (filas_ != otra.filas_ || columnas_ != otra.columnas_) {\n        throw std::invalid_argument(std::string(\"Matrix: dimensiones incompatibles en \") + operacion);\n    }\n}\n\nMatrix& Matrix::operator+=(const Matrix& otra) {\n    comprobar_forma(otra, \"A + B\");\n    for (std::size_t k = 0; k < datos_.size(); ++k) datos_[k] += otra.datos_[k];\n    return *this;\n}\n\nMatrix& Matrix::operator-=(const Matrix& otra) {\n    comprobar_forma(otra, \"A - B\");\n    for (std::size_t k = 0; k < datos_.size(); ++k) datos_[k] -= otra.datos_[k];\n    return *this;\n}\n\nMatrix& Matrix::operator*=(double escalar) {\n    for (double& valor : datos_) valor *= escalar;\n    return *this;\n}\n\nMatrix operator+(Matrix a, const Matrix& b) {\n    a += b;\n    return a;\n}\n\nMatrix operator-(Matrix a, const Matrix& b) {\n    a -= b;\n    return a;\n}\n\nMatrix operator*(Matrix a, double escalar) {\n    a *= escalar;\n    return a;\n}\n\nMatrix operator*(double escalar, Matrix a) {\n    a *= escalar;\n    return a;\n}\n\nMatrix operator*(const Matrix& a, const Matrix& b) {\n    if (a.columnas_ != b.filas_) {\n        throw std::invalid_argument(\"Matrix: A*B requiere columnas(A) == filas(B)\");\n    }\n    Matrix resultado(a.filas_, b.columnas_, 0.0);\n    const std::size_t comun = a.columnas_;\n    const std::size_t columnas_b = b.columnas_;\n    double* out = resultado.data();\n    const double* pa = a.data();\n    const double* pb = b.data();\n\n    for (std::size_t i = 0; i < a.filas_; ++i) {\n        double* fila_resultado = out + i * columnas_b;\n        for (std::size_t k = 0; k < comun; ++k) {\n            const double aik = pa[i * comun + k];\n            const double* fila_b = pb + k * columnas_b;\n            for (std::size_t j = 0; j < columnas_b; ++j) {\n                fila_resultado[j] += aik * fila_b[j];\n            }\n        }\n    }\n    return resultado;\n}\n\nbool Matrix::casi_igual(const Matrix& otra, double tolerancia) const noexcept {\n    if (filas_ != otra.filas_ || columnas_ != otra.columnas_) return false;\n    for (std::size_t k = 0; k < datos_.size(); ++k) {\n        if (std::abs(datos_[k] - otra.datos_[k]) > tolerancia) return false;\n    }\n    return true;\n}\n\nstd::ostream& operator<<(std::ostream& os, const Matrix& m) {\n    for (std::size_t i = 0; i < m.filas_; ++i) {\n        for (std::size_t j = 0; j < m.columnas_; ++j) {\n            if (j != 0) os << ' ';\n            os << m(i, j);\n        }\n        os << '\\n';\n    }\n    return os;\n}"
+		},
+		{
+			"type": "p",
+			"md": "El archivo completo implementa el encabezado. En el producto, tres decisiones merecen atención. Primera: la comprobación de dimensiones ocurre **antes** de reservar, así que una multiplicación imposible no gasta memoria ni tiempo. Segunda: `comun` y los punteros se extraen una sola vez, de modo que el triple bucle no comprueba índices por elemento. Tercera: el resultado se inicializa a cero porque el producto **acumula**; olvidarlo produce números absurdos sin ningún error de compilación."
+		},
+		{
+			"type": "p",
+			"md": "La suma sigue el mismo patrón: recibe `Matrix a` por valor —una copia que se va a modificar— y aplica `+=`. Así `a + b + c` no crea copias de más y la semántica de valor evita que `x = y + z` altere `y`. El compilador puede elidir la copia del parámetro; incluso sin esa optimización el diseño es correcto."
+		},
+		{
+			"type": "h",
+			"text": "Visualización: el producto celda a celda"
+		},
+		{
+			"type": "p",
+			"md": "Cada celda del resultado es el producto escalar de una fila de A por una columna de B. Recorre los pasos y verifica las cuentas: `C(0,0) = 1·5 + 2·7 = 19` y `C(1,1) = 3·6 + 4·8 = 50`. Si un resultado no coincide con esta tabla, el error está en los índices, no en la aritmética."
+		},
+		{
+			"type": "matrix",
+			"title": "C = A · B con A = [[1, 2], [3, 4]] y B = [[5, 6], [7, 8]]",
+			"data": [
+				[
+					1,
+					2
+				],
+				[
+					3,
+					4
+				]
+			],
+			"rowLabels": [
+				"fila 0",
+				"fila 1"
+			],
+			"colLabels": [
+				"col 0",
+				"col 1"
+			],
+			"steps": [
+				{
+					"note": "C(0,0) = 1·5 + 2·7 = 19. Se acumulan dos productos en la misma celda.",
+					"highlight": [
+						[
+							0,
+							0
+						]
+					],
+					"data": [
+						[
+							19,
+							0
+						],
+						[
+							0,
+							0
+						]
+					]
+				},
+				{
+					"note": "C(0,1) = 1·6 + 2·8 = 22. Misma fila de A, siguiente columna de B.",
+					"highlight": [
+						[
+							0,
+							1
+						]
+					],
+					"data": [
+						[
+							19,
+							22
+						],
+						[
+							0,
+							0
+						]
+					]
+				},
+				{
+					"note": "C(1,0) = 3·5 + 4·7 = 43. Cambia la fila de A y se recorre B desde el principio.",
+					"highlight": [
+						[
+							1,
+							0
+						]
+					],
+					"data": [
+						[
+							19,
+							22
+						],
+						[
+							43,
+							0
+						]
+					]
+				},
+				{
+					"note": "C(1,1) = 3·6 + 4·8 = 50. El resultado completo es el que imprime el programa.",
+					"highlight": [
+						[
+							1,
+							1
+						]
+					],
+					"data": [
+						[
+							19,
+							22
+						],
+						[
+							43,
+							50
+						]
+					]
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Visualización: dónde vive cada número"
+		},
+		{
+			"type": "p",
+			"md": "Una `Matrix` no guarda sus números dentro de sí misma: guarda tres datos en el stack y un buffer en el heap. Avanza por los pasos y comprueba cómo `i * columnas + j` convierte un par de índices en una dirección concreta. Esa multiplicación es la que hace que las filas sean contiguas y las columnas no."
+		},
+		{
+			"type": "memory",
+			"title": "Matrix(2, 3): cabecera en el stack y celdas en el heap",
+			"lang": "cpp",
+			"code": "Matrix m(2, 3);\nm(0, 0) = 1.5;\nm(0, 1) = 2.5;\nm(1, 2) = 9.0;",
+			"steps": [
+				{
+					"note": "El constructor valida las dimensiones y reserva 2 · 3 = 6 doubles contiguos, inicializados a 0.0. Son 48 bytes en el heap.",
+					"stack": [
+						{
+							"name": "m.filas_",
+							"value": "2",
+							"addr": "0x7ffd1000",
+							"type": "size_t"
+						},
+						{
+							"name": "m.columnas_",
+							"value": "3",
+							"addr": "0x7ffd1008",
+							"type": "size_t"
+						},
+						{
+							"name": "m.datos_",
+							"value": "0x6000",
+							"addr": "0x7ffd1010",
+							"type": "vector<double>"
+						}
+					],
+					"heap": [
+						{
+							"name": "m(0,0)",
+							"value": "0.0",
+							"addr": "0x6000",
+							"type": "double"
+						},
+						{
+							"name": "m(0,1)",
+							"value": "0.0",
+							"addr": "0x6008",
+							"type": "double"
+						},
+						{
+							"name": "m(0,2)",
+							"value": "0.0",
+							"addr": "0x6010",
+							"type": "double"
+						},
+						{
+							"name": "m(1,0)",
+							"value": "0.0",
+							"addr": "0x6018",
+							"type": "double"
+						},
+						{
+							"name": "m(1,1)",
+							"value": "0.0",
+							"addr": "0x6020",
+							"type": "double"
+						},
+						{
+							"name": "m(1,2)",
+							"value": "0.0",
+							"addr": "0x6028",
+							"type": "double"
+						}
+					],
+					"arrows": [
+						{
+							"from": "m.datos_",
+							"to": "0x6000",
+							"label": "primer elemento"
+						}
+					],
+					"highlight": [
+						"m.datos_"
+					]
+				},
+				{
+					"note": "m(0,0) se traduce a 0 · 3 + 0 = 0: la primera celda del buffer, en 0x6000.",
+					"stack": [
+						{
+							"name": "m.filas_",
+							"value": "2",
+							"addr": "0x7ffd1000",
+							"type": "size_t"
+						},
+						{
+							"name": "m.columnas_",
+							"value": "3",
+							"addr": "0x7ffd1008",
+							"type": "size_t"
+						},
+						{
+							"name": "m.datos_",
+							"value": "0x6000",
+							"addr": "0x7ffd1010",
+							"type": "vector<double>"
+						}
+					],
+					"heap": [
+						{
+							"name": "m(0,0)",
+							"value": "1.5",
+							"addr": "0x6000",
+							"type": "double"
+						},
+						{
+							"name": "m(0,1)",
+							"value": "0.0",
+							"addr": "0x6008",
+							"type": "double"
+						},
+						{
+							"name": "m(0,2)",
+							"value": "0.0",
+							"addr": "0x6010",
+							"type": "double"
+						},
+						{
+							"name": "m(1,0)",
+							"value": "0.0",
+							"addr": "0x6018",
+							"type": "double"
+						},
+						{
+							"name": "m(1,1)",
+							"value": "0.0",
+							"addr": "0x6020",
+							"type": "double"
+						},
+						{
+							"name": "m(1,2)",
+							"value": "0.0",
+							"addr": "0x6028",
+							"type": "double"
+						}
+					],
+					"arrows": [
+						{
+							"from": "m.datos_",
+							"to": "0x6000"
+						}
+					],
+					"highlight": [
+						"m(0,0)"
+					]
+				},
+				{
+					"note": "m(0,1) es 0 · 3 + 1 = 1: avanza un solo double, 8 bytes. Dentro de una fila los elementos son vecinos.",
+					"stack": [
+						{
+							"name": "m.filas_",
+							"value": "2",
+							"addr": "0x7ffd1000",
+							"type": "size_t"
+						},
+						{
+							"name": "m.columnas_",
+							"value": "3",
+							"addr": "0x7ffd1008",
+							"type": "size_t"
+						},
+						{
+							"name": "m.datos_",
+							"value": "0x6000",
+							"addr": "0x7ffd1010",
+							"type": "vector<double>"
+						}
+					],
+					"heap": [
+						{
+							"name": "m(0,0)",
+							"value": "1.5",
+							"addr": "0x6000",
+							"type": "double"
+						},
+						{
+							"name": "m(0,1)",
+							"value": "2.5",
+							"addr": "0x6008",
+							"type": "double"
+						},
+						{
+							"name": "m(0,2)",
+							"value": "0.0",
+							"addr": "0x6010",
+							"type": "double"
+						},
+						{
+							"name": "m(1,0)",
+							"value": "0.0",
+							"addr": "0x6018",
+							"type": "double"
+						},
+						{
+							"name": "m(1,1)",
+							"value": "0.0",
+							"addr": "0x6020",
+							"type": "double"
+						},
+						{
+							"name": "m(1,2)",
+							"value": "0.0",
+							"addr": "0x6028",
+							"type": "double"
+						}
+					],
+					"arrows": [
+						{
+							"from": "m.datos_",
+							"to": "0x6000"
+						}
+					],
+					"highlight": [
+						"m(0,1)"
+					]
+				},
+				{
+					"note": "m(1,2) es 1 · 3 + 2 = 5: la sexta y última celda. Bajar una fila cuesta 3 doubles (24 bytes), no uno.",
+					"stack": [
+						{
+							"name": "m.filas_",
+							"value": "2",
+							"addr": "0x7ffd1000",
+							"type": "size_t"
+						},
+						{
+							"name": "m.columnas_",
+							"value": "3",
+							"addr": "0x7ffd1008",
+							"type": "size_t"
+						},
+						{
+							"name": "m.datos_",
+							"value": "0x6000",
+							"addr": "0x7ffd1010",
+							"type": "vector<double>"
+						}
+					],
+					"heap": [
+						{
+							"name": "m(0,0)",
+							"value": "1.5",
+							"addr": "0x6000",
+							"type": "double"
+						},
+						{
+							"name": "m(0,1)",
+							"value": "2.5",
+							"addr": "0x6008",
+							"type": "double"
+						},
+						{
+							"name": "m(0,2)",
+							"value": "0.0",
+							"addr": "0x6010",
+							"type": "double"
+						},
+						{
+							"name": "m(1,0)",
+							"value": "0.0",
+							"addr": "0x6018",
+							"type": "double"
+						},
+						{
+							"name": "m(1,1)",
+							"value": "0.0",
+							"addr": "0x6020",
+							"type": "double"
+						},
+						{
+							"name": "m(1,2)",
+							"value": "9.0",
+							"addr": "0x6028",
+							"type": "double"
+						}
+					],
+					"arrows": [
+						{
+							"from": "m.datos_",
+							"to": "0x6000"
+						}
+					],
+					"highlight": [
+						"m.datos_"
+					]
+				},
+				{
+					"note": "Recorrer por filas visita 0x6000, 0x6008, 0x6010, 0x6018… siempre hacia adelante. Recorrer por columnas saltaría 24 bytes en cada paso y desaprovecharía la línea de caché.",
+					"stack": [
+						{
+							"name": "m.filas_",
+							"value": "2",
+							"addr": "0x7ffd1000",
+							"type": "size_t"
+						},
+						{
+							"name": "m.columnas_",
+							"value": "3",
+							"addr": "0x7ffd1008",
+							"type": "size_t"
+						},
+						{
+							"name": "m.datos_",
+							"value": "0x6000",
+							"addr": "0x7ffd1010",
+							"type": "vector<double>"
+						}
+					],
+					"heap": [
+						{
+							"name": "m(0,0)",
+							"value": "1.5",
+							"addr": "0x6000",
+							"type": "double"
+						},
+						{
+							"name": "m(0,1)",
+							"value": "2.5",
+							"addr": "0x6008",
+							"type": "double"
+						},
+						{
+							"name": "m(0,2)",
+							"value": "0.0",
+							"addr": "0x6010",
+							"type": "double"
+						},
+						{
+							"name": "m(1,0)",
+							"value": "0.0",
+							"addr": "0x6018",
+							"type": "double"
+						},
+						{
+							"name": "m(1,1)",
+							"value": "0.0",
+							"addr": "0x6020",
+							"type": "double"
+						},
+						{
+							"name": "m(1,2)",
+							"value": "9.0",
+							"addr": "0x6028",
+							"type": "double"
+						}
+					],
+					"arrows": [
+						{
+							"from": "m.datos_",
+							"to": "0x6000"
+						}
+					],
+					"highlight": [
+						"m(0,0)",
+						"m(0,1)",
+						"m(0,2)"
+					]
+				}
+			]
+		},
+		{
+			"type": "h",
+			"text": "Caso práctico: probar, medir y empaquetar"
+		},
+		{
+			"type": "p",
+			"md": "Una biblioteca sin pruebas es una hipótesis. Estas comprueban propiedades, no valores aislados: `A * I` debe devolver `A` sea cual sea `A`, y lo imposible debe lanzar. No hace falta framework; `comprobar` y `comprobar_lanza` bastan, y el programa devuelve un código distinto de cero si algo falla, que es lo único que necesita la integración continua."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "tests/test_matrix.cpp",
+			"code": "#include <exception>\n#include <iostream>\n#include <string>\n\n#include \"matrix.hpp\"\n\nnamespace {\n\nint fallos = 0;\n\nvoid comprobar(bool condicion, const std::string& nombre) {\n    if (condicion) {\n        std::cout << \"ok    \" << nombre << '\\n';\n    } else {\n        std::cout << \"FALLO \" << nombre << '\\n';\n        ++fallos;\n    }\n}\n\ntemplate <typename Accion>\nvoid comprobar_lanza(Accion accion, const std::string& nombre) {\n    try {\n        accion();\n        std::cout << \"FALLO \" << nombre << \" (no lanzo excepcion)\\n\";\n        ++fallos;\n    } catch (const std::exception&) {\n        std::cout << \"ok    \" << nombre << '\\n';\n    }\n}\n\n}  // namespace\n\nint main() {\n    const Matrix a{{1.0, 2.0}, {3.0, 4.0}};\n\n    comprobar(a.filas() == 2 && a.columnas() == 2, \"dimensiones 2x2\");\n    comprobar((a * Matrix::identidad(2)).casi_igual(a), \"A * I == A\");\n    comprobar((a + a).casi_igual(Matrix{{2.0, 4.0}, {6.0, 8.0}}), \"A + A\");\n    comprobar((a * a).casi_igual(Matrix{{7.0, 10.0}, {15.0, 22.0}}), \"A * A\");\n    comprobar((2.0 * a).casi_igual(Matrix{{2.0, 4.0}, {6.0, 8.0}}), \"2 * A\");\n\n    comprobar_lanza([&a] { [[maybe_unused]] const Matrix r = a * Matrix(3, 1); },\n                    \"A*B con dimensiones incompatibles\");\n    comprobar_lanza([&a] { [[maybe_unused]] const double v = a(2, 0); },\n                    \"indice fuera de rango\");\n    comprobar_lanza([] { [[maybe_unused]] const Matrix m(0, 3); },\n                    \"dimensiones cero\");\n\n    std::cout << (fallos == 0 ? \"todas las pruebas pasaron\\n\" : \"hubo fallos\\n\");\n    return fallos == 0 ? 0 : 1;\n}"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "compilar y ejecutar las pruebas",
+			"code": "g++ -O2 -std=c++20 -Wall -Wextra -Iinclude \\\n    src/matrix.cpp tests/test_matrix.cpp -o run_tests\n\n./run_tests\n\n# ok    dimensiones 2x2\n# ok    A * I == A\n# ok    A + A\n# ok    A * A\n# ok    2 * A\n# ok    A*B con dimensiones incompatibles\n# ok    indice fuera de rango\n# ok    dimensiones cero\n# todas las pruebas pasaron"
+		},
+		{
+			"type": "p",
+			"md": "Ahora la medición. El benchmark genera dos matrices de 512x512 con una semilla fija —reproducible—, cronometra solo el producto y calcula GFLOP/s a partir de `2n³`. Medir con `-O2` y sin instrumentación es obligatorio: un binario de depuración puede ser diez veces más lento y llevarte a optimizar lo que no lo necesita."
+		},
+		{
+			"type": "code",
+			"lang": "cpp",
+			"caption": "src/bench.cpp",
+			"code": "#include <chrono>\n#include <cstddef>\n#include <iostream>\n#include <random>\n\n#include \"matrix.hpp\"\n\nnamespace {\n\nMatrix aleatoria(std::size_t n, std::mt19937& rng) {\n    std::uniform_real_distribution<double> dist(-1.0, 1.0);\n    Matrix m(n, n);\n    for (std::size_t k = 0; k < m.tamano(); ++k) m.data()[k] = dist(rng);\n    return m;\n}\n\n}  // namespace\n\nint main() {\n    const std::size_t n = 512;\n    std::mt19937 rng(42);\n    const Matrix a = aleatoria(n, rng);\n    const Matrix b = aleatoria(n, rng);\n\n    const auto inicio = std::chrono::steady_clock::now();\n    const Matrix c = a * b;\n    const auto fin = std::chrono::steady_clock::now();\n\n    const double ms = std::chrono::duration<double, std::milli>(fin - inicio).count();\n    const double flops = 2.0 * static_cast<double>(n) * n * n;\n    std::cout << \"n = \" << n << '\\n';\n    std::cout << \"tiempo = \" << ms << \" ms\\n\";\n    std::cout << \"GFLOP/s = \" << flops / (ms * 1e6) << '\\n';\n    std::cout << \"c(0, 0) = \" << c(0, 0) << '\\n';\n    return 0;\n}"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "medición",
+			"code": "g++ -O2 -std=c++20 -Wall -Wextra -Iinclude \\\n    src/matrix.cpp src/bench.cpp -o bench\n\n./bench\n\n# n = 512\n# tiempo = 21.4 ms\n# GFLOP/s = 12.5\n# c(0, 0) = -1.80495"
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Tus milisegundos no son los míos",
+			"md": "El resultado depende del procesador, del compilador y de la carga de la máquina. Lo que sí se repite: un producto bien ordenado y vectorizado ronda las decenas de GFLOP/s en un núcleo moderno, mientras un BLAS multihilo pasa de cien. Mide en tu equipo antes de afirmar cifras."
+		},
+		{
+			"type": "p",
+			"md": "Con CMake el proyecto deja de depender de la línea que recordabas: `add_library` produce la biblioteca, `target_include_directories` propaga `include/` y `enable_testing` conecta las pruebas con `ctest`."
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "CMakeLists.txt",
+			"code": "cmake_minimum_required(VERSION 3.20)\nproject(motor_matricial LANGUAGES CXX)\n\nset(CMAKE_CXX_STANDARD 20)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\nset(CMAKE_CXX_EXTENSIONS OFF)\n\nif(NOT CMAKE_BUILD_TYPE)\n  set(CMAKE_BUILD_TYPE Release)\nendif()\n\nadd_library(matriz src/matrix.cpp)\ntarget_include_directories(matriz PUBLIC include)\ntarget_compile_options(matriz PRIVATE -Wall -Wextra)\n\nadd_executable(demo src/main.cpp)\ntarget_link_libraries(demo PRIVATE matriz)\n\nadd_executable(bench src/bench.cpp)\ntarget_link_libraries(bench PRIVATE matriz)\n\nenable_testing()\nadd_executable(tests tests/test_matrix.cpp)\ntarget_link_libraries(tests PRIVATE matriz)\nadd_test(NAME matriz COMMAND tests)"
+		},
+		{
+			"type": "code",
+			"lang": "shell",
+			"caption": "configurar, compilar y probar",
+			"code": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release\ncmake --build build -j\nctest --test-dir build --output-on-failure\n\n# -- Configuring done\n# -- Generating done\n# -- Build files have been written to: .../motor/build\n# [100%] Built target demo\n#     Start 1: matriz\n# 1/1 Test #1: matriz ...........   Passed\n# 100% tests passed, 0 tests failed out of 1\n\n./build/bench"
+		},
+		{
+			"type": "table",
+			"head": [
+				"Operación",
+				"Coste",
+				"Acceso a memoria",
+				"Riesgo típico"
+			],
+			"rows": [
+				[
+					"Suma `A + B`",
+					"O(n²), 1 suma por celda",
+					"Contiguo y predecible",
+					"Dimensiones distintas"
+				],
+				[
+					"Escala `k * A`",
+					"O(n²)",
+					"Contiguo",
+					"Confundir `k * A` con `A * B`"
+				],
+				[
+					"Producto `A * B`",
+					"O(n³), 2n³ flops",
+					"Sensible al orden de bucles",
+					"Acumulador sin inicializar"
+				],
+				[
+					"Traspuesta",
+					"O(n²)",
+					"Un recorrido salta de fila",
+					"Escribir `t(i, j) = m(i, j)`"
+				],
+				[
+					"Acceso `m(i, j)`",
+					"O(1)",
+					"Aritmética de índices",
+					"Intercambiar fila y columna"
+				]
+			]
+		},
+		{
+			"type": "compare",
+			"title": "El mismo producto en los dos lenguajes",
+			"python": {
+				"caption": "producto.py",
+				"code": "def producto(a, b):\n    n, m, p = len(a), len(b), len(b[0])\n    c = [[0.0] * p for _ in range(n)]\n    for i in range(n):\n        for k in range(m):\n            for j in range(p):\n                c[i][j] += a[i][k] * b[k][j]\n    return c"
+			},
+			"cpp": {
+				"caption": "producto.cpp",
+				"code": "Matrix resultado(a.filas(), b.columnas(), 0.0);\nfor (std::size_t i = 0; i < a.filas(); ++i) {\n    for (std::size_t k = 0; k < a.columnas(); ++k) {\n        const double aik = a.data()[i * a.columnas() + k];\n        for (std::size_t j = 0; j < b.columnas(); ++j) {\n            resultado.data()[i * b.columnas() + j] += aik * b.data()[k * b.columnas() + j];\n        }\n    }\n}"
+			},
+			"note": "La versión de Python crea una lista por fila y guarda punteros a objetos `float`: cada suma implica desreferenciar y crear un objeto. La de C++ opera sobre `double` contiguos, y el compilador puede emitir instrucciones SIMD. Además, con NumPy el mismo producto se resuelve en una llamada a BLAS: ahí C++ deja de tener ventaja frente a Python."
+		},
+		{
+			"type": "h",
+			"text": "Errores comunes"
+		},
+		{
+			"type": "diff",
+			"title": "Comprobar dimensiones al principio, no dentro del bucle",
+			"wrong": {
+				"caption": "Incorrecto: sin comprobación previa",
+				"code": "Matrix operator*(const Matrix& a, const Matrix& b) {\n    Matrix r(a.filas(), b.columnas(), 0.0);\n    for (std::size_t k = 0; k < a.columnas(); ++k)\n        r(0, 0) += a(0, k) * b(k, 0);   // puede salirse de b\n    return r;\n}"
+			},
+			"right": {
+				"caption": "Correcto: fallar antes de calcular",
+				"code": "Matrix operator*(const Matrix& a, const Matrix& b) {\n    if (a.columnas() != b.filas())\n        throw std::invalid_argument(\"Matrix: A*B requiere columnas(A) == filas(B)\");\n    Matrix r(a.filas(), b.columnas(), 0.0);\n    // ... bucles seguros\n    return r;\n}"
+			},
+			"explain": "Sin la comprobación, el error aparece como `indice (k, j) fuera de rango` en mitad del cálculo, o peor, como lectura de memoria válida pero ajena si usas `data()`. Comprobar al entrar convierte un fallo difuso en un mensaje que dice exactamente qué operación y qué regla se rompió."
+		},
+		{
+			"type": "list",
+			"items": [
+				"**Intercambiar fila y columna**: `m(j, i)` devuelve un número, no un error, y arruina el resultado sin avisar.",
+				"**No inicializar el acumulador**: `Matrix r(n, m)` ya inicializa a 0.0, pero si reutilizas una matriz existente con `+=` estarás sumando al valor anterior.",
+				"**Usar `==` con `double`**: `0.1 + 0.2 != 0.3`. Por eso la clase expone `casi_igual` con tolerancia explícita.",
+				"**Desbordar el cálculo del tamaño**: `int n = 100000; n * n * n` desborda. Usa `std::size_t` y sé consciente de que `n * columnas` también puede desbordar en matrices absurdamente grandes.",
+				"**Devolver referencias a objetos locales**: `const Matrix& f() { Matrix m(2, 2); return m; }` compila con un aviso y produce basura. Devuelve por valor: la elisión de copia es la norma.",
+				"**Compilar sin `-O2`**: el benchmark medirá el código de depuración y concluirás que C++ es lento."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Buenas prácticas"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Mantén un único invariante —dimensiones mayores que cero y buffer del tamaño exacto— y valídalo solo en los constructores.",
+				"Usa `operator()` para código legible y `data()` en los bucles internos; documenta que `data()` no comprueba nada.",
+				"Devuelve por valor y apóyate en la elisión de copia; evita `new` y `delete` dentro de la clase.",
+				"Escribe pruebas de propiedades (`A * I == A`) además de casos concretos: detectan errores que un ejemplo no cubre.",
+				"Compila siempre con `-Wall -Wextra` y trata los avisos como errores en el código nuevo.",
+				"Mide con `Release` y con datos de tamaño realista; 2x2 no dice nada sobre 512x512.",
+				"Cuando necesites velocidad de verdad, cambia a Eigen o a BLAS antes que reescribir tu propio producto bloqueado a mano."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Ejercicios"
+		},
+		{
+			"type": "exercise",
+			"title": "Traspuesta y una identidad algebraica",
+			"md": "Añade una función `Matrix traspuesta(const Matrix& m)` que devuelva una matriz de dimensiones intercambiadas. Comprueba con `casi_igual` que `(A * B)ᵀ = Bᵀ * Aᵀ` para una A de 2x3 y una B de 3x2. Verifica también que trasponer dos veces devuelve la original.",
+			"hint": "La traspuesta de una matriz de `f` filas y `c` columnas tiene `c` filas y `f` columnas. Recorre la original por filas y escribe en `t(j, i)`.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "traspuesta.cpp",
+				"code": "#include <cstddef>\n#include <iostream>\n\n#include \"matrix.hpp\"\n\nMatrix traspuesta(const Matrix& m) {\n    Matrix t(m.columnas(), m.filas());\n    for (std::size_t i = 0; i < m.filas(); ++i) {\n        for (std::size_t j = 0; j < m.columnas(); ++j) {\n            t(j, i) = m(i, j);\n        }\n    }\n    return t;\n}\n\nint main() {\n    const Matrix a{{1, 2, 3}, {4, 5, 6}};\n    const Matrix b{{7, 8}, {9, 10}, {11, 12}};\n    const Matrix p = a * b;\n\n    std::cout << traspuesta(a);\n    std::cout << \"(A*B)^T == B^T * A^T: \"\n              << (traspuesta(p).casi_igual(traspuesta(b) * traspuesta(a)) ? \"si\" : \"no\") << '\\n';\n    std::cout << \"traspuesta dos veces: \"\n              << (traspuesta(traspuesta(a)).casi_igual(a) ? \"si\" : \"no\") << '\\n';\n}",
+				"explain": "La escritura `t(j, i)` es la que se equivoca todo el mundo: si escribes `t(i, j)` obtienes una copia con las dimensiones cambiadas y valores en la esquina equivocada, o una excepción si la matriz no es cuadrada. La identidad `(AB)ᵀ = BᵀAᵀ` es una prueba excelente porque compara dos caminos de cálculo independientes: un error de índices en cualquiera de los dos la rompe."
+			}
+		},
+		{
+			"type": "exercise",
+			"title": "Producto matriz-vector con validación",
+			"md": "Implementa `std::vector<double> producto_matriz_vector(const Matrix& m, const std::vector<double>& v)`. Debe lanzar `std::invalid_argument` si `m.columnas() != v.size()` y devolver un vector de tamaño `m.filas()`. Pruébalo con `A = [[1, 2, 3], [4, 5, 6]]` y `v = [1, 0, -1]`, cuyo resultado es `[-2, -2]`.",
+			"hint": "Reserva el vector de salida con `std::vector<double> resultado(m.filas(), 0.0)` y acumula por filas; así recorres la matriz de forma contigua.",
+			"solution": {
+				"lang": "cpp",
+				"caption": "matriz_vector.cpp",
+				"code": "#include <cstddef>\n#include <iostream>\n#include <stdexcept>\n#include <vector>\n\n#include \"matrix.hpp\"\n\nstd::vector<double> producto_matriz_vector(const Matrix& m, const std::vector<double>& v) {\n    if (m.columnas() != v.size()) {\n        throw std::invalid_argument(\"producto_matriz_vector: dimensiones incompatibles\");\n    }\n    std::vector<double> resultado(m.filas(), 0.0);\n    for (std::size_t i = 0; i < m.filas(); ++i) {\n        for (std::size_t j = 0; j < m.columnas(); ++j) {\n            resultado[i] += m(i, j) * v[j];\n        }\n    }\n    return resultado;\n}\n\nint main() {\n    const Matrix a{{1, 2, 3}, {4, 5, 6}};\n    const std::vector<double> v{1.0, 0.0, -1.0};\n    const std::vector<double> r = producto_matriz_vector(a, v);\n    std::cout << r[0] << ' ' << r[1] << '\\n';   // -2 -2\n}",
+				"explain": "Se llama `producto_matriz_vector` y no `operator*` porque un `Matrix * std::vector` competiría con `Matrix * double` en las sobrecargas y produciría ambigüedades al leer. El nombre explícito es más claro. El bucle externo por filas mantiene el recorrido contiguo y el vector de salida se reserva una sola vez, con su tamaño final."
+			}
+		},
+		{
+			"type": "fill",
+			"title": "Completa el indexado y el acumulador",
+			"lang": "cpp",
+			"code": "// m(i, j) vive en esta posicion del buffer contiguo\nstd::size_t k = i * ___ + j;\n\n// producto: la celda se acumula, no se asigna\nresultado(i, j) ___ a(i, k) * b(k, j);",
+			"answers": [
+				"columnas_",
+				"+="
+			],
+			"hint": "El primer hueco es el número de columnas de la matriz. El segundo operador suma al valor existente.",
+			"explain": "Con orden de filas, cada fila ocupa `columnas_` celdas, así que hay que saltar `i * columnas_` posiciones antes de avanzar `j`. Y el producto de matrices acumula productos parciales: `=` dejaría solo el último término de la suma."
+		},
+		{
+			"type": "h",
+			"text": "Soluciones explicadas"
+		},
+		{
+			"type": "p",
+			"md": "La traspuesta enseña algo que los libros repiten y el código demuestra: transponer no es «dar la vuelta» a los números, es cambiar el mapeo de índices. Si tu almacenamiento es por filas, la traspuesta obliga a escribir con un salto de `filas` elementos entre destinos consecutivos; por eso las bibliotecas serias no trasponen físicamente cuando pueden evitarse y en su lugar llevan un *stride* en la estructura."
+		},
+		{
+			"type": "p",
+			"md": "El producto matriz-vector ilustra la diferencia entre una operación que se lee de memoria una vez y otra que se relee. Aquí cada elemento de `m` se usa exactamente una vez y cada `v[j]` se reutiliza en todas las filas: el patrón de acceso es casi óptimo. Con esos números, la implementación tarda microsegundos incluso para matrices grandes, y envolverla en una llamada a BLAS solo añadiría complejidad. La regla práctica: mide la operación concreta, no la categoría."
+		},
+		{
+			"type": "h",
+			"text": "Resumen"
+		},
+		{
+			"type": "list",
+			"items": [
+				"Un motor matricial es una tira contigua de `double` más una regla que traduce `(i, j)` a una posición.",
+				"En orden de filas, `k = i * columnas + j`; las filas son contiguas y las columnas no.",
+				"El producto cuesta `2n³` operaciones; el orden `i-k-j` mantiene los tres accesos en memoria contigua.",
+				"Valida dimensiones en el constructor y en las operaciones binarias, antes de reservar o calcular.",
+				"Devuelve por valor y usa `casi_igual` para comparar `double`; nunca `operator==`.",
+				"Prueba propiedades algebraicas, no solo valores: `A * I == A` cubre infinitos casos.",
+				"Compila con `-O2 -Wall -Wextra`, ejecuta `ctest` y mide con datos del tamaño real.",
+				"Un motor propio de decenas de GFLOP/s es suficiente para servir un modelo pequeño; para lo demás, Eigen o BLAS."
+			]
+		},
+		{
+			"type": "h",
+			"text": "Evaluación"
+		},
+		{
+			"type": "quiz",
+			"question": "En una `Matrix` de 3 filas y 4 columnas almacenada por filas, ¿en qué posición vive `m(2, 1)`?",
+			"options": [
+				"3",
+				"7",
+				"9",
+				"11"
+			],
+			"answer": 2,
+			"explain": "La fórmula es `i * columnas + j = 2 * 4 + 1 = 9`. La respuesta 7 corresponde a `m(1, 3)` y la 11 a `m(2, 3)`, errores típicos de intercambiar fila y columna."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Por qué la multiplicación recorre los bucles en orden `i-k-j` y no `i-j-k`?",
+			"options": [
+				"Porque produce resultados distintos y este es el correcto",
+				"Porque el bucle interno recorre memoria contigua en B y en el resultado",
+				"Porque evita tener que inicializar el resultado a cero",
+				"Porque así el algoritmo pasa de O(n³) a O(n²)"
+			],
+			"answer": 1,
+			"explain": "Ambos órdenes calculan lo mismo y ambos son O(n³). La diferencia es la localidad: con `i-k-j` el bucle interno avanza por filas de B y del resultado, y cada línea de caché se aprovecha entera. Con `i-j-k` se salta entre filas de B en cada iteración."
+		},
+		{
+			"type": "quiz",
+			"question": "`Matrix a(2, 2); Matrix b(3, 3); auto c = a * b;` ¿Qué ocurre?",
+			"options": [
+				"Compila y produce una matriz de 2x3",
+				"Lanza std::invalid_argument con un mensaje sobre dimensiones",
+				"Lanza std::out_of_range al llegar al índice 2",
+				"No compila: el operador exige matrices cuadradas"
+			],
+			"answer": 1,
+			"explain": "La comprobación `columnas(A) == filas(B)` falla (2 != 3) y se lanza `std::invalid_argument` antes de reservar. Si esa comprobación no existiera, el error aparecería más tarde y con peor diagnóstico."
+		},
+		{
+			"type": "links",
+			"title": "Referencia",
+			"items": [
+				{
+					"label": "cppreference · Sobrecarga de operadores",
+					"url": "https://en.cppreference.com/w/cpp/language/operators",
+					"note": "reglas y convenciones"
+				},
+				{
+					"label": "Eigen · Documentación",
+					"url": "https://eigen.tuxfamily.org/dox/",
+					"note": "la alternativa madura para producción"
+				},
+				{
+					"label": "CMake · Tutorial",
+					"url": "https://cmake.org/cmake/help/latest/guide/tutorial/index.html",
+					"note": "bibliotecas, tests y directorios"
+				},
+				{
+					"label": "BLAS · Referencia",
+					"url": "https://netlib.org/blas/",
+					"note": "qué hace un producto optimizado por dentro"
+				}
+			]
+		}
+	]
+}
