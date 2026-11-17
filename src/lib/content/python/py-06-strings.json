@@ -15,6 +15,13 @@
 		"start stop step",
 		"inmutabilidad",
 		"métodos de string",
+		"upper lower title",
+		"strip lstrip rstrip",
+		"replace split join",
+		"find rfind index",
+		"isdigit isalpha isalnum",
+		"zfill removeprefix",
+		"casefold",
 		"f-string",
 		"split join",
 		"recorrer string",
@@ -126,6 +133,53 @@
 				"Dentro de las llaves de una f-string cabe cualquier expresión, no solo un nombre de variable.",
 				"Para escribir una llave literal en una f-string, duplícala: `f\"{{esto no se evalúa}}\"`."
 			]
+		},
+		{
+			"type": "h",
+			"text": "Métodos esenciales de string"
+		},
+		{
+			"type": "p",
+			"md": "Los strings son **inmutables**: ningún método modifica el original; todos devuelven una cadena nueva. Esta tabla reúne los métodos que aparecen una y otra vez al limpiar datos, validar entradas o construir mensajes."
+		},
+		{
+			"type": "table",
+			"head": ["Método", "Qué hace", "Ejemplo"],
+			"rows": [
+				["`upper()` / `lower()`", "Mayúsculas / minúsculas", "`\"Ada\".upper()` → `ADA`"],
+				["`casefold()`", "Minúsculas para comparar sin distinguir mayúsculas", "`\"Straße\".casefold()`"],
+				["`title()` / `capitalize()`", "Capitaliza palabras / primera letra", "`\"hola mundo\".title()`"],
+				["`strip()` / `lstrip()` / `rstrip()`", "Quita espacios (o caracteres) de ambos lados o de uno", "`\"  hola  \".strip()`"],
+				["`replace(viejo, nuevo)`", "Sustituye todas las apariciones", "`\"a,b\".replace(\",\", \";\")`"],
+				["`split(sep)` / `rsplit(sep, n)`", "Divide por un separador; `rsplit` empieza por la derecha", "`\"a,b,c\".split(\",\")`"],
+				["`splitlines()`", "Divide por saltos de línea", "`\"uno\\ndos\".splitlines()`"],
+				["`join(iterable)`", "Une elementos con el string como separador", "`\", \".join([\"a\", \"b\"])`"],
+				["`find(sub)` / `rfind(sub)`", "Posición de la primera/última aparición; `-1` si no está", "`\"abc\".find(\"b\")` → `1`"],
+				["`index(sub)`", "Como `find`, pero lanza `ValueError` si no está", "`\"abc\".index(\"z\")`"],
+				["`count(sub)`", "Cuántas veces aparece una subcadena", "`\"banana\".count(\"a\")` → `3`"],
+				["`startswith(p)` / `endswith(p)`", "Comprueba prefijo o sufijo", "`\"hola\".startswith(\"ho\")`"],
+				["`isdigit()` / `isalpha()` / `isalnum()` / `isspace()`", "Validan el contenido del string", "`\"123\".isdigit()`"],
+				["`zfill(ancho)` / `rjust(n)` / `ljust(n)` / `center(n)`", "Rellenan hasta un ancho", "`\"7\".zfill(3)` → `007`"],
+				["`removeprefix(p)` / `removesuffix(s)`", "Quita un prefijo/sufijo si existe (Python 3.9+)", "`\"reporte.csv\".removesuffix(\".csv\")`"],
+				["`partition(sep)`", "Devuelve `(antes, sep, despues)`", "`\"a=b\".partition(\"=\")`"]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "texto.py",
+			"code": "correo = \"  ADA@Example.COM  \"\nlimpio = correo.strip().casefold()\nusuario, dominio = limpio.split(\"@\")\nprint(usuario, dominio)           # ada example.com\nprint(limpio.startswith(\"ada\"))   # True\nprint(limpio.endswith(\".com\"))    # True\n\nprint(\"123\".isdigit())            # True\nprint(\"abc\".isalpha())            # True\nprint(\"abc123\".isalnum())         # True\nprint(\"   \".isspace())            # True\n\nprint(\"7\".zfill(3))               # 007\nprint(\"2024\".rjust(6, \"0\"))       # 002024\n\narchivo = \"reporte_2024.csv\"\nprint(archivo.removeprefix(\"reporte_\").removesuffix(\".csv\"))  # 2024"
+		},
+		{
+			"type": "p",
+			"md": "`find` y `index` responden a la misma pregunta, pero `find` devuelve `-1` cuando no encuentra y `index` lanza `ValueError`. Para validar datos de entrada suele ser más claro `startswith`, `isdigit` o una expresión regular que encadenar `index`. Y recuerda: `strip()` sin argumentos quita espacios, tabs y saltos de línea de los extremos, no del medio."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `\"banana\".find(\"x\")`?",
+			"options": ["`0`", "`-1`", "`ValueError`", "`None`"],
+			"answer": 1,
+			"explain": "`find` devuelve -1 cuando la subcadena no aparece. `index` sería el que lanzaría `ValueError` en ese caso."
 		},
 		{
 			"type": "h",

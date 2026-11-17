@@ -11,6 +11,12 @@
 		"lista python",
 		"tupla python",
 		"append insert pop remove",
+		"count clear index",
+		"métodos de lista",
+		"sum max min",
+		"pop vs remove",
+		"tupla hashable",
+		"namedtuple",
 		"ordenar lista",
 		"sort vs sorted",
 		"copiar lista",
@@ -122,6 +128,48 @@
 				"`remove(x)` elimina la primera aparición del valor; si no existe, lanza `ValueError`.",
 				"`sort()` ordena en su sitio y devuelve `None`; `sorted()` devuelve una lista nueva."
 			]
+		},
+		{
+			"type": "h",
+			"text": "Referencia rápida: métodos de lista y tupla"
+		},
+		{
+			"type": "table",
+			"head": ["Método o sintaxis", "Qué hace", "Devuelve"],
+			"rows": [
+				["`l.append(x)`", "Añade un elemento al final", "`None`"],
+				["`l.extend(iterable)`", "Añade todos los elementos de otro iterable", "`None`"],
+				["`l.insert(i, x)`", "Inserta en la posición `i`", "`None`"],
+				["`l.remove(x)`", "Elimina la primera aparición de `x`", "`None` o `ValueError`"],
+				["`l.pop([i])`", "Elimina y devuelve el último o el de índice `i`", "El elemento"],
+				["`l.index(x)`", "Posición de la primera aparición", "Entero o `ValueError`"],
+				["`l.count(x)`", "Cuántas veces aparece `x`", "Entero"],
+				["`l.sort(key=..., reverse=...)`", "Ordena en su sitio", "`None`"],
+				["`l.reverse()`", "Invierte en su sitio", "`None`"],
+				["`l.copy()`", "Copia superficial", "Nueva lista"],
+				["`l.clear()`", "Vacía la lista", "`None`"],
+				["`l + m`, `l * 3`", "Concatena o repite", "Nueva lista"],
+				["`x in l`, `len(l)`", "Pertenencia y longitud", "`bool` / entero"],
+				["`sum(l)`, `min(l)`, `max(l)`", "Agrega números o compara elementos", "Número / elemento"],
+				["`del l[i]`, `l[i:j] = ...`", "Elimina por índice o reemplaza un segmento", "—"],
+				["`t.count(x)` / `t.index(x)`", "Los dos métodos de una tupla", "Entero"]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "metodos_lista.py",
+			"code": "notas = [15, 12, 12, 18]\n\nprint(notas.count(12))   # 2\nprint(notas.index(18))   # 3\n\nnotas.reverse()\nprint(notas)             # [18, 12, 12, 15]\n\nnotas.clear()\nprint(notas)             # []\n\npunto = (3, 5)\nprint(punto.count(3))    # 1\nprint(punto.index(5))    # 1\n\nx, y = punto\nprint(x + y)             # 8\n\nprimero, *resto = (1, 2, 3, 4)\nprint(primero, resto)    # 1 [2, 3, 4]"
+		},
+		{
+			"type": "p",
+			"md": "La diferencia clave entre `remove` y `pop` es el criterio: `remove` busca **por valor** y no devuelve nada; `pop` trabaja **por índice** (o por el final) y devuelve el elemento. `del l[i]` también elimina por índice, pero no devuelve el valor. Si necesitas eliminar todos los elementos, `clear()` es más explícito que `del l[:]`. Para recorrer con índice usa `enumerate`; para combinar dos listas, `zip`; ambos se explican en la lección de recorridos y comprensiones."
+		},
+		{
+			"type": "callout",
+			"tone": "info",
+			"title": "Las tuplas también son hashables",
+			"md": "Una tupla cuyos elementos son inmutables puede usarse como clave de diccionario o como elemento de un conjunto: `distancias = {(0, 0): \"origen\", (1, 2): \"destino\"}`. Una lista no puede, porque es mutable. Si necesitas una tupla con nombres de campo, `collections.namedtuple` o `typing.NamedTuple` añaden legibilidad sin perder la inmutabilidad."
 		},
 		{
 			"type": "h",

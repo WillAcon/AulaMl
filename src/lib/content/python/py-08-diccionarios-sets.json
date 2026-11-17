@@ -17,6 +17,15 @@
 		"conjuntos python",
 		"set operaciones",
 		"unión intersección",
+		"intersection union difference",
+		"symmetric_difference",
+		"issubset issuperset isdisjoint",
+		"operaciones de conjuntos",
+		"setdefault",
+		"popitem",
+		"métodos de diccionario",
+		"Counter defaultdict",
+		"frozenset",
 		"eliminar duplicados",
 		"cuándo usar diccionario",
 		"cuándo usar set"
@@ -246,6 +255,60 @@
 		},
 		{
 			"type": "h",
+			"text": "Diccionario: métodos esenciales"
+		},
+		{
+			"type": "p",
+			"md": "Más allá de `get`, un diccionario tiene un conjunto de métodos que evitan escribir bucles manuales. Todos los que devuelven vistas (`keys`, `values`, `items`) son **dinámicos**: si el diccionario cambia, la vista refleja el cambio."
+		},
+		{
+			"type": "table",
+			"head": ["Método o sintaxis", "Qué hace", "Ejemplo"],
+			"rows": [
+				["`d[clave]`", "Lee o inserta; lanza `KeyError` si la clave no existe", "`stock[\"mouse\"]`"],
+				["`d.get(clave, defecto)`", "Lee sin lanzar error; devuelve `None` o el defecto", "`stock.get(\"webcam\", 0)`"],
+				["`d.keys()` / `d.values()`", "Vistas de claves y valores", "`list(stock.keys())`"],
+				["`d.items()`", "Vista de pares `(clave, valor)`", "`for k, v in stock.items()`"],
+				["`d.update(otro)`", "Inserta o sobrescribe pares desde otro dict o iterable", "`stock.update({\"monitor\": 5})`"],
+				["`d.setdefault(k, v)`", "Devuelve el valor; si falta, lo crea con `v`", "`grupos.setdefault(\"Lima\", [])`"],
+				["`d.pop(k, defecto)`", "Elimina y devuelve el valor; error o defecto si falta", "`stock.pop(\"mouse\")`"],
+				["`d.popitem()`", "Elimina y devuelve el último par insertado", "`stock.popitem()`"],
+				["`d.copy()` / `d.clear()`", "Copia superficial / vacía el diccionario", "`copia = stock.copy()`"],
+				["`k in d` / `del d[k]`", "Comprueba clave / elimina una clave", "`\"mouse\" in stock`"],
+				["`d1 | d2` / `d1 |= d2`", "Fusiona diccionarios; el segundo gana (Python 3.9+)", "`precios | descuentos`"],
+				["`dict.fromkeys(iterable, v)`", "Crea un dict con esas claves y el mismo valor", "`dict.fromkeys([\"a\", \"b\"], 0)`"]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "metodos_dict.py",
+			"code": "inventario = {\"teclado\": 12, \"mouse\": 30}\n\ninventario.update({\"monitor\": 5})\ninventario.setdefault(\"webcam\", 0)   # crea si falta; no sobrescribe\nprint(inventario)\n\nprint(list(inventario.keys()))\nprint(list(inventario.values()))\nprint(list(inventario.items()))\n\nprint(inventario.pop(\"mouse\"))\nprint(inventario.pop(\"impresora\", 0))  # no lanza KeyError\n\nprint(inventario | {\"monitor\": 8, \"usb\": 4})\nprint(\"teclado\" in inventario)\nprint(len(inventario))"
+		},
+		{
+			"type": "p",
+			"md": "`setdefault` es la herramienta para **agrupar** sin comprobar dos veces si la clave existe. En el siguiente ejemplo, la primera vez que aparece una sede crea una lista vacía; las siguientes simplemente añaden el nombre a la lista existente:"
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "agrupar.py",
+			"code": "por_sede = {}\nfor nombre, sede in [(\"Ana\", \"Lima\"), (\"Luis\", \"Arequipa\"), (\"Eva\", \"Lima\")]:\n    por_sede.setdefault(sede, []).append(nombre)\n\nprint(por_sede)\n# {'Lima': ['Ana', 'Eva'], 'Arequipa': ['Luis']}"
+		},
+		{
+			"type": "callout",
+			"tone": "tip",
+			"title": "Counter y defaultdict: primos del diccionario",
+			"md": "Para contar elementos, `collections.Counter(lista)` devuelve un diccionario de frecuencias con `most_common()`. Para agrupar sin comprobar si la clave existe, `collections.defaultdict(list)` crea la lista automáticamente. Son parte de la biblioteca estándar y evitan el patrón `get(clave, 0) + 1`."
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "Las claves deben ser hashables",
+			"md": "Puedes usar strings, números o tuplas de elementos inmutables como claves, pero no listas ni diccionarios. El orden de inserción se conserva desde Python 3.7, aunque un diccionario no está pensado para ordenar: para eso usa `sorted(d.items())`. Cuidado con `dict.fromkeys(claves, [])`: todas las claves comparten **la misma lista**; si quieres una lista independiente por clave, usa `{k: [] for k in claves}`."
+		},
+		{
+			"type": "h",
 			"text": "Conjuntos: unicidad y operaciones"
 		},
 		{
@@ -264,10 +327,106 @@
 			"md": "Aunque `\"pan\"` se escribe dos veces, el conjunto guarda una sola copia: `len(hoy)` devuelve `3`. La diferencia `hoy - ayer` deja lo que está en hoy pero no en ayer (`huevos`, `leche`); la intersección `&` deja lo común (`pan`); la unión `|` reúne todo. Se usa `sorted` solo para imprimir en un orden estable, porque el orden interno de un conjunto no está garantizado."
 		},
 		{
+			"type": "p",
+			"md": "Dos detalles que sorprenden al empezar: un conjunto solo admite elementos **hashables**, así que no puedes meter una lista dentro de un `set`; y `{}` crea un **diccionario vacío**, no un conjunto. Para crear un set vacío se escribe `set()`. Para añadir un elemento individual usa `add`, no `append`."
+		},
+		{
 			"type": "callout",
 			"tone": "tip",
 			"title": "Duplicados conservando el orden",
 			"md": "`set(lista)` elimina duplicados pero pierde el orden. Si necesitas conservarlo, `list(dict.fromkeys(lista))` mantiene la primera aparición de cada elemento y es igual de legible."
+		},
+		{
+			"type": "h",
+			"text": "Operaciones de conjuntos: unión, intersección, diferencia y subconjuntos"
+		},
+		{
+			"type": "p",
+			"md": "Un conjunto (`set`) es una colección **sin duplicados y sin orden garantizado**. Sus cuatro operaciones básicas vienen de la teoría de conjuntos y tienen dos formas equivalentes: un operador y un método. Los operadores exigen conjuntos a ambos lados; los métodos aceptan cualquier iterable (lista, tupla, string), lo que los hace más flexibles."
+		},
+		{
+			"type": "table",
+			"head": ["Operación", "Operador", "Método", "Ejemplo con a={1,2,3}, b={3,4}", "Resultado"],
+			"rows": [
+				["Unión", "`|`", "`union`", "`a | b` o `a.union(b)`", "`{1, 2, 3, 4}`"],
+				["Intersección", "`&`", "`intersection`", "`a & b` o `a.intersection(b)`", "`{3}`"],
+				["Diferencia", "`-`", "`difference`", "`a - b` o `a.difference(b)`", "`{1, 2}`"],
+				["Diferencia simétrica", "`^`", "`symmetric_difference`", "`a ^ b`", "`{1, 2, 4}`"],
+				["Subconjunto", "`<=`", "`issubset`", "`{1, 2} <= a`", "`True`"],
+				["Subconjunto propio", "`<`", "—", "`{1, 2} < a`", "`True`"],
+				["Superconjunto", "`>=`", "`issuperset`", "`a >= {1, 2}`", "`True`"],
+				["Superconjunto propio", "`>`", "—", "`a > {1, 2}`", "`True`"],
+				["Disjuntos", "—", "`isdisjoint`", "`a.isdisjoint({9})`", "`True`"]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "operaciones_conjuntos.py",
+			"code": "hoy = {\"pan\", \"leche\", \"huevos\"}\nayer = {\"pan\", \"arroz\"}\n\nprint(sorted(hoy.union(ayer)))\nprint(sorted(hoy.intersection(ayer)))\nprint(sorted(hoy.difference(ayer)))\nprint(sorted(hoy.symmetric_difference(ayer)))\n\nprint({\"pan\", \"leche\"}.issubset(hoy))\nprint(hoy.issuperset({\"pan\"}))\nprint(hoy.isdisjoint({\"arroz\"}))"
+		},
+		{
+			"type": "p",
+			"md": "La **unión** reúne todos los elementos; la **intersección** deja solo los comunes; la **diferencia** deja lo que está en el primero pero no en el segundo; y la **diferencia simétrica** deja lo que está en uno u otro, pero no en ambos. `issubset` pregunta si todos los elementos del primero están contenidos en el segundo; `issuperset` es la pregunta inversa; `isdisjoint` comprueba que no compartan ningún elemento."
+		},
+		{
+			"type": "h",
+			"text": "Mutar un conjunto: add, remove, discard y update"
+		},
+		{
+			"type": "table",
+			"head": ["Método", "Qué hace", "Si el elemento no existe"],
+			"rows": [
+				["`add(x)`", "Añade un elemento", "—"],
+				["`remove(x)`", "Elimina el elemento", "Lanza `KeyError`"],
+				["`discard(x)`", "Elimina si está", "No hace nada"],
+				["`pop()`", "Elimina y devuelve un elemento arbitrario", "`KeyError` si está vacío"],
+				["`clear()`", "Vacía el conjunto", "—"],
+				["`update(iterable)`", "Añade todos los elementos (equivale a `|=`)", "—"],
+				["`intersection_update(iterable)`", "Conserva solo los comunes (equivale a `&=`)", "—"],
+				["`difference_update(iterable)`", "Elimina los indicados (equivale a `-=`)", "—"],
+				["`symmetric_difference_update(iterable)`", "Deja la diferencia simétrica (equivale a `^=`)", "—"]
+			]
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "mutar_conjuntos.py",
+			"code": "carrito = {\"pan\", \"leche\"}\n\ncarrito.add(\"huevos\")\ncarrito.discard(\"arroz\")      # no falla si no existe\ncarrito.remove(\"pan\")         # KeyError si no existe\ncarrito.update({\"leche\", \"cafe\"})   # union en el sitio\nprint(sorted(carrito))        # ['cafe', 'huevos', 'leche']\n\ncarrito.intersection_update({\"leche\", \"cafe\", \"te\"})\nprint(sorted(carrito))        # ['cafe', 'leche']"
+		},
+		{
+			"type": "p",
+			"md": "Para comparar dos inventarios, `stock_a & stock_b` da los productos presentes en ambos; `stock_a - stock_b` los que solo están en A; `stock_a ^ stock_b` los que están en uno pero no en los dos. Esa última operación es útil para detectar diferencias entre dos versiones de un catálogo."
+		},
+		{
+			"type": "p",
+			"md": "Un **`frozenset`** es la versión inmutable de un conjunto: no tiene `add` ni `remove`, pero al ser hashable puede usarse como clave de diccionario o como elemento de otro conjunto. También puedes crear conjuntos por comprensión: `{x for x in datos if x > 0}`."
+		},
+		{
+			"type": "code",
+			"lang": "python",
+			"caption": "frozenset.py",
+			"code": "etiquetas = frozenset({\"python\", \"datos\"})\n\n# Un frozenset es hashable: sirve como clave\ninventario = {etiquetas: 3}\nprint(inventario[etiquetas])\n\n# Sigue admitiendo operaciones que no lo mutan\nprint(etiquetas | {\"ml\"})\nprint(etiquetas.issubset({\"python\", \"datos\", \"ml\"}))"
+		},
+		{
+			"type": "callout",
+			"tone": "warn",
+			"title": "El orden de un set no es un contrato",
+			"md": "No escribas código que dependa del orden de iteración de un `set`. Si necesitas presentar los elementos en un orden estable, usa `sorted(conjunto)`; si necesitas conservar el orden de llegada, usa una lista o `dict.fromkeys`."
+		},
+		{
+			"type": "quiz",
+			"question": "¿Qué devuelve `{1, 2, 3} - {3, 4}`?",
+			"options": ["`{3}`", "`{1, 2}`", "`{1, 2, 3, 4}`", "`{1, 2, 4}`"],
+			"answer": 1,
+			"explain": "La diferencia `-` elimina del primer conjunto los elementos que también están en el segundo. Quedan 1 y 2. La intersección sería `{3}` y la diferencia simétrica `{1, 2, 4}`."
+		},
+		{
+			"type": "quiz",
+			"question": "Necesitas eliminar un elemento de un set sin que el programa falle si no existe. ¿Qué método usas?",
+			"options": ["`remove`", "`discard`", "`pop`", "`delete`"],
+			"answer": 1,
+			"explain": "`discard` elimina si el elemento está y no hace nada si falta. `remove` lanza `KeyError`; `pop` elimina un elemento arbitrario y falla si el conjunto está vacío."
 		},
 		{
 			"type": "h",

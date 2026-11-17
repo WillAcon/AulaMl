@@ -10,8 +10,8 @@ sin servicios externos para el contenido.
 ## Qué incluye
 
 - **Dos cursos completos**: 65 lecciones y 20 módulos (38 de Python, 27 de C++).
-- **107 933 palabras** de explicaciones, 194 evaluaciones, 129 ejercicios, 65 retos de completar
-  código, 84 visualizaciones interactivas y 356 bloques de código.
+- **109 180 palabras** de explicaciones, 197 evaluaciones, 129 ejercicios, 65 retos de completar
+  código, 84 visualizaciones interactivas y 363 bloques de código.
 - **Lecciones con estructura de clase**: qué es, para qué sirve, cómo funciona por dentro,
   sintaxis, ejemplos progresivos, visualización, errores comunes, buenas prácticas, ejercicios,
   soluciones, resumen y evaluación.
